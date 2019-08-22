@@ -21,7 +21,7 @@ If you fork or make any changes to improve this or fix problems please do make a
 
 https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/pulls
 
-# Usage :
+# Usage / Installation :
 
 Edit settings inside `anti_ddos_challenge.lua` to cater for your own unique needs or improve my work. (Please share your soloutions and additions)
 
