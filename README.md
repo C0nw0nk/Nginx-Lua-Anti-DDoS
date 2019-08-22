@@ -5,6 +5,66 @@ Mitigate a DDoS attack of any size using DDoS my free protection. Don't get ddos
 
 If you're under attack and use my script during the attack, visitors will receive an interstitial page for about five seconds while I analyze the traffic to make sure it is a legitimate human visitor.
 
+# Information :
+
+If you have any bugs issues or problems just post a Issue request.
+
+https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/issues
+
+If you fork or make any changes to improve this or fix problems please do make a pull request for the community who also use this. 
+
+https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/pulls
+
+# Usage :
+
+Edit settings inside `anti_ddos_challenge.lua` to add your own mime types or improve my regex. (Please share your soloutions and additions)
+
+https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/blob/master/lua/anti_ddos_challenge.lua#L48
+
+Add this to your Nginx configuration folder.
+
+`nginx/conf/lua/`
+
+Once installed into your `nginx/conf/` folder.
+
+Add this to your HTTP block or it can be in a server or location block depending where you want this script to run for individual locations the entire server or every single website on the server.
+
+```
+access_by_lua_file anti_ddos_challenge.lua;
+```
+
+### Example nginx.conf :
+
+This will run for all websites on the nginx server
+
+```
+http {
+#nginx config settings etc
+access_by_lua_file anti_ddos_challenge.lua;
+#more config settings and some server stuff
+}
+```
+
+This will make it run for this website only
+
+```
+server {
+#nginx config settings etc
+access_by_lua_file anti_ddos_challenge.lua;
+#more config settings and some server stuff
+}
+```
+
+This will run in this location block only
+
+```
+location / {
+#nginx config settings etc
+access_by_lua_file anti_ddos_challenge.lua;
+#more config settings and some server stuff
+}
+```
+
 # Requirements :
 NONE! :D You only need Nginx + Lua to use my scripts.
 
