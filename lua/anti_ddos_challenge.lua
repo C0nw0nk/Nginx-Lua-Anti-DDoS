@@ -231,8 +231,8 @@ end
 
 local answer = calculate_signature(remote_addr) --create our encrypted unique identification for the user visiting the website.
 
-if x_auth_header == 2 then --GET request
-	x_auth_header_name = calculate_signature(os.date("%Y%m%d",os.time()-24*60*60)):gsub("_","") --make the header todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
+if x_auth_header == 2 then --if x-auth-header is dynamic
+	x_auth_header_name = calculate_signature(remote_addr .. os.date("%Y%m%d",os.time()-24*60*60)):gsub("_","") --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
 end
 
 --[[
