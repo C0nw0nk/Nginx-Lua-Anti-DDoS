@@ -107,7 +107,7 @@ if(!window.webdriver){/*selenium*/
 if(!window.domAutomation || !window.domAutomationController){/*chromium based automation driver*/
 if(!window.document.documentElement.getAttribute("webdriver")){
 /*if(navigator.userAgent){*/
-if(!/bot|curl|kodi|xbmc|wget|urllib|python|winhttp|httrack|alexa|ia_archiver|facebook|twitter|linkedin|pingdom|google|baidu|bing|msn|duckduckgo|teoma|slurp|yahoo|yandex/i.test(navigator.userAgent)){
+if(!/bot|curl|kodi|xbmc|wget|urllib|python|winhttp|httrack|alexa|ia_archiver|facebook|twitter|linkedin|pingdom/i.test(navigator.userAgent)){
 /*if(navigator.cookieEnabled){*/
 /*if(document.cookie.match(/^(?:.*;)?\s*[0-9a-f]{32}\s*=\s*([^;]+)(?:.*)?$/)){*//*HttpOnly Cookie flags prevent this*/
 ]]
