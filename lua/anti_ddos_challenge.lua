@@ -76,7 +76,7 @@ One month: 2628000
 One year: 31536000
 Ten years: 315360000
 ]]
-local expire_time = 86400--2592000 -- +1 month 30 days
+local expire_time = 86400 --One day
 
 --[[
 The type of javascript based pingback authentication method to use if it should be GET or POST or can switch between both making it as dynamic as possible.
@@ -252,6 +252,7 @@ local function grant_access()
 		--ngx.log(ngx.ERR, "x-auth-answer result | "..req_headers["x-auth-answer"]) --output x-auth-answer to log
 		if req_headers["x-auth-answer"] == JavascriptPuzzleVars_answer then --if the answer header provided by the browser Javascript matches what our Javascript puzzle answer should be
 			ngx.header["Set-Cookie"] = { --set our cookies granting the user temporary access to the website
+				challenge.."="..cookie_value.."; path=/; domain=." .. domain .. "; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";", --apply our uid cookie incase javascript setting this cookies time stamp correctly has issues
 				cookie_name_start_date.."="..ngx.cookie_time(currenttime).."; path=/; domain=." .. domain .. "; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";", --start date cookie
 				cookie_name_end_date.."="..ngx.cookie_time(currenttime+expire_time).."; path=/; domain=." .. domain .. "; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";", --end date cookie
 				cookie_name_encrypted_start_and_end_date.."="..calculate_signature(remote_addr .. ngx.cookie_time(currenttime) .. ngx.cookie_time(currenttime+expire_time) ).."; path=/; domain=." .. domain .. "; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";", --start and end date combined to unique id
@@ -354,7 +355,7 @@ local javascript_anti_ddos = [[
 			var time = now.getTime();
 			time += 300 * 1000;
 			now.setTime(time);
-			document.cookie = ']] .. challenge .. [[=]] .. answer .. [[' + '; expires=' + now.toUTCString() + '; domain=.]] .. domain .. [[; path=/';
+			document.cookie = ']] .. challenge .. [[=]] .. answer .. [[' + '; expires=' + ']] .. ngx.cookie_time(currenttime+expire_time) .. [[' + '; domain=.]] .. domain .. [[; path=/';
 			//javascript puzzle for browser to figure out to get answer
 			]] .. JavascriptVars_opening .. [[
 			]] .. JavascriptPuzzleVariable .. [[
