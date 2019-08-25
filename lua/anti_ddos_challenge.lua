@@ -146,6 +146,14 @@ local JavascriptPuzzleVars_answer = tostring(JavascriptPuzzleVars_answer) --conv
 --ngx.log(ngx.ERR, "expected answer"..JavascriptPuzzleVars_answer) --output the answer to the log
 
 --[[
+X-Auth-Header to be static or Dynamic setting this as dynamic is the best form of security
+1 = Static
+2 = Dynamic
+]]
+local x_auth_header = 2 --Default 2
+local x_auth_header_name = "x-auth-answer" --the header our server will expect the client to send us with the javascript answer this will change if you set the config as dynamic
+
+--[[
 Cookie Anti-DDos names
 ]]
 local challenge = "__uip" --this is the first main unique identification of our cookie name
@@ -223,6 +231,10 @@ end
 
 local answer = calculate_signature(remote_addr) --create our encrypted unique identification for the user visiting the website.
 
+if x_auth_header == 2 then --GET request
+	x_auth_header_name = calculate_signature(os.date("%Y%m%d",os.time()-24*60*60)):gsub("_","") --make the header todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
+end
+
 --[[
 Grant access function to either grant or deny user access to our website
 ]]
@@ -249,8 +261,8 @@ local function grant_access()
 	--if x-auth-answer is correct to the user unique id time stamps etc meaning browser figured it out then set a new cookie that grants access without needed these checks
 	local req_headers = ngx.req.get_headers() --get all request headers
 	if req_headers["x-requested-with"] == "XMLHttpRequest" then --if request header matches request type of XMLHttpRequest
-		--ngx.log(ngx.ERR, "x-auth-answer result | "..req_headers["x-auth-answer"]) --output x-auth-answer to log
-		if req_headers["x-auth-answer"] == JavascriptPuzzleVars_answer then --if the answer header provided by the browser Javascript matches what our Javascript puzzle answer should be
+		--ngx.log(ngx.ERR, "x-auth-answer result | "..req_headers[x_auth_header_name]) --output x-auth-answer to log
+		if req_headers[x_auth_header_name] == JavascriptPuzzleVars_answer then --if the answer header provided by the browser Javascript matches what our Javascript puzzle answer should be
 			ngx.header["Set-Cookie"] = { --set our cookies granting the user temporary access to the website
 				challenge.."="..cookie_value.."; path=/; domain=." .. domain .. "; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";", --apply our uid cookie incase javascript setting this cookies time stamp correctly has issues
 				cookie_name_start_date.."="..ngx.cookie_time(currenttime).."; path=/; domain=." .. domain .. "; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";", --start date cookie
@@ -329,7 +341,7 @@ end
 local JavascriptPuzzleVariable_name = "_" .. stringrandom(10)
 
 local javascript_REQUEST_headers = [[
-xhttp.setRequestHeader('X-Auth-Answer', ]] .. JavascriptPuzzleVariable_name .. [[); //make the answer what ever the browser figures it out to be
+xhttp.setRequestHeader(']] .. x_auth_header_name .. [[', ]] .. JavascriptPuzzleVariable_name .. [[); //make the answer what ever the browser figures it out to be
 			xhttp.setRequestHeader('X-Requested-with', 'XMLHttpRequest');
 ]]
 
