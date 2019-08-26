@@ -162,6 +162,13 @@ local cookie_name_end_date = challenge.."_end_date" --our cookie end date name o
 local cookie_name_encrypted_start_and_end_date = challenge.."_combination" --our cookie challenge unique id name
 
 --[[
+Anti-DDoS Cookies to be Encrypted for better security
+1 = Cookie names will be plain text above
+2 = Encrypted cookie names unique to each individual client/user
+]]
+local encrypt_anti_ddos_cookies = 2 --Default 2
+
+--[[
 TODO:
 Encrypt/Obfuscate Javascript output to prevent content scrappers and bots decrypting it to try and bypass the browser auth checks. Wouldn't want to make life to easy for them now would I.
 ]]
@@ -233,6 +240,14 @@ local answer = calculate_signature(remote_addr) --create our encrypted unique id
 
 if x_auth_header == 2 then --if x-auth-header is dynamic
 	x_auth_header_name = calculate_signature(remote_addr .. os.date("%Y%m%d",os.time()-24*60*60)):gsub("_","") --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
+end
+
+if encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to be encrypted
+	--make the cookies unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots
+	challenge = calculate_signature(remote_addr .. challenge .. os.date("%Y%m%d",os.time()-24*60*60))
+	cookie_name_start_date = calculate_signature(remote_addr .. cookie_name_start_date .. os.date("%Y%m%d",os.time()-24*60*60))
+	cookie_name_end_date = calculate_signature(remote_addr .. cookie_name_end_date .. os.date("%Y%m%d",os.time()-24*60*60))
+	cookie_name_encrypted_start_and_end_date = calculate_signature(remote_addr .. cookie_name_encrypted_start_and_end_date .. os.date("%Y%m%d",os.time()-24*60*60))
 end
 
 --[[
