@@ -61,8 +61,6 @@ local remote_addr = ngx.var.remote_addr .. ngx.var.http_user_agent
 ]]
 local remote_addr = ngx.var.remote_addr --Users IP address
 
-local currenttime = ngx.time() --Current time on server
-
 --[[
 How long when a users request is authenticated will they be allowed to browse and access the site until they will see the auth page again.
 
@@ -220,6 +218,34 @@ local function stringrandom(length)
 end
 --stringrandom(10)
 
+local currenttime = ngx.time() --Current time on server
+
+local currentdate = "" --make current date a empty var
+
+--Make sure our current date is in align with expires_time variable so that the auth page only shows when the cookie expires
+if expire_time <= 60 then --less than equal to one minute
+	currentdate = os.date("%M",os.time()-24*60*60) --Current minute
+end
+if expire_time > 60 then --greater than one minute
+	currentdate = os.date("%H",os.time()-24*60*60) --Current hour
+end
+if expire_time > 3600 then --greater than one hour
+	currentdate = os.date("%d",os.time()-24*60*60) --Current day of the year
+end
+if expire_time > 86400 then --greater than one day
+	currentdate = os.date("%W",os.time()-24*60*60) --Current week
+end
+if expire_time > 6048000 then --greater than one week
+	currentdate = os.date("%m",os.time()-24*60*60) --Current month
+end
+if expire_time > 2628000 then --greater than one month
+	currentdate = os.date("%Y",os.time()-24*60*60) --Current year
+end
+if expire_time > 31536000 then --greater than one year
+	currentdate = os.date("%z",os.time()-24*60*60) --Current time zone
+end
+--ngx.log(ngx.ERR, "Current date output: "..currentdate)
+
 local scheme = ngx.var.scheme --scheme is HTTP or HTTPS
 local host = ngx.var.host --host is website domain name
 local request_uri = ngx.var.request_uri --request uri is full URL link including query strings and arguements
@@ -239,15 +265,15 @@ end
 local answer = calculate_signature(remote_addr) --create our encrypted unique identification for the user visiting the website.
 
 if x_auth_header == 2 then --if x-auth-header is dynamic
-	x_auth_header_name = calculate_signature(remote_addr .. os.date("%Y%m%d",os.time()-24*60*60)):gsub("_","") --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
+	x_auth_header_name = calculate_signature(remote_addr .. currentdate):gsub("_","") --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
 end
 
 if encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to be encrypted
 	--make the cookies unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots
-	challenge = calculate_signature(remote_addr .. challenge .. os.date("%Y%m%d",os.time()-24*60*60))
-	cookie_name_start_date = calculate_signature(remote_addr .. cookie_name_start_date .. os.date("%Y%m%d",os.time()-24*60*60))
-	cookie_name_end_date = calculate_signature(remote_addr .. cookie_name_end_date .. os.date("%Y%m%d",os.time()-24*60*60))
-	cookie_name_encrypted_start_and_end_date = calculate_signature(remote_addr .. cookie_name_encrypted_start_and_end_date .. os.date("%Y%m%d",os.time()-24*60*60))
+	challenge = calculate_signature(remote_addr .. challenge .. currentdate)
+	cookie_name_start_date = calculate_signature(remote_addr .. cookie_name_start_date .. currentdate)
+	cookie_name_end_date = calculate_signature(remote_addr .. cookie_name_end_date .. currentdate)
+	cookie_name_encrypted_start_and_end_date = calculate_signature(remote_addr .. cookie_name_encrypted_start_and_end_date .. currentdate)
 end
 
 --[[
