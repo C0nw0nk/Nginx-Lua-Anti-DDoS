@@ -418,12 +418,12 @@ local function grant_access()
 	if req_headers["x-requested-with"] == "XMLHttpRequest" then --if request header matches request type of XMLHttpRequest
 		--ngx.log(ngx.ERR, "x-auth-answer result | "..req_headers[x_auth_header_name]) --output x-auth-answer to log
 		if req_headers[x_auth_header_name] == JavascriptPuzzleVars_answer then --if the answer header provided by the browser Javascript matches what our Javascript puzzle answer should be
-			ngx.header["Set-Cookie"] = { --set our cookies granting the user temporary access to the website
-				challenge.."="..cookie_value.."; path=/; domain=." .. domain .. "; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";", --apply our uid cookie incase javascript setting this cookies time stamp correctly has issues
-				cookie_name_start_date.."="..ngx.cookie_time(currenttime).."; path=/; domain=." .. domain .. "; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";", --start date cookie
-				cookie_name_end_date.."="..ngx.cookie_time(currenttime+expire_time).."; path=/; domain=." .. domain .. "; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";", --end date cookie
-				cookie_name_encrypted_start_and_end_date.."="..calculate_signature(remote_addr .. ngx.cookie_time(currenttime) .. ngx.cookie_time(currenttime+expire_time) ).."; path=/; domain=." .. domain .. "; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";", --start and end date combined to unique id
-			}
+			set_cookie1 = challenge.."="..cookie_value.."; path=/; domain=." .. domain .. "; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie incase javascript setting this cookies time stamp correctly has issues
+			set_cookie2 = cookie_name_start_date.."="..ngx.cookie_time(currenttime).."; path=/; domain=." .. domain .. "; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start date cookie
+			set_cookie3 = cookie_name_end_date.."="..ngx.cookie_time(currenttime+expire_time).."; path=/; domain=." .. domain .. "; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --end date cookie
+			set_cookie4 = cookie_name_encrypted_start_and_end_date.."="..calculate_signature(remote_addr .. ngx.cookie_time(currenttime) .. ngx.cookie_time(currenttime+expire_time) ).."; path=/; domain=." .. domain .. "; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start and end date combined to unique id
+
+			ngx.header["Set-Cookie"] = {set_cookie1 , set_cookie2 , set_cookie3 , set_cookie4}
 		end
 	end
 
@@ -682,9 +682,8 @@ local anti_ddos_html_output = [[
 
 --All previous checks failed and no access_granted permited so display authentication check page.
 --Output Anti-DDoS Authentication Page
-ngx.header["Set-Cookie"] = { --set our cookies granting the user temporary access to the website
-challenge.."="..answer.."; path=/; domain=." .. domain .. "; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";", --apply our uid cookie in header here incase browsers javascript can't set cookies due to permissions.
-}
+--set_cookie1 = challenge.."="..answer.."; path=/; domain=." .. domain .. "; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie in header here incase browsers javascript can't set cookies due to permissions.
+--ngx.header["Set-Cookie"] = {set_cookie1}
 ngx.header["X-Content-Type-Options"] = "nosniff"
 ngx.header["X-Frame-Options"] = "SAMEORIGIN"
 ngx.header["X-XSS-Protection"] = "1; mode=block"
