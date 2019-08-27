@@ -167,9 +167,14 @@ Anti-DDoS Cookies to be Encrypted for better security
 local encrypt_anti_ddos_cookies = 2 --Default 2
 
 --[[
-TODO:
 Encrypt/Obfuscate Javascript output to prevent content scrappers and bots decrypting it to try and bypass the browser auth checks. Wouldn't want to make life to easy for them now would I.
+0 = Random Encryption Best form of security and default
+1 = No encryption / Obfuscation
+2 = Base64 Data URI only
+3 = Hex encryption
+4 = Base64 Javascript Encryption
 ]]
+local encrypt_javascript_output = 0
 
 --[[
 TODO:
@@ -217,6 +222,115 @@ local function stringrandom(length)
 	end
 end
 --stringrandom(10)
+
+--for my javascript Hex output
+local function sep(str, patt, re)
+    local rstr = str:gsub(patt, "%1%" .. re)
+
+    return rstr:sub(1, #rstr - #re)
+end
+
+--encrypt_javascript function
+local function encrypt_javascript(string1, type, defer_async, num_encrypt, encrypt_type, methods) --Function to generate encrypted/obfuscated output
+	local output = "" --Empty var
+
+	if type == 0 then
+		type = math.random(3, 4) --Random encryption
+	end
+
+	if type == 1 or type == nil then --No encryption
+		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
+			output = "<script type=\"text/javascript\">" .. string1 .. "</script>"
+		end
+		if defer_async == "1" then --Defer
+			output = "<script type=\"text/javascript\" defer=\"defer\">" .. string1 .. "</script>"
+		end
+		if defer_async == "2" then --Async
+			output = "<script type=\"text/javascript\" async=\"async\">" .. string1 .. "</script>"
+		end
+	end
+
+	--https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/Data_URIs
+	--pass other encrypted outputs through this too ?
+	if type == 2 then --Base64 Data URI
+		local base64_data_uri = string1
+
+		if tonumber(num_encrypt) ~= nil then --If number of times extra to rencrypt is set
+			for i=1, #num_encrypt do --for each number
+				string1 = ngx.encode_base64(base64_data_uri)
+			end
+		end
+
+		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
+			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\"></script>"
+		end
+		if defer_async == "1" then --Defer
+			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" defer=\"defer\"></script>"
+		end
+		if defer_async == "2" then --Async
+			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" async=\"async\"></script>"
+		end
+	end
+
+	if type == 3 then --Hex
+		local hex_output = ndk.set_var.set_encode_hex(string1) --Encode string in hex
+		local hexadecimal_x = "" --Create var
+		local encrypt_type_origin = encrypt_type --Store var passed to function in local var
+
+		if tonumber(encrypt_type) == nil or tonumber(encrypt_type) <= 0 then
+			encrypt_type = math.random(1, 2) --Random encryption
+		end
+		--I was inspired by http://www.hightools.net/javascript-encrypter.php so i built it myself
+		if tonumber(encrypt_type) == 1 then
+			hexadecimal_x = "%" .. sep(hex_output, "%x%x", "%") --hex output insert a char every 2 chars %x%x
+		end
+		if tonumber(encrypt_type) == 2 then
+			hexadecimal_x = "\\x" .. sep(hex_output, "%x%x", "\\x") --hex output insert a char every 2 chars %x%x
+		end
+		
+		--TODO: Fix this.
+		--num_encrypt = "3" --test var
+		if tonumber(num_encrypt) ~= nil then --If number of times extra to rencrypt is set
+			for i=1, num_encrypt do --for each number
+				if tonumber(encrypt_type) ~= nil then
+					encrypt_type = math.random(1, 2) --Random encryption
+					if tonumber(encrypt_type) == 1 then
+						--hexadecimal_x = "%" .. sep(ndk.set_var.set_encode_hex("eval(decodeURIComponent('" .. hexadecimal_x .. "'))"), "%x%x", "%") --hex output insert a char every 2 chars %x%x
+					end
+					if tonumber(encrypt_type) == 2 then
+						--hexadecimal_x = "\\x" .. sep(ndk.set_var.set_encode_hex("eval(decodeURIComponent('" .. hexadecimal_x .. "'))"), "%x%x", "\\x") --hex output insert a char every 2 chars %x%x
+					end
+				end
+			end
+		end
+
+		--https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent
+		output = "<script type=\"text/javascript\">eval(decodeURIComponent('" .. hexadecimal_x .. "'))</script>"
+	end
+
+	if type == 4 then --Base64 javascript decode
+		local base64_javascript = "eval(decodeURIComponent(escape(window.atob('" .. ngx.encode_base64(string1) .. "'))))"
+
+		if tonumber(num_encrypt) ~= nil then --If number of times extra to rencrypt is set
+			for i=1, num_encrypt do --for each number
+				base64_javascript = "eval(decodeURIComponent(escape(window.atob('" .. ngx.encode_base64(base64_javascript) .. "'))))"
+			end
+		end
+
+		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
+			output = "<script type=\"text/javascript\">" .. base64_javascript .. "</script>"
+		end
+		if defer_async == "1" then --Defer
+			output = "<script type=\"text/javascript\" defer=\"defer\">" .. base64_javascript .. "</script>"
+		end
+		if defer_async == "2" then --Defer
+			output = "<script type=\"text/javascript\" async=\"async\">" .. base64_javascript .. "</script>"
+		end
+	end
+
+	return output
+end
+--end encrypt_javascript function
 
 local currenttime = ngx.time() --Current time on server
 
@@ -384,6 +498,11 @@ local JavascriptPuzzleVariable_name = "_" .. stringrandom(10)
 local javascript_REQUEST_headers = [[
 xhttp.setRequestHeader(']] .. x_auth_header_name .. [[', ]] .. JavascriptPuzzleVariable_name .. [[); //make the answer what ever the browser figures it out to be
 			xhttp.setRequestHeader('X-Requested-with', 'XMLHttpRequest');
+			xhttp.setRequestHeader('X-Requested-TimeStamp', '');
+			xhttp.setRequestHeader('X-Requested-TimeStamp-Expire', '');
+			xhttp.setRequestHeader('X-Requested-TimeStamp-Combination', '');
+			xhttp.setRequestHeader('X-Requested-Type', 'GET');
+			xhttp.setRequestHeader('X-Requested-Type-Combination', 'GET'); //Encrypted for todays date
 ]]
 
 local JavascriptPuzzleVariable = [[
@@ -445,11 +564,18 @@ local javascript_anti_ddos = [[
 ]]
 
 --TODO: include Captcha like Google ReCaptcha
---TODO: include lua to encrypt/obfuscate javascript
+
 --[[
-include javascript_library.lua --required library to encrypt/obfuscate the output
-javascript_anti_ddos = encrypt_javascript(javascript_anti_ddos) --encrypt/obfuscate the javascript output
+encrypt/obfuscate the javascript output
 ]]
+if encrypt_javascript_output == 1 then --No encryption/Obfuscation of Javascript so show Javascript in plain text
+javascript_anti_ddos = [[<script type="text/javascript">
+]] .. javascript_anti_ddos .. [[
+</script>]]
+else --some form of obfuscation has been specified so obfuscate the javascript output
+javascript_anti_ddos = encrypt_javascript(javascript_anti_ddos, encrypt_javascript_output) --run my function to encrypt/obfuscate javascript output
+end
+
 
 --Adverts positions
 local head_ad_slot = [[
@@ -525,9 +651,7 @@ local anti_ddos_html_output = [[
 ]] .. style_sheet .. [[
 </style>
 ]] .. head_ad_slot .. [[
-<script type="text/javascript">
 ]] .. javascript_anti_ddos .. [[
-</script>
 </head>
 <body style="background-color:#EEEEEE;color:#000000;font-family:Arial,Helvetica,sans-serif;font-size:100%;">
 <div style="width:auto;margin:16px auto;border:1px solid #CCCCCC;background-color:#FFFFFF;border-radius:3px 3px 3px 3px;padding:10px;">
@@ -558,6 +682,9 @@ local anti_ddos_html_output = [[
 
 --All previous checks failed and no access_granted permited so display authentication check page.
 --Output Anti-DDoS Authentication Page
+ngx.header["Set-Cookie"] = { --set our cookies granting the user temporary access to the website
+challenge.."="..answer.."; path=/; domain=." .. domain .. "; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";", --apply our uid cookie in header here incase browsers javascript can't set cookies due to permissions.
+}
 ngx.header["X-Content-Type-Options"] = "nosniff"
 ngx.header["X-Frame-Options"] = "SAMEORIGIN"
 ngx.header["X-XSS-Protection"] = "1; mode=block"
