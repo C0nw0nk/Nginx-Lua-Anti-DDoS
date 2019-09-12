@@ -637,6 +637,7 @@ local anti_ddos_html_output = [[
 <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 <meta name="robots" content="noindex, nofollow" />
+<meta http-equiv="refresh" content="]] .. refresh_auth+2 .. [[">
 <title>]] .. title .. [[</title>
 <style type="text/css">
 ]] .. style_sheet .. [[
