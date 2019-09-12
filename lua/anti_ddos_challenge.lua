@@ -423,7 +423,7 @@ local function grant_access()
 			set_cookie3 = cookie_name_end_date.."="..ngx.cookie_time(currenttime+expire_time).."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --end date cookie
 			set_cookie4 = cookie_name_encrypted_start_and_end_date.."="..calculate_signature(remote_addr .. ngx.cookie_time(currenttime) .. ngx.cookie_time(currenttime+expire_time) ).."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start and end date combined to unique id
 
-			ngx.header["Set-Cookie"] = {set_cookie1 , set_cookie2 , set_cookie3 , set_cookie4}
+			set_cookies = {set_cookie1 , set_cookie2 , set_cookie3 , set_cookie4}
 			ngx.header["Access-Control-Allow-Origin"] = "*"
 			ngx.header["Access-Control-Allow-Credentials"] = "true"
 			ngx.header["Access-Control-Allow-Methods"] = "GET, POST, PUT, HEAD"
@@ -687,8 +687,10 @@ local anti_ddos_html_output = [[
 
 --All previous checks failed and no access_granted permited so display authentication check page.
 --Output Anti-DDoS Authentication Page
---set_cookie1 = challenge.."="..answer.."; path=/; domain=." .. domain .. "; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie in header here incase browsers javascript can't set cookies due to permissions.
---ngx.header["Set-Cookie"] = {set_cookie1}
+if set_cookies == nil then
+set_cookies = challenge.."="..answer.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie in header here incase browsers javascript can't set cookies due to permissions.
+end
+ngx.header["Set-Cookie"] = set_cookies
 ngx.header["Access-Control-Allow-Origin"] = "*"
 ngx.header["Access-Control-Allow-Credentials"] = "true"
 ngx.header["Access-Control-Allow-Methods"] = "GET, POST, PUT, HEAD"
