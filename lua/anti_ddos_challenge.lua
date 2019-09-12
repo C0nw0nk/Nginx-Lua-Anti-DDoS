@@ -541,19 +541,8 @@ local javascript_anti_ddos = [[
 			var xhttp = new XMLHttpRequest();
 			xhttp.onreadystatechange = function() {
 				if (this.readyState == 4 && this.status == ]] .. expected_header_status .. [[) { //status may be 503 so local var to control both response and switch between POST and GET
-					window.location.reload();
-					/*document.getElementById("status").innerHTML =*/
-					/*this.responseText;*/ //body response
-					/*xhttp.getAllResponseHeaders();*/
-					var response_header1 = xhttp.getResponseHeader('x-response-answer'); //expected response header if post/get request passed
-					var response_header2 = xhttp.getResponseHeader('set-cookie'); //expected response header if post/get request passed
-					if (response_header1 && response_header2) {
-						/*window.location.reload();*/
-						document.getElementById("status").innerHTML = "Refresh your page."; //incase they block or don't allow javascript to refresh.
-					} else {
-						/*window.location.reload();*/ //this one works for some reason
-						document.getElementById("status").innerHTML = "Your request failed." + response_header2
-					}
+					location.reload(true);
+					document.getElementById("status").innerHTML = "Refresh your page.";
 				}
 			};
 			xhttp.open("]] .. javascript_REQUEST_TYPE .. [[", "]] .. request_uri .. [[", true);
