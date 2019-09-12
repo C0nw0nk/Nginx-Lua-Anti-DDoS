@@ -554,9 +554,6 @@ local javascript_anti_ddos = [[
 						/*window.location.reload();*/ //this one works for some reason
 						document.getElementById("status").innerHTML = "Your request failed." + response_header2
 					}
-				} else {
-					/*document.getElementById("status").innerHTML = "Your request failed."*/
-					window.location.reload();
 				}
 			};
 			xhttp.open("]] .. javascript_REQUEST_TYPE .. [[", "]] .. request_uri .. [[", true);
