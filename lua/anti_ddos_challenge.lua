@@ -177,6 +177,28 @@ Encrypt/Obfuscate Javascript output to prevent content scrappers and bots decryp
 local encrypt_javascript_output = 0
 
 --[[
+IP Address Whitelist
+Any IP Addresses specified here will be whitelisted to grant direct access to your site bypassing our firewall checks
+you can specify IP's like search engine crawler ip addresses here most search engines are smart enough they do not need to be specified,
+Major search engines can execute javascript such as Google, Yandex, Bing, Baidu and such so they can solve the auth page puzzle and index your site same as how companies like Cloudflare, Succuri, BitMitigate etc work and your site is still indexed.
+]]
+local ip_whitelist_remote_addr = ngx.var.remote_addr --Users IP address
+local ip_whitelist = {
+--"127.0.0.1", --localhost
+--"192.168.0.1", --localhost
+}
+
+--[[
+IP Address Blacklist
+To block access to any abusive IP's that you do not want to ever access your website
+]]
+local ip_blacklist_remote_addr = ngx.var.remote_addr --Users IP address
+local ip_blacklist = {
+--"127.0.0.1", --localhost
+--"192.168.0.1", --localhost
+}
+
+--[[
 TODO:
 Google ReCaptcha
 ]]
@@ -197,6 +219,31 @@ This is where things get very complex. ;)
 --[[
 Begin Required Functions
 ]]
+
+--function to check if ip address is whitelisted to bypass our auth
+local function check_ip_whitelist(ip_table)
+	for key,value in pairs(ip_table) do
+		if value == ip_whitelist_remote_addr then --if our ip address matches with one in the whitelist
+			local output = ngx.exit(ngx.OK) --Go to content
+			return output
+		end
+	end
+	
+	return --no ip was in the whitelist
+end
+check_ip_whitelist(ip_whitelist) --run whitelist check function
+
+local function check_ip_blacklist(ip_table)
+	for key,value in pairs(ip_table) do
+		if value == ip_blacklist_remote_addr then
+			local output = ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
+			return output
+		end
+	end
+	
+	return --no ip was in blacklist
+end
+check_ip_blacklist(ip_blacklist) --run blacklist check function
 
 --function to encrypt strings with our secret key / password provided
 local function calculate_signature(str)
