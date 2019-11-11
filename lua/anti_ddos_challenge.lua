@@ -174,7 +174,7 @@ Encrypt/Obfuscate Javascript output to prevent content scrappers and bots decryp
 3 = Hex encryption
 4 = Base64 Javascript Encryption
 ]]
-local encrypt_javascript_output = 0
+local encrypt_javascript_output = 1
 
 --[[
 IP Address Whitelist
