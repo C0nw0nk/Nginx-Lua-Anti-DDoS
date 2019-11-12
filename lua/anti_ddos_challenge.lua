@@ -174,7 +174,7 @@ Encrypt/Obfuscate Javascript output to prevent content scrappers and bots decryp
 3 = Hex encryption
 4 = Base64 Javascript Encryption
 ]]
-local encrypt_javascript_output = 1
+local encrypt_javascript_output = 0
 
 --[[
 IP Address Whitelist
@@ -277,6 +277,12 @@ local function sep(str, patt, re)
     return rstr:sub(1, #rstr - #re)
 end
 
+local function stringtohex(str)
+    return str:gsub('.', function (c)
+        return string.format('%02X', string.byte(c))
+    end)
+end
+
 --encrypt_javascript function
 local function encrypt_javascript(string1, type, defer_async, num_encrypt, encrypt_type, methods) --Function to generate encrypted/obfuscated output
 	local output = "" --Empty var
@@ -320,7 +326,7 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 	end
 
 	if type == 3 then --Hex
-		local hex_output = ndk.set_var.set_encode_hex(string1) --Encode string in hex
+		local hex_output = stringtohex(string1) --ndk.set_var.set_encode_hex(string1) --Encode string in hex
 		local hexadecimal_x = "" --Create var
 		local encrypt_type_origin = encrypt_type --Store var passed to function in local var
 
