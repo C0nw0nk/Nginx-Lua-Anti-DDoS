@@ -241,3 +241,9 @@ xenforo
 web hosting
 And many more...
 ```
+
+# Tor network / Project .onion :
+You can also use this script to protect servers and sites on the Tor network preventing ddos on .onion links. It can help stop attacks on the deepweb / darkweb aswell as on the mainline internet for those who browse your site through the tor browser it makes sure they are legitimate users.
+
+# HTTP(S) / HTTP2 / HTTP3 / QUIC :
+So with modern internet protocols yes this script does work with all of them! It can protect both encrypted and unencrypted connections and traffic served over TCP aswell as UDP the new method for HTTP3/QUIC connections.
