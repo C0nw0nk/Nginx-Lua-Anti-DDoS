@@ -320,13 +320,13 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		end
 
 		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
-			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" charset=\"" .. charset .. "\"></script>"
+			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" charset=\"" .. default_charset .. "\"></script>"
 		end
 		if defer_async == "1" then --Defer
-			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" defer=\"defer\" charset=\"" .. charset .. "\"></script>"
+			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" defer=\"defer\" charset=\"" .. default_charset .. "\"></script>"
 		end
 		if defer_async == "2" then --Async
-			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" async=\"async\" charset=\"" .. charset .. "\"></script>"
+			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" async=\"async\" charset=\"" .. default_charset .. "\"></script>"
 		end
 	end
 
