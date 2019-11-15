@@ -204,6 +204,11 @@ Google ReCaptcha
 ]]
 
 --[[
+Charset output of HTML page and scripts
+]]
+local default_charset = "utf-8"
+
+--[[
 End Configuration
 
 
@@ -293,13 +298,13 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 
 	if type == 1 or type == nil then --No encryption
 		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
-			output = "<script type=\"text/javascript\">" .. string1 .. "</script>"
+			output = "<script type=\"text/javascript\" charset=\"" .. default_charset .. "\">" .. string1 .. "</script>"
 		end
 		if defer_async == "1" then --Defer
-			output = "<script type=\"text/javascript\" defer=\"defer\">" .. string1 .. "</script>"
+			output = "<script type=\"text/javascript\" defer=\"defer\" charset=\"" .. default_charset .. "\">" .. string1 .. "</script>"
 		end
 		if defer_async == "2" then --Async
-			output = "<script type=\"text/javascript\" async=\"async\">" .. string1 .. "</script>"
+			output = "<script type=\"text/javascript\" async=\"async\" charset=\"" .. default_charset .. "\">" .. string1 .. "</script>"
 		end
 	end
 
@@ -315,13 +320,13 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		end
 
 		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
-			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\"></script>"
+			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" charset=\"" .. charset .. "\"></script>"
 		end
 		if defer_async == "1" then --Defer
-			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" defer=\"defer\"></script>"
+			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" defer=\"defer\" charset=\"" .. charset .. "\"></script>"
 		end
 		if defer_async == "2" then --Async
-			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" async=\"async\"></script>"
+			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" async=\"async\" charset=\"" .. charset .. "\"></script>"
 		end
 	end
 
@@ -358,7 +363,7 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		end
 
 		--https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent
-		output = "<script type=\"text/javascript\">eval(decodeURIComponent('" .. hexadecimal_x .. "'))</script>"
+		output = "<script type=\"text/javascript\" charset=\"" .. default_charset .. "\">eval(decodeURIComponent('" .. hexadecimal_x .. "'))</script>"
 	end
 
 	if type == 4 then --Base64 javascript decode
@@ -371,13 +376,13 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		end
 
 		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
-			output = "<script type=\"text/javascript\">" .. base64_javascript .. "</script>"
+			output = "<script type=\"text/javascript\" charset=\"" .. default_charset .. "\">" .. base64_javascript .. "</script>"
 		end
 		if defer_async == "1" then --Defer
-			output = "<script type=\"text/javascript\" defer=\"defer\">" .. base64_javascript .. "</script>"
+			output = "<script type=\"text/javascript\" defer=\"defer\" charset=\"" .. default_charset .. "\">" .. base64_javascript .. "</script>"
 		end
 		if defer_async == "2" then --Defer
-			output = "<script type=\"text/javascript\" async=\"async\">" .. base64_javascript .. "</script>"
+			output = "<script type=\"text/javascript\" async=\"async\" charset=\"" .. default_charset .. "\">" .. base64_javascript .. "</script>"
 		end
 	end
 
@@ -613,7 +618,7 @@ local javascript_anti_ddos = [[
 encrypt/obfuscate the javascript output
 ]]
 if encrypt_javascript_output == 1 then --No encryption/Obfuscation of Javascript so show Javascript in plain text
-javascript_anti_ddos = [[<script type="text/javascript">
+javascript_anti_ddos = [[<script type="text/javascript" charset="]] .. default_charset .. [[">
 ]] .. javascript_anti_ddos .. [[
 </script>]]
 else --some form of obfuscation has been specified so obfuscate the javascript output
@@ -685,8 +690,8 @@ local anti_ddos_html_output = [[
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8" />
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta charset="]] .. default_charset .. [[" />
+<meta http-equiv="Content-Type" content="text/html; charset=]] .. default_charset .. [[" />
 <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 <meta name="robots" content="noindex, nofollow" />
@@ -742,7 +747,7 @@ ngx.header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revali
 ngx.header["Pragma"] = "no-cache"
 ngx.header["Expires"] = "0"
 ngx.header["X-Anti-DDoS"] = "Conor McKnight | facebook.com/C0nw0nk"
-ngx.header.content_type = "text/html; charset=UTF-8"
+ngx.header.content_type = "text/html; charset=" .. default_charset
 ngx.status = expected_header_status
 ngx.say(anti_ddos_html_output)
 ngx.exit(ngx.HTTP_OK)
