@@ -219,6 +219,16 @@ This way you don't have to remove access_by_lua_file anti_ddos_challenge.lua; to
 local master_switch = 1 --enabled by default
 
 --[[
+Enable/disable credits It would be nice if you would show these to help the community grow and make the internet safer for everyone
+but if not I completely understand hence why I made it a option to remove them for you.
+
+1 = enabled
+2 = disabled
+]]
+local credits = 1 --enabled by default
+
+
+--[[
 End Configuration
 
 
@@ -542,7 +552,7 @@ grant_access() --perform checks to see if user can access the site or if they wi
 Build HTML Template
 ]]
 
-local title = host .. [[ | Anti-DDoS Flood Protection and Firewall by Conor McKnight]]
+local title = host .. [[ | Anti-DDoS Flood Protection and Firewall]]
 
 --[[
 Javascript after setting cookie run xmlhttp GET request
@@ -674,6 +684,10 @@ local ddos_credits = [[
 </div>
 ]]
 
+if credits == 2 then
+ddos_credits = "" --make empty string
+end
+
 local request_details = [[
 <br>
 <div id="status" style="color:#bd2426;font-size:200%;">
@@ -765,7 +779,9 @@ ngx.header["X-XSS-Protection"] = "1; mode=block"
 ngx.header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
 ngx.header["Pragma"] = "no-cache"
 ngx.header["Expires"] = "0"
+if credits == 1 then
 ngx.header["X-Anti-DDoS"] = "Conor McKnight | facebook.com/C0nw0nk"
+end
 ngx.header.content_type = "text/html; charset=" .. default_charset
 ngx.status = expected_header_status
 ngx.say(anti_ddos_html_output)
