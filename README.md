@@ -247,3 +247,10 @@ You can also use this script to protect servers and sites on the Tor network pre
 
 # HTTP(S) / HTTP2 / HTTP3 / QUIC :
 So with modern internet protocols yes this script does work with all of them! It can protect both encrypted and unencrypted connections and traffic served over TCP aswell as UDP the new method for HTTP3/QUIC connections.
+
+# Works with :
+Nginx
+Nginx + Lua
+Openresty
+Custom Nginx builds with Lua compiled
+Litespeed / Litespeedtech as can be seen here https://openlitespeed.org/kb/openlitespeed-lua-module/ the reason this works with Litespeed Lua is because they use Openresty Lua builds on their server as can be understood here https://openlitespeed.org/kb/openlitespeed-lua-module/#Use
