@@ -250,7 +250,11 @@ So with modern internet protocols yes this script does work with all of them! It
 
 # Works with :
 Nginx
+
 Nginx + Lua
+
 Openresty
+
 Custom Nginx builds with Lua compiled
+
 Litespeed / Litespeedtech as can be seen here https://openlitespeed.org/kb/openlitespeed-lua-module/ the reason this works with Litespeed Lua is because they use Openresty Lua builds on their server as can be understood here https://openlitespeed.org/kb/openlitespeed-lua-module/#Use
