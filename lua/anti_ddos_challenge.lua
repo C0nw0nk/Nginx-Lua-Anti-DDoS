@@ -209,6 +209,16 @@ Charset output of HTML page and scripts
 local default_charset = "utf-8"
 
 --[[
+Enable/disable script this feature allows you to turn on or off this script so you can leave this file in your nginx configuration permamently.
+
+This way you don't have to remove access_by_lua_file anti_ddos_challenge.lua; to stop protecting your websites :) you can set up your nginx config and use this feature to enable or disable protection
+
+1 = enabled
+2 = disabled
+]]
+local master_switch = 1 --enabled by default
+
+--[[
 End Configuration
 
 
@@ -224,6 +234,15 @@ This is where things get very complex. ;)
 --[[
 Begin Required Functions
 ]]
+
+--master switch check
+local function check_master_switch()
+	if master_switch == 2 then --script disabled
+		local output = ngx.exit(ngx.OK) --Go to content
+		return output
+	end
+end
+check_master_switch()
 
 --function to check if ip address is whitelisted to bypass our auth
 local function check_ip_whitelist(ip_table)
