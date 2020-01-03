@@ -486,7 +486,7 @@ local function grant_access()
 	local cookie_value = ngx.var[cookie_name] or ""
 	--our start date cookie
 	local cookie_name_start_date_name = "cookie_" .. cookie_name_start_date
-	local cookie_name_start_date_value = ngx.var[cookie_name_start_date_name] or ""
+	local cookie_name_start_date_value_unix = tonumber(cookie_name_start_date_value)
 	--our end date cookie
 	local cookie_name_end_date_name = "cookie_" .. cookie_name_end_date
 	local cookie_name_end_date_value = ngx.var[cookie_name_end_date_name] or ""
@@ -506,9 +506,9 @@ local function grant_access()
 		--ngx.log(ngx.ERR, "x-auth-answer result | "..req_headers[x_auth_header_name]) --output x-auth-answer to log
 		if req_headers[x_auth_header_name] == JavascriptPuzzleVars_answer then --if the answer header provided by the browser Javascript matches what our Javascript puzzle answer should be
 			set_cookie1 = challenge.."="..cookie_value.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie incase javascript setting this cookies time stamp correctly has issues
-			set_cookie2 = cookie_name_start_date.."="..ngx.cookie_time(currenttime).."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start date cookie
-			set_cookie3 = cookie_name_end_date.."="..ngx.cookie_time(currenttime+expire_time).."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --end date cookie
-			set_cookie4 = cookie_name_encrypted_start_and_end_date.."="..calculate_signature(remote_addr .. ngx.cookie_time(currenttime) .. ngx.cookie_time(currenttime+expire_time) ).."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start and end date combined to unique id
+			set_cookie2 = cookie_name_start_date.."="..currenttime.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start date cookie
+			set_cookie3 = cookie_name_end_date.."="..(currenttime+expire_time).."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --end date cookie
+			set_cookie4 = cookie_name_encrypted_start_and_end_date.."="..calculate_signature(remote_addr .. currenttime .. (currenttime+expire_time) ).."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start and end date combined to unique id
 
 			set_cookies = {set_cookie1 , set_cookie2 , set_cookie3 , set_cookie4}
 			ngx.header["Access-Control-Allow-Origin"] = "*"
@@ -523,7 +523,7 @@ local function grant_access()
 	--ngx.log(ngx.ERR, "cookie encrypted combination value | "..cookie_name_encrypted_start_and_end_date_value) --log user provided cookie combined encrypted value
 
 	if cookie_name_start_date_value ~= nil and cookie_name_end_date_value ~= nil and cookie_name_encrypted_start_and_end_date_value ~= nil then --if all our cookies exist
-		local cookie_name_end_date_value_unix = ngx.parse_http_time(cookie_name_end_date_value) or nil --convert our cookie end date provided by the user into a unix time stamp
+		local cookie_name_end_date_value_unix = tonumber(cookie_name_end_date_value) or nil --convert our cookie end date provided by the user into a unix time stamp
 		if cookie_name_end_date_value_unix == nil or cookie_name_end_date_value_unix == "" then --if our cookie end date date in unix does not exist
 			return --return to refresh the page so it tries again
 		end
@@ -531,7 +531,7 @@ local function grant_access()
 			--ngx.log(ngx.ERR, "cookie less than current time : " .. cookie_name_end_date_value_unix .. " | " .. currenttime ) --log output the users provided cookie time
 			return --return to refresh the page so it tries again
 		end
-		if cookie_name_encrypted_start_and_end_date_value ~= calculate_signature(remote_addr .. cookie_name_start_date_value .. cookie_name_end_date_value) then --if users authentication encrypted cookie not equal to or matching our expected cookie they should be giving us
+		if cookie_name_encrypted_start_and_end_date_value ~= calculate_signature(remote_addr .. cookie_name_start_date_value_unix .. cookie_name_end_date_value_unix) then --if users authentication encrypted cookie not equal to or matching our expected cookie they should be giving us
 			return --return to refresh the page so it tries again
 		end
 	end
