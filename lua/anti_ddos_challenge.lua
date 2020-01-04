@@ -486,6 +486,7 @@ local function grant_access()
 	local cookie_value = ngx.var[cookie_name] or ""
 	--our start date cookie
 	local cookie_name_start_date_name = "cookie_" .. cookie_name_start_date
+	local cookie_name_start_date_value = ngx.var[cookie_name_start_date_name] or ""
 	local cookie_name_start_date_value_unix = tonumber(cookie_name_start_date_value)
 	--our end date cookie
 	local cookie_name_end_date_name = "cookie_" .. cookie_name_end_date
