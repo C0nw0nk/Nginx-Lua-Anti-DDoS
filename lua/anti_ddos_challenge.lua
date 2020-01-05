@@ -137,7 +137,7 @@ Javascript Puzzle for web browser to solve do not touch this unless you understa
 
 --Make our Javascript puzzle a little bit more dynamic than the static equation above it will change every 24 hours :) I made this because the static one is pretty poor security compared to this but this can be improved allot though.
 --TODO: IMPROVE THIS!
-local JavascriptPuzzleVars = [[]] .. os.date("%Y%m%d",os.time()-24*60*60) .. [[ + ]] .. os.date("%d%m%Y",os.time()-24*60*60) ..[[]] --Javascript output of our two random numbers
+local JavascriptPuzzleVars = [[parseInt("]] .. os.date("%Y%m%d",os.time()-24*60*60) .. [[", 10) + parseInt("]] .. os.date("%d%m%Y",os.time()-24*60*60) ..[[", 10)]] --Javascript output of our two random numbers
 local JavascriptPuzzleVars_answer = os.date("%Y%m%d",os.time()-24*60*60) + os.date("%d%m%Y",os.time()-24*60*60) --lua output of our two random numbers
 local JavascriptPuzzleVars_answer = math.floor(JavascriptPuzzleVars_answer+0.5) --fix bug removing the 0. decimal on the end of the figure
 local JavascriptPuzzleVars_answer = tostring(JavascriptPuzzleVars_answer) --convert the numeric output to a string
