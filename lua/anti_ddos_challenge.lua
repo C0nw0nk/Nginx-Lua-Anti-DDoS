@@ -453,8 +453,8 @@ local request_uri = ngx.var.request_uri --request uri is full URL link including
 local URL = scheme .. "://" .. host .. request_uri
 local user_agent = ngx.var.http_user_agent --user agent of browser
 
-local expected_header_status = 200 --503
-local authentication_page_status_output = 200
+local expected_header_status = 200
+local authentication_page_status_output = 503
 
 local domain = ""
 if host == nil then
@@ -512,10 +512,16 @@ local function grant_access()
 			set_cookie4 = cookie_name_encrypted_start_and_end_date.."="..calculate_signature(remote_addr .. currenttime .. (currenttime+expire_time) ).."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start and end date combined to unique id
 
 			set_cookies = {set_cookie1 , set_cookie2 , set_cookie3 , set_cookie4}
-			ngx.header["Access-Control-Allow-Origin"] = "*"
-			ngx.header["Access-Control-Allow-Credentials"] = "true"
-			ngx.header["Access-Control-Allow-Methods"] = "GET, POST, PUT, HEAD"
-			ngx.header["Access-Control-Allow-Headers"] = "Content-Type"
+			ngx.header["Set-Cookie"] = set_cookies
+			ngx.header["X-Content-Type-Options"] = "nosniff"
+			ngx.header["X-Frame-Options"] = "SAMEORIGIN"
+			ngx.header["X-XSS-Protection"] = "1; mode=block"
+			ngx.header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+			ngx.header["Pragma"] = "no-cache"
+			ngx.header["Expires"] = "0"
+			ngx.header.content_type = "text/html; charset=" .. default_charset
+			ngx.status = expected_header_status
+			ngx.exit(ngx.HTTP_NO_CONTENT)
 		end
 	end
 
@@ -770,10 +776,6 @@ if set_cookies == nil then
 set_cookies = challenge.."="..answer.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie in header here incase browsers javascript can't set cookies due to permissions.
 end
 ngx.header["Set-Cookie"] = set_cookies
-ngx.header["Access-Control-Allow-Origin"] = "*"
-ngx.header["Access-Control-Allow-Credentials"] = "true"
-ngx.header["Access-Control-Allow-Methods"] = "GET, POST, PUT, HEAD"
-ngx.header["Access-Control-Allow-Headers"] = "Content-Type"
 ngx.header["X-Content-Type-Options"] = "nosniff"
 ngx.header["X-Frame-Options"] = "SAMEORIGIN"
 ngx.header["X-XSS-Protection"] = "1; mode=block"
@@ -784,6 +786,6 @@ if credits == 1 then
 ngx.header["X-Anti-DDoS"] = "Conor McKnight | facebook.com/C0nw0nk"
 end
 ngx.header.content_type = "text/html; charset=" .. default_charset
-ngx.status = expected_header_status
+ngx.status = authentication_page_status_output
 ngx.say(anti_ddos_html_output)
 ngx.exit(ngx.HTTP_OK)
