@@ -634,10 +634,8 @@ local javascript_anti_ddos = [[
 			//end javascript puzzle
 			var xhttp = new XMLHttpRequest();
 			xhttp.onreadystatechange = function() {
-				if (this.readyState == 4 && this.status == ]] .. expected_header_status .. [[) { //status may be 503 so local var to control both response and switch between POST and GET
-					location.reload(true);
-					document.getElementById("status").innerHTML = "Refresh your page.";
-				}
+				document.getElementById("status").innerHTML = "Refresh your page.";
+				location.reload(true);
 			};
 			xhttp.open("]] .. javascript_REQUEST_TYPE .. [[", "]] .. request_uri .. [[", true);
 			]] .. javascript_REQUEST_headers .. [[
