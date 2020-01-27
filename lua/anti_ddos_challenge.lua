@@ -456,13 +456,6 @@ local user_agent = ngx.var.http_user_agent --user agent of browser
 local expected_header_status = 200
 local authentication_page_status_output = 503
 
-local domain = ""
-if host == nil then
-	domain = host:match("[%w%.]*%.(%w+%.%w+)") --Remove subdomains from the server_name (host) to output .domain.com
-else
-	domain = "localhost"
-end
-
 local answer = calculate_signature(remote_addr) --create our encrypted unique identification for the user visiting the website.
 
 if x_auth_header == 2 then --if x-auth-header is dynamic
@@ -634,8 +627,10 @@ local javascript_anti_ddos = [[
 			//end javascript puzzle
 			var xhttp = new XMLHttpRequest();
 			xhttp.onreadystatechange = function() {
-				document.getElementById("status").innerHTML = "Refresh your page.";
-				location.reload(true);
+				if (xhttp.readyState === 4) {
+					document.getElementById("status").innerHTML = "Refresh your page.";
+					location.reload(true);
+				}
 			};
 			xhttp.open("]] .. javascript_REQUEST_TYPE .. [[", "]] .. request_uri .. [[", true);
 			]] .. javascript_REQUEST_headers .. [[
@@ -733,7 +728,6 @@ local anti_ddos_html_output = [[
 <meta http-equiv="X-UA-Compatible" content="IE=Edge,chrome=1" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
 <meta name="robots" content="noindex, nofollow" />
-<meta http-equiv="refresh" content="]] .. refresh_auth+2 .. [[">
 <title>]] .. title .. [[</title>
 <style type="text/css">
 ]] .. style_sheet .. [[
