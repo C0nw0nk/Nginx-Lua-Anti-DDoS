@@ -73,6 +73,12 @@ access_by_lua_file anti_ddos_challenge.lua;
 }
 ```
 
+### Other setup options
+
+https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki
+
+For setting up the script to run with Tor .onion services, Cloudflares proxy services, Configuration options of the script view the wiki.
+
 # Requirements :
 NONE! :D You only need Nginx + Lua to use my scripts.
 
