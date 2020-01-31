@@ -327,13 +327,13 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 
 	if type == 1 or type == nil then --No encryption
 		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
-			output = "<script type=\"text/javascript\" charset=\"" .. default_charset .. "\">" .. string1 .. "</script>"
+			output = "<script type=\"text/javascript\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\">" .. string1 .. "</script>"
 		end
 		if defer_async == "1" then --Defer
-			output = "<script type=\"text/javascript\" defer=\"defer\" charset=\"" .. default_charset .. "\">" .. string1 .. "</script>"
+			output = "<script type=\"text/javascript\" defer=\"defer\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\">" .. string1 .. "</script>"
 		end
 		if defer_async == "2" then --Async
-			output = "<script type=\"text/javascript\" async=\"async\" charset=\"" .. default_charset .. "\">" .. string1 .. "</script>"
+			output = "<script type=\"text/javascript\" async=\"async\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\">" .. string1 .. "</script>"
 		end
 	end
 
@@ -349,13 +349,13 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		end
 
 		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
-			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" charset=\"" .. default_charset .. "\"></script>"
+			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\"></script>"
 		end
 		if defer_async == "1" then --Defer
-			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" defer=\"defer\" charset=\"" .. default_charset .. "\"></script>"
+			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" defer=\"defer\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\"></script>"
 		end
 		if defer_async == "2" then --Async
-			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" async=\"async\" charset=\"" .. default_charset .. "\"></script>"
+			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" async=\"async\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\"></script>"
 		end
 	end
 
@@ -392,7 +392,7 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		end
 
 		--https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent
-		output = "<script type=\"text/javascript\" charset=\"" .. default_charset .. "\">eval(decodeURIComponent('" .. hexadecimal_x .. "'))</script>"
+		output = "<script type=\"text/javascript\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\">eval(decodeURIComponent('" .. hexadecimal_x .. "'))</script>"
 	end
 
 	if type == 4 then --Base64 javascript decode
@@ -405,13 +405,13 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		end
 
 		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
-			output = "<script type=\"text/javascript\" charset=\"" .. default_charset .. "\">" .. base64_javascript .. "</script>"
+			output = "<script type=\"text/javascript\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\">" .. base64_javascript .. "</script>"
 		end
 		if defer_async == "1" then --Defer
-			output = "<script type=\"text/javascript\" defer=\"defer\" charset=\"" .. default_charset .. "\">" .. base64_javascript .. "</script>"
+			output = "<script type=\"text/javascript\" defer=\"defer\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\">" .. base64_javascript .. "</script>"
 		end
 		if defer_async == "2" then --Defer
-			output = "<script type=\"text/javascript\" async=\"async\" charset=\"" .. default_charset .. "\">" .. base64_javascript .. "</script>"
+			output = "<script type=\"text/javascript\" async=\"async\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\">" .. base64_javascript .. "</script>"
 		end
 	end
 
@@ -647,7 +647,7 @@ local javascript_anti_ddos = [[
 encrypt/obfuscate the javascript output
 ]]
 if encrypt_javascript_output == 1 then --No encryption/Obfuscation of Javascript so show Javascript in plain text
-javascript_anti_ddos = [[<script type="text/javascript" charset="]] .. default_charset .. [[">
+javascript_anti_ddos = [[<script type="text/javascript" charset="]] .. default_charset .. [[" data-cfasync="false">
 ]] .. javascript_anti_ddos .. [[
 </script>]]
 else --some form of obfuscation has been specified so obfuscate the javascript output
