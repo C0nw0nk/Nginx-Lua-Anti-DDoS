@@ -688,6 +688,15 @@ if credits == 2 then
 ddos_credits = "" --make empty string
 end
 
+--Fix remote_addr output as what ever IP address the Client is using
+if ngx.var.http_cf_connecting_ip ~= nil then
+remote_addr = ngx.var.http_cf_connecting_ip
+elseif ngx.var.http_x_forwarded_for ~= nil then
+remote_addr = ngx.var.http_x_forwarded_for
+else
+remote_addr = ngx.var.remote_addr
+end
+
 local request_details = [[
 <br>
 <div id="status" style="color:#bd2426;font-size:200%;">
