@@ -58,8 +58,11 @@ ngx.var.http_user_agent --use this to protect Tor servers from DDoS
 
 You can combine multiple if you like. You can do so like this.
 local remote_addr = ngx.var.remote_addr .. ngx.var.http_user_agent
+
+remote_addr = "tor" this will mean this script will be functioning for tor users only
+remote_addr = "auto" the script will automatically get the clients IP this is the default it is the smartest and most compatible method with every service proxy etc
 ]]
-local remote_addr = ngx.var.remote_addr --Users IP address
+local remote_addr = "auto" --Default Automatically get the Clients IP address
 
 --[[
 How long when a users request is authenticated will they be allowed to browse and access the site until they will see the auth page again.
@@ -182,7 +185,7 @@ Any IP Addresses specified here will be whitelisted to grant direct access to yo
 you can specify IP's like search engine crawler ip addresses here most search engines are smart enough they do not need to be specified,
 Major search engines can execute javascript such as Google, Yandex, Bing, Baidu and such so they can solve the auth page puzzle and index your site same as how companies like Cloudflare, Succuri, BitMitigate etc work and your site is still indexed.
 ]]
-local ip_whitelist_remote_addr = ngx.var.remote_addr --Users IP address
+local ip_whitelist_remote_addr = "auto" --Automatically get the Clients IP address
 local ip_whitelist = {
 --"127.0.0.1", --localhost
 --"192.168.0.1", --localhost
@@ -192,7 +195,7 @@ local ip_whitelist = {
 IP Address Blacklist
 To block access to any abusive IP's that you do not want to ever access your website
 ]]
-local ip_blacklist_remote_addr = ngx.var.remote_addr --Users IP address
+local ip_blacklist_remote_addr = "auto" --Automatically get the Clients IP address
 local ip_blacklist = {
 --"127.0.0.1", --localhost
 --"192.168.0.1", --localhost
@@ -253,6 +256,38 @@ local function check_master_switch()
 	end
 end
 check_master_switch()
+
+--automatically figure out the IP address of the connecting Client
+if remote_addr == "auto" then
+	if ngx.var.http_cf_connecting_ip ~= nil then
+		remote_addr = ngx.var.http_cf_connecting_ip
+	elseif ngx.var.http_x_forwarded_for ~= nil then
+		remote_addr = ngx.var.http_x_forwarded_for
+	else
+		remote_addr = ngx.var.remote_addr
+	end
+end
+if ip_whitelist_remote_addr == "auto" then
+	if ngx.var.http_cf_connecting_ip ~= nil then
+		ip_whitelist_remote_addr = ngx.var.http_cf_connecting_ip
+	elseif ngx.var.http_x_forwarded_for ~= nil then
+		ip_whitelist_remote_addr = ngx.var.http_x_forwarded_for
+	else
+		ip_whitelist_remote_addr = ngx.var.remote_addr
+	end
+end
+if ip_blacklist_remote_addr == "auto" then
+	if ngx.var.http_cf_connecting_ip ~= nil then
+		ip_blacklist_remote_addr = ngx.var.http_cf_connecting_ip
+	elseif ngx.var.http_x_forwarded_for ~= nil then
+		ip_blacklist_remote_addr = ngx.var.http_x_forwarded_for
+	else
+		ip_blacklist_remote_addr = ngx.var.remote_addr
+	end
+end
+if remote_addr == "tor" then
+	remote_addr = ngx.var.http_user_agent
+end
 
 --function to check if ip address is whitelisted to bypass our auth
 local function check_ip_whitelist(ip_table)
