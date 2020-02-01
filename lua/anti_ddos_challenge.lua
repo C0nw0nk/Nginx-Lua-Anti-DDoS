@@ -85,7 +85,7 @@ The type of javascript based pingback authentication method to use if it should 
 2 = POST
 3 = DYNAMIC
 ]]
-local javascript_REQUEST_TYPE = 3 --Default 3
+local javascript_REQUEST_TYPE = 2 --Default 2
 
 --[[
 Timer to refresh auth page
