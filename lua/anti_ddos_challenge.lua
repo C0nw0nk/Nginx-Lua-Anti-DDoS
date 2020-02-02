@@ -285,6 +285,10 @@ if ip_blacklist_remote_addr == "auto" then
 		ip_blacklist_remote_addr = ngx.var.remote_addr
 	end
 end
+--if host of site is a tor website connecting clients will be tor network clients
+if string.match(string.lower(ngx.var.host), ".onion") then
+	remote_addr = "tor"
+end
 if remote_addr == "tor" then
 	remote_addr = ngx.var.http_user_agent
 end
