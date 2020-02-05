@@ -202,6 +202,37 @@ local ip_blacklist = {
 }
 
 --[[
+Allow or block all Tor users
+1 = Allow
+2 = block
+]]
+local tor = 1 --Allow Tor Users
+
+--[[
+Unique ID to identify each individual Tor user who connects to the website
+Using their User-Agent as a static variable to latch onto works well.
+ngx.var.http_user_agent --Default
+]]
+local tor_remote_addr = ngx.var.http_user_agent
+
+--[[
+X-Tor-Header to be static or Dynamic setting this as dynamic is the best form of security
+1 = Static
+2 = Dynamic
+]]
+local x_tor_header = 2 --Default 2
+local x_tor_header_name = "x-tor" --tor header name
+local x_tor_header_name_allowed = "true" --tor header value when we want to allow access
+local x_tor_header_name_blocked = "blocked" --tor header value when we want to block access
+
+--[[
+Tor Cookie values
+]]
+local cookie_tor = challenge.."_tor" --our tor cookie
+local cookie_tor_value_allow = "allow" --the value of the cookie when we allow access
+local cookie_tor_value_block = "deny" --the value of the cookie when we block access
+
+--[[
 TODO:
 Google ReCaptcha
 ]]
@@ -290,7 +321,7 @@ if string.match(string.lower(ngx.var.host), ".onion") then
 	remote_addr = "tor"
 end
 if remote_addr == "tor" then
-	remote_addr = ngx.var.http_user_agent
+	remote_addr = tor_remote_addr
 end
 
 --function to check if ip address is whitelisted to bypass our auth
@@ -495,10 +526,66 @@ local user_agent = ngx.var.http_user_agent --user agent of browser
 local expected_header_status = 200
 local authentication_page_status_output = 503
 
+--Put our vars into storage for use later on
+local challenge_original = challenge
+local cookie_name_start_date_original = cookie_name_start_date
+local cookie_name_end_date_original = cookie_name_end_date
+local cookie_name_encrypted_start_and_end_date_original = cookie_name_encrypted_start_and_end_date
+
+--[[
+Start Tor detection
+]]
+if x_tor_header == 2 then --if x-tor-header is dynamic
+	x_tor_header_name = calculate_signature(tor_remote_addr .. x_tor_header_name .. currentdate):gsub("_","") --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
+	x_tor_header_name_allowed = calculate_signature(tor_remote_addr .. x_tor_header_name_allowed .. currentdate):gsub("_","") --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
+	x_tor_header_name_blocked = calculate_signature(tor_remote_addr .. x_tor_header_name_blocked .. currentdate):gsub("_","") --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
+end
+
+if encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to be encrypted
+	cookie_tor = calculate_signature(tor_remote_addr .. cookie_tor .. currentdate) --encrypt our tor cookie name
+	cookie_tor_value_allow = calculate_signature(tor_remote_addr .. cookie_tor_value_allow .. currentdate) --encrypt our tor cookie value for allow
+	cookie_tor_value_block = calculate_signature(tor_remote_addr .. cookie_tor_value_block .. currentdate) --encrypt our tor cookie value for block
+end
+
+--block tor function to block traffic from tor users
+local function blocktor()
+	local output = ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
+	return output
+end
+
+--check the connecting client to see if they have our required matching tor cookie name in their request
+local tor_cookie_name = "cookie_" .. cookie_tor
+local tor_cookie_value = ngx.var[tor_cookie_name] or ""
+
+if tor_cookie_value == cookie_tor_value_allow then --if their cookie value matches the value we expect
+	if tor == 2 then --perform check if tor users should be allowed or blocked if tor users already browsing your site have been granted access and you change this setting you want them to be blocked now so this makes sure they are denied any further access before their cookie expires
+		blocktor()
+	end
+	remote_addr = tor_remote_addr --set the remote_addr as the tor_remote_addr value
+end
+
+if tor_cookie_value == cookie_tor_value_block then --if the provided cookie value matches our block cookie value
+	blocktor()
+end
+
+local cookie_tor_value = "" --create variable to store if tor should be allowed or disallowed
+local x_tor_header_name_value = "" --create variable to store our expected header value
+
+if tor == 1 then --if tor users should be allowed
+	cookie_tor_value = cookie_tor_value_allow --set our value as our expected allow value
+	x_tor_header_name_value = x_tor_header_name_allowed --set our value as our expected allow value
+else --tor users should be blocked
+	cookie_tor_value = cookie_tor_value_block --set our value as our expected block value
+	x_tor_header_name_value = x_tor_header_name_blocked --set our value as our expected block value
+end
+--[[
+End Tor detection
+]]
+
 local answer = calculate_signature(remote_addr) --create our encrypted unique identification for the user visiting the website.
 
 if x_auth_header == 2 then --if x-auth-header is dynamic
-	x_auth_header_name = calculate_signature(remote_addr .. currentdate):gsub("_","") --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
+	x_auth_header_name = calculate_signature(remote_addr .. x_auth_header_name .. currentdate):gsub("_","") --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
 end
 
 if encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to be encrypted
@@ -536,6 +623,33 @@ local function grant_access()
 	--if x-auth-answer is correct to the user unique id time stamps etc meaning browser figured it out then set a new cookie that grants access without needed these checks
 	local req_headers = ngx.req.get_headers() --get all request headers
 	if req_headers["x-requested-with"] == "XMLHttpRequest" then --if request header matches request type of XMLHttpRequest
+		if req_headers[x_tor_header_name] == x_tor_header_name_value then --if the header and value are what we expect then the client is legitimate
+			remote_addr = tor_remote_addr --set as our defined static tor variable to use
+			
+			challenge = calculate_signature(remote_addr .. challenge_original .. currentdate) --create our encrypted unique identification for the user visiting the website again. (Stops a double page refresh loop)
+			answer = calculate_signature(remote_addr) --create our answer again under the new remote_addr (Stops a double page refresh loop)
+			cookie_name_start_date = calculate_signature(remote_addr .. cookie_name_start_date_original .. currentdate) --create our cookie_name_start_date again under the new remote_addr (Stops a double page refresh loop)
+			cookie_name_end_date = calculate_signature(remote_addr .. cookie_name_end_date_original .. currentdate) --create our cookie_name_end_date again under the new remote_addr (Stops a double page refresh loop)
+			cookie_name_encrypted_start_and_end_date = calculate_signature(remote_addr .. cookie_name_encrypted_start_and_end_date_original .. currentdate) --create our cookie_name_encrypted_start_and_end_date again under the new remote_addr (Stops a double page refresh loop)
+
+			set_cookie1 = challenge.."="..answer.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie incase javascript setting this cookies time stamp correctly has issues
+			set_cookie2 = cookie_name_start_date.."="..currenttime.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start date cookie
+			set_cookie3 = cookie_name_end_date.."="..(currenttime+expire_time).."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --end date cookie
+			set_cookie4 = cookie_name_encrypted_start_and_end_date.."="..calculate_signature(remote_addr .. currenttime .. (currenttime+expire_time) ).."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start and end date combined to unique id
+			set_cookie5 = cookie_tor.."="..cookie_tor_value.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --create our tor cookie to identify the client as a tor user
+
+			set_cookies = {set_cookie1 , set_cookie2 , set_cookie3 , set_cookie4, set_cookie5}
+			ngx.header["Set-Cookie"] = set_cookies
+			ngx.header["X-Content-Type-Options"] = "nosniff"
+			ngx.header["X-Frame-Options"] = "SAMEORIGIN"
+			ngx.header["X-XSS-Protection"] = "1; mode=block"
+			ngx.header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+			ngx.header["Pragma"] = "no-cache"
+			ngx.header["Expires"] = "0"
+			ngx.header.content_type = "text/html; charset=" .. default_charset
+			ngx.status = expected_header_status
+			ngx.exit(ngx.HTTP_NO_CONTENT)
+		end
 		--ngx.log(ngx.ERR, "x-auth-answer result | "..req_headers[x_auth_header_name]) --output x-auth-answer to log
 		if req_headers[x_auth_header_name] == JavascriptPuzzleVars_answer then --if the answer header provided by the browser Javascript matches what our Javascript puzzle answer should be
 			set_cookie1 = challenge.."="..cookie_value.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie incase javascript setting this cookies time stamp correctly has issues
@@ -625,6 +739,31 @@ end
 
 local JavascriptPuzzleVariable_name = "_" .. stringrandom(10)
 
+--[[
+Begin Tor Browser Checks
+Because Tor blocks browser fingerprinting / tracking it actually makes it easy to detect by comparing screen window sizes if they do not match we know it is Tor
+]]
+local javascript_detect_tor = [[
+var sw, sh, ww, wh, v;
+sw = screen.width;
+sh = screen.height;
+ww = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth || 0;
+wh = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight || 0;
+if ((sw == ww) && (sh == wh)) {
+    v = true;
+    if (!(ww % 200) && (wh % 100)) {
+        v = true;
+    }
+}
+//v = true; //test var nulled out used for debugging purpose
+if (v == true) {
+	xhttp.setRequestHeader(']] .. x_tor_header_name .. [[', ']] .. x_tor_header_name_value .. [[');
+}
+]]
+--[[
+End Tor Browser Checks
+]]
+
 local javascript_REQUEST_headers = [[
 xhttp.setRequestHeader(']] .. x_auth_header_name .. [[', ]] .. JavascriptPuzzleVariable_name .. [[); //make the answer what ever the browser figures it out to be
 			xhttp.setRequestHeader('X-Requested-with', 'XMLHttpRequest');
@@ -634,7 +773,7 @@ xhttp.setRequestHeader(']] .. x_auth_header_name .. [[', ]] .. JavascriptPuzzleV
 			xhttp.setRequestHeader('X-Requested-Type', 'GET');
 			xhttp.setRequestHeader('X-Requested-Type-Combination', 'GET'); //Encrypted for todays date
 			xhttp.withCredentials = true;
-]]
+]] .. javascript_detect_tor
 
 local JavascriptPuzzleVariable = [[
 var ]] .. JavascriptPuzzleVariable_name .. [[=]] .. JavascriptPuzzleVars ..[[;
