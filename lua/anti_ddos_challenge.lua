@@ -176,6 +176,7 @@ Encrypt/Obfuscate Javascript output to prevent content scrappers and bots decryp
 2 = Base64 Data URI only
 3 = Hex encryption
 4 = Base64 Javascript Encryption
+5 = --Conor Mcknight's Javascript Scrambler (Obfuscate Javascript by putting it into vars and shuffling them like a deck of cards)
 ]]
 local encrypt_javascript_output = 0
 
@@ -349,6 +350,9 @@ local function check_ip_blacklist(ip_table)
 end
 check_ip_blacklist(ip_blacklist) --run blacklist check function
 
+--to have better randomization upon encryption
+math.randomseed(os.time())
+
 --function to encrypt strings with our secret key / password provided
 local function calculate_signature(str)
 	return ngx.encode_base64(ngx.hmac_sha1(secret, ngx.md5(str)))
@@ -374,6 +378,15 @@ local function stringrandom(length)
 end
 --stringrandom(10)
 
+--shuffle table function
+function shuffle(tbl)
+  for i = #tbl, 2, -1 do
+    local j = math.random(i)
+    tbl[i], tbl[j] = tbl[j], tbl[i]
+  end
+  return tbl
+end
+
 --for my javascript Hex output
 local function sep(str, patt, re)
     local rstr = str:gsub(patt, "%1%" .. re)
@@ -392,7 +405,7 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 	local output = "" --Empty var
 
 	if type == 0 then
-		type = math.random(3, 4) --Random encryption
+		type = math.random(3, 5) --Random encryption
 	end
 
 	if type == 1 or type == nil then --No encryption
@@ -461,8 +474,16 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 			end
 		end
 
-		--https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent
-		output = "<script type=\"text/javascript\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\">eval(decodeURIComponent('" .. hexadecimal_x .. "'))</script>"
+		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
+			--https://developer.mozilla.org/en/docs/Web/JavaScript/Reference/Global_Objects/decodeURIComponent
+			output = "<script type=\"text/javascript\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\">eval(decodeURIComponent('" .. hexadecimal_x .. "'))</script>"
+		end
+		if defer_async == "1" then --Defer
+			output = "<script type=\"text/javascript\" defer=\"defer\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\">eval(decodeURIComponent('" .. hexadecimal_x .. "'))</script>"
+		end
+		if defer_async == "2" then --Defer
+			output = "<script type=\"text/javascript\" async=\"async\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\">eval(decodeURIComponent('" .. hexadecimal_x .. "'))</script>"
+		end
 	end
 
 	if type == 4 then --Base64 javascript decode
@@ -482,6 +503,40 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		end
 		if defer_async == "2" then --Defer
 			output = "<script type=\"text/javascript\" async=\"async\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\">" .. base64_javascript .. "</script>"
+		end
+	end
+
+	if type == 5 then --Conor Mcknight's Javascript Scrambler (Obfuscate Javascript by putting it into vars and shuffling them like a deck of cards)
+		local base64_javascript = ngx.encode_base64(string1) --base64 encode our script
+
+		local l = #base64_javascript --count number of chars our variable has
+		local i = 0 --keep track of how many times we pass through
+		local r = math.random(1, l) --randomize where to split string
+		local chunks = {} --create our chunks table for string storage
+		local chunks_order = {} --create our chunks table for string storage that stores the value only
+
+		while i <= l do
+			local random_var = stringrandom(10) --create a random variable name to use
+			--table.insert(chunks_order, "decodeURIComponent(escape(window.atob(_" .. random_var .. ")))")
+			table.insert(chunks_order, "_" .. random_var .. "") --insert the value into our ordered table
+			table.insert(chunks, 'var _' .. random_var .. '="' .. base64_javascript:sub(i,i+r).. '";') --insert our value into our table we will scramble
+
+			i = i+r+1
+		end
+
+		shuffle(chunks) --scramble our table
+
+		output = table.concat(chunks, "") --put our scrambled table into string
+		output = output .. "eval(decodeURIComponent(escape(window.atob(" .. table.concat(chunks_order, " + " ) .. "))));" --put our scrambled table and ordered table into a string
+		
+		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
+			output = "<script type=\"text/javascript\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\">" .. output .. "</script>"
+		end
+		if defer_async == "1" then --Defer
+			output = "<script type=\"text/javascript\" defer=\"defer\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\">" .. output .. "</script>"
+		end
+		if defer_async == "2" then --Defer
+			output = "<script type=\"text/javascript\" async=\"async\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\">" .. output .. "</script>"
 		end
 	end
 
