@@ -250,8 +250,22 @@ This way you don't have to remove access_by_lua_file anti_ddos_challenge.lua; to
 
 1 = enabled
 2 = disabled
+3 = custom
 ]]
 local master_switch = 1 --enabled by default
+
+--[[
+This feature is if you set "master_switch = 3" what this does is if you host multiple websites / services of one server / machine you can have this script disabled for all those websites / domain names other than those you specifiy.
+For example you set master_switch to 3 and specifiy ".onion" then all Tor websites you host on your server will be protected by this script while the rest of the websites you host will not be authenticated. (pretty clever huh)
+You can also specify full domain names like "github.com" to protect specific domains you can add as many as you like.
+]]
+local master_switch_custom_hosts = {
+".onion", --authenticate Tor websites
+"github.com", --authenticate github
+--"localhost", --authenticate localhost
+--"127.0.0.1", --authenticate localhost
+--".com", --authenticate .com domains
+}
 
 --[[
 Enable/disable credits It would be nice if you would show these to help the community grow and make the internet safer for everyone
@@ -296,6 +310,21 @@ local function check_master_switch()
 	if master_switch == 2 then --script disabled
 		local output = ngx.exit(ngx.OK) --Go to content
 		return output
+	end
+	if master_switch == 3 then --custom host selection
+		local allow_site = 1 --allow sites by default
+		for k,v in ipairs(master_switch_custom_hosts) do --for each host in our table
+			if string.match(string.lower(ngx.var.host), v) then --if our host matches one in the table
+				allow_site = 2 --disallow direct access
+				break --break out of the for each loop pointless to keep searching the rest since we matched our host
+			end
+		end
+		if allow_site == 1 then --checks passed site allowed grant direct access
+			local output = ngx.exit(ngx.OK) --Go to content
+			return output
+		else --allow_site was 2 to disallow direct access we matched a host to protect
+			return --carry on script functions to display auth page
+		end
 	end
 end
 check_master_switch()
