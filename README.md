@@ -1,6 +1,6 @@
-![Languages](https://img.shields.io/github/languages/count/C0nw0nk/Nginx-Lua-Anti-DDoS) ![Top language](https://img.shields.io/github/languages/top/C0nw0nk/Nginx-Lua-Anti-DDoS) ![File size](https://img.shields.io/github/size/C0nw0nk/Nginx-Lua-Anti-DDoS/lua/anti_ddos_challenge.lua)
+[![Languages](https://img.shields.io/github/languages/count/C0nw0nk/Nginx-Lua-Anti-DDoS) ![Top language](https://img.shields.io/github/languages/top/C0nw0nk/Nginx-Lua-Anti-DDoS) ![File size](https://img.shields.io/github/size/C0nw0nk/Nginx-Lua-Anti-DDoS/lua/anti_ddos_challenge.lua)](https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/funding)
 
-![Cloudflare I am Under Attack Mode!](https://blog.cloudflare.com/content/images/im_under_attack_page.png.scaled500.png)
+[![Cloudflare I am Under Attack Mode!](https://blog.cloudflare.com/content/images/im_under_attack_page.png.scaled500.png)](https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/funding)
 
 # Nginx-Lua-Anti-DDoS
 A Anti-DDoS script to protect Nginx web servers using Lua with a Javascript based authentication puzzle inspired by Cloudflare I am under attack mode I built my own Anti-DDoS authentication HTML page puzzle intergrating my Lua, Javascript, HTML and HTTP knowledge.
