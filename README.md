@@ -1,3 +1,5 @@
+![Languages](https://img.shields.io/github/languages/count/C0nw0nk/Nginx-Lua-Anti-DDoS) ![Top language](https://img.shields.io/github/languages/top/C0nw0nk/Nginx-Lua-Anti-DDoS) ![File size](https://img.shields.io/github/size/C0nw0nk/Nginx-Lua-Anti-DDoS/lua/anti_ddos_challenge.lua)
+
 ![Cloudflare I am Under Attack Mode!](https://blog.cloudflare.com/content/images/im_under_attack_page.png.scaled500.png)
 
 # Nginx-Lua-Anti-DDoS
