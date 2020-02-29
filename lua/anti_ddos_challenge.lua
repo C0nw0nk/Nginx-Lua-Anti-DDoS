@@ -464,7 +464,7 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 	local output = "" --Empty var
 
 	if type == 0 then
-		type = math.random(3, 5) --Random encryption
+		type = math.random(4, 4) --Random encryption
 	end
 
 	if type == 1 or type == nil then --No encryption
