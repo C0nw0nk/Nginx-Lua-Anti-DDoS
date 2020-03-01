@@ -144,7 +144,6 @@ local JavascriptPuzzleVars = [[parseInt("]] .. os.date("%Y%m%d",os.time()-24*60*
 local JavascriptPuzzleVars_answer = os.date("%Y%m%d",os.time()-24*60*60) + os.date("%d%m%Y",os.time()-24*60*60) --lua output of our two random numbers
 local JavascriptPuzzleVars_answer = math.floor(JavascriptPuzzleVars_answer+0.5) --fix bug removing the 0. decimal on the end of the figure
 local JavascriptPuzzleVars_answer = tostring(JavascriptPuzzleVars_answer) --convert the numeric output to a string
---ngx.log(ngx.ERR, "expected answer"..JavascriptPuzzleVars_answer) --output the answer to the log
 
 --[[
 X-Auth-Header to be static or Dynamic setting this as dynamic is the best form of security
@@ -185,6 +184,8 @@ IP Address Whitelist
 Any IP Addresses specified here will be whitelisted to grant direct access to your site bypassing our firewall checks
 you can specify IP's like search engine crawler ip addresses here most search engines are smart enough they do not need to be specified,
 Major search engines can execute javascript such as Google, Yandex, Bing, Baidu and such so they can solve the auth page puzzle and index your site same as how companies like Cloudflare, Succuri, BitMitigate etc work and your site is still indexed.
+Supports IPv4 and IPv6 addresses aswell as subnet ranges
+To find all IP ranges of an ASN use : https://www.enjen.net/asn-blocklist/index.php?asn=16509&type=iplist
 ]]
 local ip_whitelist_remote_addr = "auto" --Automatically get the Clients IP address
 local ip_whitelist = {
@@ -195,11 +196,18 @@ local ip_whitelist = {
 --[[
 IP Address Blacklist
 To block access to any abusive IP's that you do not want to ever access your website
+Supports IPv4 and IPv6 addresses aswell as subnet ranges
+To find all IP ranges of an ASN use : https://www.enjen.net/asn-blocklist/index.php?asn=16276&type=iplist
+For the worst Botnet ASN IP's see here : https://www.spamhaus.org/statistics/botnet-asn/ You can add their IP addresses. https://www.abuseat.org/public/asninfections.html
 ]]
 local ip_blacklist_remote_addr = "auto" --Automatically get the Clients IP address
 local ip_blacklist = {
 --"127.0.0.1", --localhost
 --"192.168.0.1", --localhost
+--ASN AS16276 OVH IP ranges Block all OVH Servers
+"107.189.64.0/18","91.90.92.0/24","198.245.48.0/20","185.243.16.0/24","217.182.0.0/16","51.79.128.0/17","103.5.12.0/22","198.27.64.0/18","46.105.200.0/24","51.79.0.0/17","2607:5300::/32","144.217.0.0/16","46.244.32.0/20","46.105.201.0/24","46.105.198.0/24","54.39.0.0/16","46.105.203.0/24","51.81.128.0/17","46.105.0.0/16","51.178.0.0/16","167.114.128.0/18","91.90.88.0/24","8.7.244.0/24","139.99.128.0/17","144.2.32.0/19","51.38.0.0/16","91.90.94.0/24","8.33.128.0/21","8.21.41.0/24","216.32.194.0/24","51.89.0.0/16","5.196.0.0/16","195.110.30.0/23","51.195.0.0/16","2001:41d0::/32","91.90.93.0/24","8.29.224.0/24","167.114.192.0/19","8.24.8.0/21","91.90.90.0/24","167.114.0.0/17","91.121.0.0/16","51.91.0.0/16","139.99.0.0/17","178.32.0.0/15","8.26.94.0/24","51.77.0.0/16","91.90.89.0/24","185.228.97.0/24","151.80.0.0/16","213.251.128.0/18","149.56.0.0/16","37.59.0.0/16","213.186.32.0/19","2402:1f00::/32","193.70.0.0/17","142.44.128.0/17","51.161.0.0/17","54.38.0.0/16","185.228.98.0/24","91.90.88.0/21","216.32.220.0/24","92.222.0.0/16","147.135.128.0/17","142.4.192.0/19","5.135.0.0/16","192.95.0.0/18","46.105.202.0/24","185.12.32.0/23","145.239.0.0/16","213.32.0.0/17","37.187.0.0/16","37.60.48.0/21","198.100.144.0/20","149.202.0.0/16","94.23.0.0/16","167.114.224.0/19","193.109.63.0/24","51.254.0.0/15","91.90.91.0/24","216.32.213.0/24","216.32.218.0/24","8.33.96.0/21","5.39.0.0/17","185.228.96.0/24","164.132.0.0/16","158.69.0.0/16","46.105.199.0/24","8.30.208.0/21","54.37.0.0/16","46.105.204.0/24","2402:1f00:8100::/40","87.98.128.0/17","51.68.0.0/16","37.60.56.0/21","8.20.110.0/24","51.83.0.0/16","185.45.160.0/22","216.32.192.0/24","198.50.128.0/17","205.218.49.0/24","216.32.216.0/24","51.75.0.0/16","195.246.232.0/23","91.90.95.0/24","51.81.0.0/17","2402:1f00:8000::/40","23.92.224.0/19","192.240.152.0/21","91.134.0.0/16","92.246.224.0/19","176.31.0.0/16","79.137.0.0/17","193.104.19.0/24","137.74.0.0/16","192.99.0.0/16","198.27.92.0/24","147.135.0.0/17","8.33.136.0/24","2604:2dc0::/32","8.33.137.0/24","188.165.0.0/16","66.70.128.0/17","8.18.172.0/24","185.228.99.0/24","54.36.0.0/16","8.18.128.0/24",
+--ASN AS12876 ONLINE S.A.S. IP ranges
+"62.4.0.0/19","151.115.0.0/18","51.15.0.0/17","163.172.208.0/20","212.129.0.0/18","2001:bc8::/32","212.83.160.0/19","212.47.224.0/19","2001:bc8:1c00::/38","51.158.128.0/17","163.172.0.0/16","212.83.128.0/19","51.158.0.0/15","195.154.0.0/16","51.15.0.0/16","62.210.0.0/16",
 }
 
 --[[
@@ -287,6 +295,108 @@ local dynamic_javascript_vars_length_static = 10 --how many chars in length shou
 local dynamic_javascript_vars_length_start = 1 --for dynamic randomize min value to max this is min value
 local dynamic_javascript_vars_length_end = 10 --for dynamic randomize min value to max this is max value
 
+--[[
+User-Agent Blacklist
+If you want to block access to bad bots / specific user-agents you can use this.
+1 case insensative
+2 case sensative
+3 regex case sensative
+4 regex lower case insensative
+
+I added some examples of bad bots to block access to.
+]]
+local user_agent_blacklist_var = ngx.var.http_user_agent
+local user_agent_blacklist_table = {
+	{
+		"^$",
+		3,
+	}, --blocks blank / empty user-agents
+	{
+		"Kodi",
+		1,
+	},
+	{
+		"XBMC",
+		1,
+	},
+	{
+		"curl",
+		1,
+	},
+	{
+		"winhttp",
+		1,
+	},
+	{
+		"HTTrack",
+		1,
+	},
+	{
+		"libwww-perl",
+		1,
+	},
+	{
+		"python",
+		1,
+	},
+}
+
+--[[
+User-Agent Whitelist
+If you want to allow access to specific user-agents use this.
+1 case insensative
+2 case sensative
+3 regex case sensative
+4 regex lower case insensative
+
+I added some examples of user-agents you could whitelist mostly search engine crawlers.
+]]
+local user_agent_whitelist_var = ngx.var.http_user_agent
+local user_agent_whitelist_table = {
+--[[
+	{
+		"Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+		2,
+	},
+	{
+		"Mozilla/5.0 (compatible; Bingbot/2.0; +http://www.bing.com/bingbot.htm)",
+		2,
+	},
+	{
+		"Mozilla/5.0 (compatible; Yahoo! Slurp; http://help.yahoo.com/help/us/ysearch/slurp)",
+		2,
+	},
+	{
+		"DuckDuckBot/1.0; (+http://duckduckgo.com/duckduckbot.html)",
+		2,
+	},
+	{
+		"Mozilla/5.0 (compatible; Baiduspider/2.0; +http://www.baidu.com/search/spider.html)",
+		2,
+	},
+	{
+		"Mozilla/5.0 (compatible; YandexBot/3.0; +http://yandex.com/bots)",
+		2,
+	}
+	{
+		"facebot",
+		2,
+	}
+	{
+		"facebookexternalhit/1.0 (+http://www.facebook.com/externalhit_uatext.php)",
+		2,
+	}
+	{
+		"facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
+		2,
+	}
+	{
+		"ia_archiver (+http://www.alexa.com/site/help/webmasters; crawler@alexa.com)",
+		2,
+	}
+]]
+}
+
 
 --[[
 End Configuration
@@ -365,15 +475,664 @@ if remote_addr == "tor" then
 	remote_addr = tor_remote_addr
 end
 
+--[[
+Start IP range function
+]]
+local function ip_address_in_range(input_ip, client_connecting_ip)
+
+	if string.match(input_ip, "/") then --input ip is a subnet
+		--do nothing
+	else
+		return
+	end
+
+	local ip_type = nil
+	if string.match(input_ip, "%:") and string.match(client_connecting_ip, "%:") then --if both input and connecting ip are ipv6 addresses
+		--ipv6
+		ip_type = 1
+	elseif string.match(input_ip, "%.") and string.match(client_connecting_ip, "%.") then --if both input and connecting ip are ipv4 addresses
+		--ipv4
+		ip_type = 2
+	else
+		return
+	end
+	if ip_type == nil then
+		--input and connecting IP one is ipv4 and one is ipv6
+		return
+	end
+
+	if ip_type == 1 then --ipv6
+
+		local function explode(string, divide)
+			if divide == '' then return false end
+			local pos, arr = 0, {}
+			--for each divider found
+			for st, sp in function() return string.find(string, divide, pos, true) end do
+				table.insert(arr, string.sub(string, pos, st - 1 )) --attach chars left of current divider
+				pos = sp + 1 --jump past current divider
+			end
+				table.insert(arr, string.sub(string, pos)) -- Attach chars right of last divider
+			return arr
+		end
+
+		--[[
+		Input IP
+		]]
+		--validate actual ip
+		local a, b, ip, mask = input_ip:find('([%w:]+)/(%d+)')
+
+		--get ip bits
+		local ipbits = explode(ip, ':')
+
+		--now to build an expanded ip
+		local zeroblock
+		for k, v in pairs(ipbits) do
+			--length 0? we're at the :: bit
+			if v:len() == 0 then
+				zeroblock = k
+
+				--length not 0 but not 4, prepend 0's
+			elseif v:len() < 4 then
+				local padding = 4 - v:len()
+				for i = 1, padding do
+					ipbits[k] = 0 .. ipbits[k]
+				end
+			end
+		end
+		if zeroblock and #ipbits < 8 then
+			--remove zeroblock
+			ipbits[zeroblock] = '0000'
+			local padding = 8 - #ipbits
+
+			for i = 1, padding do
+				table.insert(ipbits, zeroblock, '0000')
+			end
+		end
+		--[[
+		End Input IP
+		]]
+		
+		--[[
+		Client IP
+		]]
+		--validate actual ip
+		local a, b, clientip, mask_client = client_connecting_ip:find('([%w:]+)')
+
+		--get ip bits
+		local ipbits_client = explode(clientip, ':')
+
+		--now to build an expanded ip
+		local zeroblock_client
+		for k, v in pairs(ipbits_client) do
+			--length 0? we're at the :: bit
+			if v:len() == 0 then
+				zeroblock_client = k
+
+				--length not 0 but not 4, prepend 0's
+			elseif v:len() < 4 then
+				local padding = 4 - v:len()
+				for i = 1, padding do
+					ipbits_client[k] = 0 .. ipbits_client[k]
+				end
+			end
+		end
+		if zeroblock_client and #ipbits_client < 8 then
+			--remove zeroblock
+			ipbits_client[zeroblock_client] = '0000'
+			local padding = 8 - #ipbits_client
+
+			for i = 1, padding do
+				table.insert(ipbits_client, zeroblock_client, '0000')
+			end
+		end
+		--[[
+		End Client IP
+		]]
+
+		local expanded_ip_count = ipbits[1] .. ':' .. ipbits[2] .. ':' .. ipbits[3] .. ':' .. ipbits[4] .. ':' .. ipbits[5] .. ':' .. ipbits[6] .. ':' .. ipbits[7] .. ':' .. ipbits[8]
+		expanded_ip_count = string.gsub(expanded_ip_count, ":", "")
+
+		local client_connecting_ip_count = ipbits_client[1] .. ':' .. ipbits_client[2] .. ':' .. ipbits_client[3] .. ':' .. ipbits_client[4] .. ':' .. ipbits_client[5] .. ':' .. ipbits_client[6] .. ':' .. ipbits_client[7] .. ':' .. ipbits_client[8]
+		client_connecting_ip_count = string.gsub(client_connecting_ip_count, ":", "")
+
+		--generate wildcard from mask
+		local indent = mask / 4
+
+		expanded_ip_count = string.sub(expanded_ip_count, 0, indent)
+		client_connecting_ip_count = string.sub(client_connecting_ip_count, 0, indent)
+
+		local client_connecting_ip_expanded = client_connecting_ip_count:gsub('....','%1:'):gsub(':$','')
+		local expanded_ip = expanded_ip_count:gsub('....','%1:'):gsub(':$','')
+
+		local wildcardbits = {}
+		for i = 0, indent - 1 do
+			table.insert(wildcardbits, 'f')
+		end
+		for i = 0, 31 - indent do
+			table.insert(wildcardbits, '0')
+		end
+		--convert into 8 string array each w/ 4 chars
+		local count, index, wildcard = 1, 1, {}
+		for k, v in pairs(wildcardbits) do
+			if count > 4 then
+				count = 1
+				index = index + 1
+			end
+			if not wildcard[index] then wildcard[index] = '' end
+				wildcard[index] = wildcard[index] .. v
+				count = count + 1
+			end
+
+			--loop each letter in each ipbit group
+			local topip = {}
+			local bottomip = {}
+			for k, v in pairs(ipbits) do
+			local topbit = ''
+			local bottombit = ''
+			for i = 1, 4 do
+				local wild = wildcard[k]:sub(i, i)
+				local norm = v:sub(i, i)
+				if wild == 'f' then
+					topbit = topbit .. norm
+					bottombit = bottombit .. norm
+				else
+					topbit = topbit .. '0'
+					bottombit = bottombit .. 'f'
+				end
+			end
+			topip[k] = topbit
+			bottomip[k] = bottombit
+		end
+
+		--count ips in mask
+		local ipcount = math.pow(2, 128 - mask)
+		
+		if expanded_ip == client_connecting_ip_expanded then
+			--print("ipv6 is in range")
+			return true
+		end
+
+		--output
+		--[[
+		print()
+		print('indent' .. indent)
+		print('client_ip numeric : ' .. client_connecting_ip_count )
+		print('input ip numeric : ' .. expanded_ip_count )
+		print('client_ip : ' .. client_connecting_ip_expanded )
+		print('input ip : ' .. expanded_ip )
+		print()
+		print( '###### INFO ######' )
+		print( 'IP in: ' .. ip )
+		print( '=> Expanded IP: ' .. ipbits[1] .. ':' .. ipbits[2] .. ':' .. ipbits[3] .. ':' .. ipbits[4] .. ':' .. ipbits[5] .. ':' .. ipbits[6] .. ':' .. ipbits[7] .. ':' .. ipbits[8] )
+		print( 'Mask in: /' .. mask )
+		print( '=> Mask Wildcard: ' .. wildcard[1] .. ':' .. wildcard[2] .. ':' .. wildcard[3] .. ':' .. wildcard[4] .. ':' .. wildcard[5] .. ':' .. wildcard[6] .. ':' .. wildcard[7] .. ':' .. wildcard[8] )
+		print( '\n###### BLOCK ######' )
+		print( '#IP\'s: ' .. ipcount )
+		print( 'Range Start: ' .. topip[1] .. ':' .. topip[2] .. ':' .. topip[3] .. ':' .. topip[4] .. ':' .. topip[5] .. ':' .. topip[6] .. ':' .. topip[7] .. ':' .. topip[8] )
+		print( 'Range End: ' .. bottomip[1] .. ':' .. bottomip[2] .. ':' .. bottomip[3] .. ':' .. bottomip[4] .. ':' .. bottomip[5] .. ':' .. bottomip[6] .. ':' .. bottomip[7] .. ':' .. bottomip[8] )
+		]]
+
+	end
+
+	if ip_type == 2 then --ipv4
+
+		local a, b, ip1, ip2, ip3, ip4, mask = input_ip:find('(%d+).(%d+).(%d+).(%d+)/(%d+)')
+		local ip = { tonumber( ip1 ), tonumber( ip2 ), tonumber( ip3 ), tonumber( ip4 ) }
+		local a, b, client_ip1, client_ip2, client_ip3, client_ip4 = client_connecting_ip:find('(%d+).(%d+).(%d+).(%d+)')
+		local client_ip = { tonumber( client_ip1 ), tonumber( client_ip2 ), tonumber( client_ip3 ), tonumber( client_ip4 ) }
+
+		--list masks => wildcard
+		local masks = {
+			[1] = { 127, 255, 255, 255 },
+			[2] = { 63, 255, 255, 255 },
+			[3] = { 31, 255, 255, 255 },
+			[4] = { 15, 255, 255, 255 },
+			[5] = { 7, 255, 255, 255 },
+			[6] = { 3, 255, 255, 255 },
+			[7] = { 1, 255, 255, 255 },
+			[8] = { 0, 255, 255, 255 },
+			[9] = { 0, 127, 255, 255 },
+			[10] = { 0, 63, 255, 255 },
+			[11] = { 0, 31, 255, 255 },
+			[12] = { 0, 15, 255, 255 },
+			[13] = { 0, 7, 255, 255 },
+			[14] = { 0, 3, 255, 255 },
+			[15] = { 0, 1, 255, 255 },
+			[16] = { 0, 0, 255, 255 },
+			[17] = { 0, 0, 127, 255 },
+			[18] = { 0, 0, 63, 255 },
+			[19] = { 0, 0, 31, 255 },
+			[20] = { 0, 0, 15, 255 },
+			[21] = { 0, 0, 7, 255 },
+			[22] = { 0, 0, 3, 255 },
+			[23] = { 0, 0, 1, 255 },
+			[24] = { 0, 0, 0, 255 },
+			[25] = { 0, 0, 0, 127 },
+			[26] = { 0, 0, 0, 63 },
+			[27] = { 0, 0, 0, 31 },
+			[28] = { 0, 0, 0, 15 },
+			[29] = { 0, 0, 0, 7 },
+			[30] = { 0, 0, 0, 3 },
+			[31] = { 0, 0, 0, 1 }
+		}
+
+		--get wildcard
+		local wildcard = masks[tonumber( mask )]
+
+		--number of ips in mask
+		local ipcount = math.pow(2, ( 32 - mask ))
+
+		--network IP (route/bottom IP)
+		local bottomip = {}
+		for k, v in pairs( ip ) do
+			--wildcard = 0?
+			if wildcard[k] == 0 then
+				bottomip[k] = v
+			elseif wildcard[k] == 255 then
+				bottomip[k] = 0
+			else
+				local mod = v % (wildcard[k] + 1)
+				bottomip[k] = v - mod
+			end
+		end
+
+		--use network ip + wildcard to get top ip
+		local topip = {}
+		for k, v in pairs(bottomip) do
+			topip[k] = v + wildcard[k]
+		end
+
+		--is input ip = network ip?
+		local isnetworkip = ( ip[1] == bottomip[1] and ip[2] == bottomip[2] and ip[3] == bottomip[3] and ip[4] == bottomip[4] )
+		local isbroadcastip = ( ip[1] == topip[1] and ip[2] == topip[2] and ip[3] == topip[3] and ip[4] == topip[4] )
+
+		local ip1 = tostring(ip1)
+		local ip2 = tostring(ip2)
+		local ip3 = tostring(ip3)
+		local ip4 = tostring(ip4)
+		local client_ip1 = tostring(client_ip1)
+		local client_ip2 = tostring(client_ip2)
+		local client_ip3 = tostring(client_ip3)
+		local client_ip4 = tostring(client_ip4)
+		local in_range_low_end1 = tostring(bottomip[1])
+		local in_range_low_end2 = tostring(bottomip[2])
+		local in_range_low_end3 = tostring(bottomip[3])
+		local in_range_low_end4 = tostring(bottomip[4])
+		local in_range_top_end1 = tostring(topip[1])
+		local in_range_top_end2 = tostring(topip[2])
+		local in_range_top_end3 = tostring(topip[3])
+		local in_range_top_end4 = tostring(topip[4])
+
+		if tonumber(mask) == 1 then --127, 255, 255, 255
+			if client_ip1 >= in_range_low_end1 --in range low end
+			and client_ip1 <= in_range_top_end1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 2 then --63, 255, 255, 255
+			if client_ip1 >= in_range_low_end1 --in range low end
+			and client_ip1 <= in_range_top_end1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 3 then --31, 255, 255, 255
+			if client_ip1 >= in_range_low_end1 --in range low end
+			and client_ip1 <= in_range_top_end1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 4 then --15, 255, 255, 255
+			if client_ip1 >= in_range_low_end1 --in range low end
+			and client_ip1 <= in_range_top_end1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 5 then --7, 255, 255, 255
+			if client_ip1 >= in_range_low_end1 --in range low end
+			and client_ip1 <= in_range_top_end1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 6 then --3, 255, 255, 255
+			if client_ip1 >= in_range_low_end1 --in range low end
+			and client_ip1 <= in_range_top_end1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 7 then --1, 255, 255, 255
+			if client_ip1 >= in_range_low_end1 --in range low end
+			and client_ip1 <= in_range_top_end1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 8 then --0, 255, 255, 255
+			if ip1 == client_ip1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 9 then --0, 127, 255, 255
+			if ip1 == client_ip1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 10 then --0, 63, 255, 255
+			if ip1 == client_ip1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 11 then --0, 31, 255, 255
+			if ip1 == client_ip1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 12 then --0, 15, 255, 255
+			if ip1 == client_ip1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 13 then --0, 7, 255, 255
+			if ip1 == client_ip1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 14 then --0, 3, 255, 255
+			if ip1 == client_ip1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 15 then --0, 1, 255, 255
+			if ip1 == client_ip1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 16 then --0, 0, 255, 255
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 17 then --0, 0, 127, 255
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 18 then --0, 0, 63, 255
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 19 then --0, 0, 31, 255
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 20 then --0, 0, 15, 255
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 21 then --0, 0, 7, 255
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 22 then --0, 0, 3, 255
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 23 then --0, 0, 1, 255
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 24 then --0, 0, 0, 255
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and ip3 == client_ip3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 25 then --0, 0, 0, 127
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and ip3 == client_ip3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 26 then --0, 0, 0, 63
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and ip3 == client_ip3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 27 then --0, 0, 0, 31
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and ip3 == client_ip3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 28 then --0, 0, 0, 15
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and ip3 == client_ip3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 29 then --0, 0, 0, 7
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and ip3 == client_ip3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 30 then --0, 0, 0, 3
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and ip3 == client_ip3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if tonumber(mask) == 31 then --0, 0, 0, 1
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and ip3 == client_ip3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+
+		--output
+		--[[
+		print()
+		print( '###### INFO ######' )
+		print( 'IP in: ' .. ip[1] .. '.' .. ip[2] .. '.' .. ip[3] .. '.' .. ip[4]  )
+		print( 'Mask in: /' .. mask )
+		print( '=> Mask Wildcard: ' .. wildcard[1] .. '.' .. wildcard[2] .. '.' .. wildcard[3] .. '.' .. wildcard[4]  )
+		print( '=> in IP is network-ip: ' .. tostring( isnetworkip ) )
+		print( '=> in IP is broadcast-ip: ' .. tostring( isbroadcastip ) )
+		print( '\n###### BLOCK ######' )
+		print( '#IP\'s: ' .. ipcount )
+		print( 'Bottom/Network: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] .. '/' .. mask )
+		print( 'Top/Broadcast: ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] )
+		print( 'Subnet Range: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] .. ' - ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] )
+		print( 'Host Range: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] + 1 .. ' - ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] - 1 )
+		]]
+
+	end
+
+end
+--[[
+usage
+if ip_address_in_range("255.255.0.0/17", ngx.var.remote_addr) == true then --ipv4
+	print("IPv4 in range")
+end
+if ip_address_in_range("2a02:0c68::/29", ngx.var.remote_addr) == true then --ipv6
+	print("IPv6 in range")
+end
+]]
+--[[
+End IP range function
+]]
+
 --function to check if ip address is whitelisted to bypass our auth
 local function check_ip_whitelist(ip_table)
 	for key,value in pairs(ip_table) do
 		if value == ip_whitelist_remote_addr then --if our ip address matches with one in the whitelist
 			local output = ngx.exit(ngx.OK) --Go to content
 			return output
+		elseif ip_address_in_range(value, ip_whitelist_remote_addr) == true then
+			local output = ngx.exit(ngx.OK) --Go to content
+			return output
 		end
 	end
-	
+
 	return --no ip was in the whitelist
 end
 check_ip_whitelist(ip_whitelist) --run whitelist check function
@@ -383,19 +1142,68 @@ local function check_ip_blacklist(ip_table)
 		if value == ip_blacklist_remote_addr then
 			local output = ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
 			return output
+		elseif ip_address_in_range(value, ip_blacklist_remote_addr) == true then
+			local output = ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
+			return output
 		end
 	end
-	
+
 	return --no ip was in blacklist
 end
 check_ip_blacklist(ip_blacklist) --run blacklist check function
+
+local function check_user_agent_blacklist(user_agent_table)
+	for key,value in pairs(user_agent_table) do
+		if value[2] == 1 then --case insensative
+			user_agent_blacklist_var = string.lower(user_agent_blacklist_var)
+			value[1] = string.lower(value[1])
+		end
+		if value[2] == 2 then --case sensative
+		end
+		if value[2] == 3 then --regex case sensative
+		end
+		if value[2] == 4 then --regex lower case insensative
+			user_agent_blacklist_var = string.lower(user_agent_blacklist_var)
+		end
+		if string.match(user_agent_blacklist_var, value[1])then
+			local output = ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
+			return output
+		end
+	end
+
+	return --no user agent was in blacklist
+end
+check_user_agent_blacklist(user_agent_blacklist_table) --run user agent blacklist check function
+
+local function check_user_agent_whitelist(user_agent_table)
+	for key,value in pairs(user_agent_table) do
+		if value[2] == 1 then --case insensative
+			user_agent_whitelist_var = string.lower(user_agent_whitelist_var)
+			value[1] = string.lower(value[1])
+		end
+		if value[2] == 2 then --case sensative
+		end
+		if value[2] == 3 then --regex case sensative
+		end
+		if value[2] == 4 then --regex lower case insensative
+			user_agent_whitelist_var = string.lower(user_agent_whitelist_var)
+		end
+		if string.match(user_agent_whitelist_var, value[1]) then
+			local output = ngx.exit(ngx.OK) --Go to content
+			return output
+		end
+	end
+
+	return --no user agent was in whitelist
+end
+check_user_agent_whitelist(user_agent_whitelist_table) --run user agent whitelist check function
 
 --to have better randomization upon encryption
 math.randomseed(os.time())
 
 --function to encrypt strings with our secret key / password provided
 local function calculate_signature(str)
-	return ngx.encode_base64(ngx.hmac_sha1(secret, ngx.md5(str)))
+	return ngx.encode_base64(ngx.hmac_sha1(secret, str))
 	:gsub("[+/=]", {["+"] = "-", ["/"] = "_", ["="] = ""}) --Replace + with - and replace / with _ and remove =
 end
 --calculate_signature(str)
@@ -516,7 +1324,7 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		if tonumber(encrypt_type) == 2 then
 			hexadecimal_x = "\\x" .. sep(hex_output, "%x%x", "\\x") --hex output insert a char every 2 chars %x%x
 		end
-		
+
 		--TODO: Fix this.
 		--num_encrypt = "3" --test var
 		if tonumber(num_encrypt) ~= nil then --If number of times extra to rencrypt is set
@@ -629,7 +1437,6 @@ end
 if expire_time > 31536000 then --greater than one year
 	currentdate = os.date("%z",os.time()-24*60*60) --Current time zone
 end
---ngx.log(ngx.ERR, "Current date output: "..currentdate)
 
 local scheme = ngx.var.scheme --scheme is HTTP or HTTPS
 local host = ngx.var.host --host is website domain name
@@ -728,8 +1535,6 @@ local function grant_access()
 	local cookie_name_encrypted_start_and_end_date_name = "cookie_" .. cookie_name_encrypted_start_and_end_date
 	local cookie_name_encrypted_start_and_end_date_value = ngx.var[cookie_name_encrypted_start_and_end_date_name] or ""
 
-	--ngx.log(ngx.ERR, "cookie name " .. cookie_name .. " | cookie value is "..cookie_value)
-
 	if cookie_value ~= answer then --if cookie value not equal to or matching our expected cookie they should be giving us
 		return --return to refresh the page so it tries again
 	end
@@ -764,7 +1569,6 @@ local function grant_access()
 			ngx.status = expected_header_status
 			ngx.exit(ngx.HTTP_NO_CONTENT)
 		end
-		--ngx.log(ngx.ERR, "x-auth-answer result | "..req_headers[x_auth_header_name]) --output x-auth-answer to log
 		if req_headers[x_auth_header_name] == JavascriptPuzzleVars_answer then --if the answer header provided by the browser Javascript matches what our Javascript puzzle answer should be
 			set_cookie1 = challenge.."="..cookie_value.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie incase javascript setting this cookies time stamp correctly has issues
 			set_cookie2 = cookie_name_start_date.."="..currenttime.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start date cookie
@@ -785,17 +1589,12 @@ local function grant_access()
 		end
 	end
 
-	--ngx.log(ngx.ERR, "cookie start date | "..cookie_name_start_date_value) --log user provided cookie start date
-	--ngx.log(ngx.ERR, "cookie end date | "..cookie_name_end_date_value) --log user provided cookie end date
-	--ngx.log(ngx.ERR, "cookie encrypted combination value | "..cookie_name_encrypted_start_and_end_date_value) --log user provided cookie combined encrypted value
-
 	if cookie_name_start_date_value ~= nil and cookie_name_end_date_value ~= nil and cookie_name_encrypted_start_and_end_date_value ~= nil then --if all our cookies exist
 		local cookie_name_end_date_value_unix = tonumber(cookie_name_end_date_value) or nil --convert our cookie end date provided by the user into a unix time stamp
 		if cookie_name_end_date_value_unix == nil or cookie_name_end_date_value_unix == "" then --if our cookie end date date in unix does not exist
 			return --return to refresh the page so it tries again
 		end
 		if cookie_name_end_date_value_unix <= currenttime then --if our cookie end date is less than or equal to the current date meaning the users authentication time expired
-			--ngx.log(ngx.ERR, "cookie less than current time : " .. cookie_name_end_date_value_unix .. " | " .. currenttime ) --log output the users provided cookie time
 			return --return to refresh the page so it tries again
 		end
 		if cookie_name_encrypted_start_and_end_date_value ~= calculate_signature(remote_addr .. cookie_name_start_date_value_unix .. cookie_name_end_date_value_unix) then --if users authentication encrypted cookie not equal to or matching our expected cookie they should be giving us
@@ -803,7 +1602,7 @@ local function grant_access()
 		end
 	end
 	--else all checks passed bypass our firewall and show page content
-	
+
 	local output = ngx.exit(ngx.OK) --Go to content
 	return output
 end
