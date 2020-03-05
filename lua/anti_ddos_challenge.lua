@@ -1221,11 +1221,12 @@ local function stringrandom(length)
 	if length > 0 then
 		local output = stringrandom(length - 1) .. charset[math.random(1, #charset)]
 		local duplicate_found = 0 --mark if we find a duplicate or not
-		for _, value in next, stringrandom_table do --for each value in our generated var table
+		for key, value in pairs(stringrandom_table) do --for each value in our generated var table
 			if value == output then --if a value in our table matches our generated var
 				duplicate_found = 1 --mark as duplicate var
 				output = "_" .. output --append an underscore to the duplicate var
 				table.insert(stringrandom_table , output) --insert to the table
+				break --break out of for each loop since we found a duplicate
 			end
 		end
 		if duplicate_found == 0 then --if no duplicate found
@@ -1272,7 +1273,7 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 	local output = "" --Empty var
 
 	if type == 0 then
-		type = math.random(4, 4) --Random encryption
+		type = math.random(3, 5) --Random encryption
 	end
 
 	if type == 1 or type == nil then --No encryption
@@ -1381,9 +1382,10 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		local r = math.random(1, l) --randomize where to split string
 		local chunks = {} --create our chunks table for string storage
 		local chunks_order = {} --create our chunks table for string storage that stores the value only
+		local random_var = nil --create our random string variable to use
 
 		while i <= l do
-			local random_var = stringrandom(stringrandom_length) --create a random variable name to use
+			random_var = stringrandom(stringrandom_length) --create a random variable name to use
 			--table.insert(chunks_order, "decodeURIComponent(escape(window.atob(_" .. random_var .. ")))")
 			table.insert(chunks_order, "_" .. random_var .. "") --insert the value into our ordered table
 			table.insert(chunks, 'var _' .. random_var .. '="' .. base64_javascript:sub(i,i+r).. '";') --insert our value into our table we will scramble
