@@ -1316,14 +1316,14 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		local encrypt_type_origin = encrypt_type --Store var passed to function in local var
 
 		if tonumber(encrypt_type) == nil or tonumber(encrypt_type) <= 0 then
-			encrypt_type = math.random(1, 2) --Random encryption
+			encrypt_type = math.random(2, 2) --Random encryption
 		end
 		--I was inspired by http://www.hightools.net/javascript-encrypter.php so i built it myself
 		if tonumber(encrypt_type) == 1 then
 			hexadecimal_x = "%" .. sep(hex_output, "%x%x", "%") --hex output insert a char every 2 chars %x%x
 		end
 		if tonumber(encrypt_type) == 2 then
-			hexadecimal_x = "\\x" .. sep(hex_output, "%x%x", "\\x") --hex output insert a char every 2 chars %x%x
+			hexadecimal_x = string.char(92) .. "x" .. sep(hex_output, "%x%x", string.char(92) .. "x") --hex output insert a char every 2 chars %x%x
 		end
 
 		--TODO: Fix this.
