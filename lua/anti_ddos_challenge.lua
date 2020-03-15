@@ -39,8 +39,15 @@ local AntiDDoSAuth = AntiDDoSAuth or {} --Define our local Table to easly change
 
 --[[
 Shared memory cache
+
+If you use this make sure you add this to your nginx configuration
+
+http { #inside http block
+     lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone
+}
+
 ]]
---AntiDDoSAuth.shared_memory = ngx.shared.antiddos_auth_memory_space --What ever memory space your server has set / defined for this to use
+--AntiDDoSAuth.shared_memory = ngx.shared.antiddos --What ever memory space your server has set / defined for this to use
 
 --[[
 This is a password that encrypts our puzzle and cookies unique to your sites and servers you should change this from the default.
@@ -256,9 +263,9 @@ Enable/disable script this feature allows you to turn on or off this script so y
 
 This way you don't have to remove access_by_lua_file anti_ddos_challenge.lua; to stop protecting your websites :) you can set up your nginx config and use this feature to enable or disable protection
 
-1 = enabled
-2 = disabled
-3 = custom
+1 = enabled (Enabled Anti-DDoS authentication on all sites and paths)
+2 = disabled (Won't show anywhere)
+3 = custom (Will enable script on sites / URL paths and disable it on those specified)
 ]]
 local master_switch = 1 --enabled by default
 
@@ -266,13 +273,41 @@ local master_switch = 1 --enabled by default
 This feature is if you set "master_switch = 3" what this does is if you host multiple websites / services of one server / machine you can have this script disabled for all those websites / domain names other than those you specifiy.
 For example you set master_switch to 3 and specifiy ".onion" then all Tor websites you host on your server will be protected by this script while the rest of the websites you host will not be authenticated. (pretty clever huh)
 You can also specify full domain names like "github.com" to protect specific domains you can add as many as you like.
+
+1 = run auth checks
+2 = bypass auth checks
 ]]
 local master_switch_custom_hosts = {
-".onion", --authenticate Tor websites
-"github.com", --authenticate github
---"localhost", --authenticate localhost
---"127.0.0.1", --authenticate localhost
---".com", --authenticate .com domains
+	{
+		1, --run auth checks
+		"localhost/ddos.*", --authenticate Tor websites
+	},
+	{
+		1, --run auth checks
+		".onion/.*", --authenticate Tor websites
+	},
+	{
+		1, --run auth checks
+		"github.com/.*", --authenticate github
+	},
+	--[[
+	{
+		1, --run auth checks
+		"localhost",
+	}, --authenticate localhost
+	]]
+	--[[
+	{
+		1, --run auth checks
+		"127.0.0.1",
+	}, --authenticate localhost
+	]]
+	--[[
+	{
+		1, --run auth checks
+		".com",
+	}, --authenticate .com domains
+	]]
 }
 
 --[[
@@ -298,10 +333,10 @@ local dynamic_javascript_vars_length_end = 10 --for dynamic randomize min value 
 --[[
 User-Agent Blacklist
 If you want to block access to bad bots / specific user-agents you can use this.
-1 case insensative
-2 case sensative
-3 regex case sensative
-4 regex lower case insensative
+1 = case insensative
+2 = case sensative
+3 = regex case sensative
+4 = regex lower case insensative
 
 I added some examples of bad bots to block access to.
 ]]
@@ -397,6 +432,82 @@ local user_agent_whitelist_table = {
 ]]
 }
 
+--[[
+Authorization Required Box Restricted Access Field
+This will NOT use Javascript to authenticate users trying to access your site instead it will use a username and password that can be static or dynamic to grant users access
+0 = Disabled
+1 = Enabled Browser Sessions (You will see the box again when you restart browser)
+2 = Enabled Cookie session (You won't see the box again until the expire_time you set passes)
+]]
+local authorization = 0
+
+--[[
+authorization domains / file paths to protect / restrict access to
+
+1 = Allow showing auth box on matching path(s)
+2 = Disallow Showing box matching path(s)
+
+Regex matching file path (.*) will match any
+
+If we should show the client seeing the box what login they can use (Tor websites do this what is why i made this a feature)
+0 = Don't display login details
+1 = Display login details
+]]
+local authorization_paths = {
+	{
+		1, --show auth box on this path
+		"localhost/ddos.*", --regex paths i recommend having the domain in there too
+		1, --display username/password
+	},
+	{
+		1, --show auth box on this path
+		".onion/administrator.*", --regex paths i recommend having the domain in there too
+		0, --do NOT display username/password
+	},
+	{
+		1, --show auth box on this path
+		".com/admin.*", --regex paths i recommend having the domain in there too
+		0, --do NOT display username/password
+	},
+	--[[
+	{ --Show on All sites and paths
+		1, --show auth box on this path
+		".*", --match all sites/domains paths
+		1, --display username/password
+	},
+	]]
+}
+
+--[[
+Static or Dynamic username and password for Authorization field
+0 = Static
+1 = Dynamic
+]]
+local authorization_dynamic = 0 --Static will use list
+local authorization_dynamic_length = 5 --max length of our dynamic generated username and password
+
+--[[
+Auth box Message
+]]
+local authorization_message = "Restricted Area " --Message to be displayed with box
+local authorization_username_message = "Your username is :" --Message to show username
+local authorization_password_message = "Your password is :" --Message to show password
+
+local authorization_logins = { --static password list if you use this i recommend setting authorization_display_user_details = 0 unless you want to show users the login details for sensative areas ?
+	{
+		"userid1", --username
+		"pass1", --password
+	},
+	{
+		"userid2", --username
+		"pass2", --password
+	},
+}
+
+--[[
+Authorization Box cookie name for sessions
+]]
+local authorization_cookie = challenge.."_authorization" --our authorization cookie
 
 --[[
 End Configuration
@@ -414,30 +525,6 @@ This is where things get very complex. ;)
 --[[
 Begin Required Functions
 ]]
-
---master switch check
-local function check_master_switch()
-	if master_switch == 2 then --script disabled
-		local output = ngx.exit(ngx.OK) --Go to content
-		return output
-	end
-	if master_switch == 3 then --custom host selection
-		local allow_site = 1 --allow sites by default
-		for k,v in ipairs(master_switch_custom_hosts) do --for each host in our table
-			if string.match(string.lower(ngx.var.host), v) then --if our host matches one in the table
-				allow_site = 2 --disallow direct access
-				break --break out of the for each loop pointless to keep searching the rest since we matched our host
-			end
-		end
-		if allow_site == 1 then --checks passed site allowed grant direct access
-			local output = ngx.exit(ngx.OK) --Go to content
-			return output
-		else --allow_site was 2 to disallow direct access we matched a host to protect
-			return --carry on script functions to display auth page
-		end
-	end
-end
-check_master_switch()
 
 --automatically figure out the IP address of the connecting Client
 if remote_addr == "auto" then
@@ -1503,6 +1590,144 @@ else --tor users should be blocked
 end
 --[[
 End Tor detection
+]]
+
+--[[
+Authorization / Restricted Access Area Box
+]]
+if encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to be encrypted
+	authorization_cookie = calculate_signature(remote_addr .. authorization_cookie .. currentdate) --encrypt our auth box session cookie name
+end
+
+local function check_authorization(authorization, authorization_dynamic)
+	if authorization == 0 or nil then --auth box disabled
+		return
+	end
+
+	local expected_cookie_value = nil
+	local remote_addr = tor_remote_addr --set for compatibility with Tor Clients
+	if authorization == 2 then --Cookie sessions
+		local cookie_name = "cookie_" .. authorization_cookie
+		local cookie_value = ngx.var[cookie_name] or ""
+		expected_cookie_value = calculate_signature(remote_addr .. "authenticate" .. currentdate) --encrypt our expected cookie value
+		if cookie_value == expected_cookie_value then --cookie value client gave us matches what we expect it to be
+			ngx.exit(ngx.OK) --Go to content
+		end
+	end
+
+	local allow_site = nil
+	local authorization_display_user_details = nil
+	for k,v in ipairs(authorization_paths) do --for each host in our table
+		if string.match(URL, v[2]) then --if our host matches one in the table
+			if v[1] == 1 then --Showbox
+				allow_site = 1 --showbox
+			end
+			if v[1] == 2 then --Don't show box
+				allow_site = 2 --don't show box
+			end
+			authorization_display_user_details = v[3] --to show our username/password or to not display it
+			break --break out of the for each loop pointless to keep searching the rest since we matched our host
+		end
+	end
+	if allow_site == 1 then --checks passed site allowed grant direct access
+		--showbox
+	else --allow_site was 2
+		return --carry on script functions to display auth page
+	end
+
+	local allow_access = nil
+	local authorization_username = nil
+	local authorization_password = nil
+
+	local req_headers = ngx.req.get_headers() --get all request headers
+
+	if authorization_dynamic == 0 then --static
+		for key,value in pairs(authorization_logins) do --for each login
+			authorization_username = value[1] --username
+			authorization_password = value[2] --password
+			local base64_expected = authorization_username .. ":" .. authorization_password --convert to browser format
+			base64_expected = ngx.encode_base64(base64_expected) --base64 encode like browser format
+			local authroization_user_pass = "Basic " .. base64_expected --append Basic to start like browser header does
+			if req_headers["Authorization"] == authroization_user_pass then --if the details match what we expect
+				if authorization == 2 then --Cookie sessions
+					set_cookie1 = authorization_cookie.."="..expected_cookie_value.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";"
+					set_cookies = {set_cookie1}
+					ngx.header["Set-Cookie"] = set_cookies --send client a cookie for their session to be valid
+				end
+				allow_access = 1 --grant access
+				break --break out foreach loop since our user and pass was correct
+			end
+		end
+	end
+	if authorization_dynamic == 1 then --dynamic
+		authorization_username = calculate_signature(remote_addr .. "username" .. currentdate) --encrypt username
+		authorization_password = calculate_signature(remote_addr .. "password" .. currentdate) --encrypt password
+		authorization_username = string.sub(authorization_username, 1, authorization_dynamic_length) --change username to set length
+		authorization_password = string.sub(authorization_password, 1, authorization_dynamic_length) --change password to set length
+
+		local base64_expected = authorization_username .. ":" .. authorization_password --convert to browser format
+		base64_expected = ngx.encode_base64(base64_expected) --base64 encode like browser format
+		local authroization_user_pass = "Basic " .. base64_expected --append Basic to start like browser header does
+		if req_headers["Authorization"] == authroization_user_pass then --if the details match what we expect
+			if authorization == 2 then --Cookie sessions
+				set_cookie1 = authorization_cookie.."="..expected_cookie_value.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";"
+				set_cookies = {set_cookie1}
+				ngx.header["Set-Cookie"] = set_cookies --send client a cookie for their session to be valid
+			end
+			allow_access = 1 --grant access
+		end
+	end
+
+	if allow_access == 1 then
+		ngx.exit(ngx.OK) --Go to content
+	else
+		ngx.status = ngx.HTTP_UNAUTHORIZED --send client unathorized header
+		if authorization_display_user_details == 0 then
+			ngx.header['WWW-Authenticate'] = 'Basic realm="' .. authorization_message .. '", charset="' .. default_charset .. '"' --send client a box to input required username and password fields
+		else
+			ngx.header['WWW-Authenticate'] = 'Basic realm="' .. authorization_message .. ' ' .. authorization_username_message .. ' ' .. authorization_username .. ' ' .. authorization_password_message .. ' ' .. authorization_password .. '", charset="' .. default_charset .. '"' --send client a box to input required username and password fields
+		end
+		ngx.exit(ngx.HTTP_UNAUTHORIZED) --deny access any further
+	end
+end
+check_authorization(authorization, authorization_dynamic)
+--[[
+Authorization / Restricted Access Area Box
+]]
+
+--[[
+master switch
+]]
+--master switch check
+local function check_master_switch()
+	if master_switch == 2 then --script disabled
+		local output = ngx.exit(ngx.OK) --Go to content
+		return output
+	end
+	if master_switch == 3 then --custom host selection
+		local allow_site = nil
+		for k,v in ipairs(master_switch_custom_hosts) do --for each host in our table
+			if string.match(URL, v[2]) then --if our host matches one in the table
+				if v[1] == 1 then --run auth
+					allow_site = 2 --run auth checks
+				end
+				if v[1] == 2 then --bypass
+					allow_site = 1 --bypass auth achecks
+				end
+				break --break out of the for each loop pointless to keep searching the rest since we matched our host
+			end
+		end
+		if allow_site == 1 then --checks passed site allowed grant direct access
+			local output = ngx.exit(ngx.OK) --Go to content
+			return output
+		else --allow_site was 2 to disallow direct access we matched a host to protect
+			return --carry on script functions to display auth page
+		end
+	end
+end
+check_master_switch()
+--[[
+master switch
 ]]
 
 local answer = calculate_signature(remote_addr) --create our encrypted unique identification for the user visiting the website.
