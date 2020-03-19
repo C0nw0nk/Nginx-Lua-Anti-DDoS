@@ -209,7 +209,7 @@ For the worst Botnet ASN IP's see here : https://www.spamhaus.org/statistics/bot
 ]]
 local ip_blacklist_remote_addr = "auto" --Automatically get the Clients IP address
 local ip_blacklist = {
---"127.0.0.1", --localhost
+--"127.0.0.1/30", --localhost
 --"192.168.0.1", --localhost
 --ASN AS16276 OVH IP ranges Block all OVH Servers
 "107.189.64.0/18","91.90.92.0/24","198.245.48.0/20","185.243.16.0/24","217.182.0.0/16","51.79.128.0/17","103.5.12.0/22","198.27.64.0/18","46.105.200.0/24","51.79.0.0/17","2607:5300::/32","144.217.0.0/16","46.244.32.0/20","46.105.201.0/24","46.105.198.0/24","54.39.0.0/16","46.105.203.0/24","51.81.128.0/17","46.105.0.0/16","51.178.0.0/16","167.114.128.0/18","91.90.88.0/24","8.7.244.0/24","139.99.128.0/17","144.2.32.0/19","51.38.0.0/16","91.90.94.0/24","8.33.128.0/21","8.21.41.0/24","216.32.194.0/24","51.89.0.0/16","5.196.0.0/16","195.110.30.0/23","51.195.0.0/16","2001:41d0::/32","91.90.93.0/24","8.29.224.0/24","167.114.192.0/19","8.24.8.0/21","91.90.90.0/24","167.114.0.0/17","91.121.0.0/16","51.91.0.0/16","139.99.0.0/17","178.32.0.0/15","8.26.94.0/24","51.77.0.0/16","91.90.89.0/24","185.228.97.0/24","151.80.0.0/16","213.251.128.0/18","149.56.0.0/16","37.59.0.0/16","213.186.32.0/19","2402:1f00::/32","193.70.0.0/17","142.44.128.0/17","51.161.0.0/17","54.38.0.0/16","185.228.98.0/24","91.90.88.0/21","216.32.220.0/24","92.222.0.0/16","147.135.128.0/17","142.4.192.0/19","5.135.0.0/16","192.95.0.0/18","46.105.202.0/24","185.12.32.0/23","145.239.0.0/16","213.32.0.0/17","37.187.0.0/16","37.60.48.0/21","198.100.144.0/20","149.202.0.0/16","94.23.0.0/16","167.114.224.0/19","193.109.63.0/24","51.254.0.0/15","91.90.91.0/24","216.32.213.0/24","216.32.218.0/24","8.33.96.0/21","5.39.0.0/17","185.228.96.0/24","164.132.0.0/16","158.69.0.0/16","46.105.199.0/24","8.30.208.0/21","54.37.0.0/16","46.105.204.0/24","2402:1f00:8100::/40","87.98.128.0/17","51.68.0.0/16","37.60.56.0/21","8.20.110.0/24","51.83.0.0/16","185.45.160.0/22","216.32.192.0/24","198.50.128.0/17","205.218.49.0/24","216.32.216.0/24","51.75.0.0/16","195.246.232.0/23","91.90.95.0/24","51.81.0.0/17","2402:1f00:8000::/40","23.92.224.0/19","192.240.152.0/21","91.134.0.0/16","92.246.224.0/19","176.31.0.0/16","79.137.0.0/17","193.104.19.0/24","137.74.0.0/16","192.99.0.0/16","198.27.92.0/24","147.135.0.0/17","8.33.136.0/24","2604:2dc0::/32","8.33.137.0/24","188.165.0.0/16","66.70.128.0/17","8.18.172.0/24","185.228.99.0/24","54.36.0.0/16","8.18.128.0/24",
@@ -526,6 +526,30 @@ This is where things get very complex. ;)
 Begin Required Functions
 ]]
 
+--[[
+Add to your nginx config http://nginx.org/en/docs/ngx_core_module.html#pcre_jit
+
+pcre_jit on;
+
+The options I enable to make regex cache for performance gains.
+j = enable PCRE JIT compilation
+o = compile-once mode (similar to Perl's /o modifier), to enable the worker-process-level compiled-regex cache
+]]
+local ngx_re_options = "jo" --boost regex performance by caching
+
+--[[
+localize all standard Lua and Spring API functions I use for better performance.
+]]
+local os = os
+local string = string
+local math = math
+local table = table
+local tonumber = tonumber
+local tostring = tostring
+--[[
+End localization
+]]
+
 --automatically figure out the IP address of the connecting Client
 if remote_addr == "auto" then
 	if ngx.var.http_cf_connecting_ip ~= nil then
@@ -566,7 +590,6 @@ end
 Start IP range function
 ]]
 local function ip_address_in_range(input_ip, client_connecting_ip)
-
 	if string.match(input_ip, "/") then --input ip is a subnet
 		--do nothing
 	else
@@ -593,12 +616,15 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		local function explode(string, divide)
 			if divide == '' then return false end
 			local pos, arr = 0, {}
+			local arr_table_length = 1
 			--for each divider found
 			for st, sp in function() return string.find(string, divide, pos, true) end do
-				table.insert(arr, string.sub(string, pos, st - 1 )) --attach chars left of current divider
+				arr[arr_table_length] = string.sub(string, pos, st - 1 ) --attach chars left of current divider
+				arr_table_length=arr_table_length+1
 				pos = sp + 1 --jump past current divider
 			end
-				table.insert(arr, string.sub(string, pos)) -- Attach chars right of last divider
+				arr[arr_table_length] = string.sub(string, pos) -- Attach chars right of last divider
+				arr_table_length=arr_table_length+1
 			return arr
 		end
 
@@ -613,7 +639,10 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 
 		--now to build an expanded ip
 		local zeroblock
-		for k, v in pairs(ipbits) do
+		local ipbits_length = #ipbits
+		for i=1,ipbits_length do
+			local k = i
+			local v = ipbits[i]
 			--length 0? we're at the :: bit
 			if v:len() == 0 then
 				zeroblock = k
@@ -633,12 +662,14 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 
 			for i = 1, padding do
 				table.insert(ipbits, zeroblock, '0000')
+				--ipbits[zeroblock] = '0000'
+				--ipbits_length=ipbits_length+1
 			end
 		end
 		--[[
 		End Input IP
 		]]
-		
+
 		--[[
 		Client IP
 		]]
@@ -650,7 +681,10 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 
 		--now to build an expanded ip
 		local zeroblock_client
-		for k, v in pairs(ipbits_client) do
+		local ipbits_client_length = #ipbits_client
+		for i=1,ipbits_client_length do
+			local k = i
+			local v = ipbits_client[i]
 			--length 0? we're at the :: bit
 			if v:len() == 0 then
 				zeroblock_client = k
@@ -670,6 +704,8 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 
 			for i = 1, padding do
 				table.insert(ipbits_client, zeroblock_client, '0000')
+				--ipbits_client[zeroblock_client] = '0000'
+				--ipbits_client_length=ipbits_client_length+1
 			end
 		end
 		--[[
@@ -677,10 +713,10 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		]]
 
 		local expanded_ip_count = ipbits[1] .. ':' .. ipbits[2] .. ':' .. ipbits[3] .. ':' .. ipbits[4] .. ':' .. ipbits[5] .. ':' .. ipbits[6] .. ':' .. ipbits[7] .. ':' .. ipbits[8]
-		expanded_ip_count = string.gsub(expanded_ip_count, ":", "")
+		expanded_ip_count = ngx.re.gsub(expanded_ip_count, ":", "", ngx_re_options)
 
 		local client_connecting_ip_count = ipbits_client[1] .. ':' .. ipbits_client[2] .. ':' .. ipbits_client[3] .. ':' .. ipbits_client[4] .. ':' .. ipbits_client[5] .. ':' .. ipbits_client[6] .. ':' .. ipbits_client[7] .. ':' .. ipbits_client[8]
-		client_connecting_ip_count = string.gsub(client_connecting_ip_count, ":", "")
+		client_connecting_ip_count = ngx.re.gsub(client_connecting_ip_count, ":", "", ngx_re_options)
 
 		--generate wildcard from mask
 		local indent = mask / 4
@@ -688,52 +724,63 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		expanded_ip_count = string.sub(expanded_ip_count, 0, indent)
 		client_connecting_ip_count = string.sub(client_connecting_ip_count, 0, indent)
 
-		local client_connecting_ip_expanded = client_connecting_ip_count:gsub('....','%1:'):gsub(':$','')
-		local expanded_ip = expanded_ip_count:gsub('....','%1:'):gsub(':$','')
+		local client_connecting_ip_expanded = ngx.re.gsub(client_connecting_ip_count, "....", "%1:", ngx_re_options)
+		client_connecting_ip_expanded = ngx.re.gsub(client_connecting_ip_count, ":$", "", ngx_re_options)
+		local expanded_ip = ngx.re.gsub(expanded_ip_count, "....", "%1:", ngx_re_options)
+		expanded_ip = ngx.re.gsub(expanded_ip_count, ":$", "", ngx_re_options)
 
 		local wildcardbits = {}
+		local wildcardbits_table_length = 1
 		for i = 0, indent - 1 do
-			table.insert(wildcardbits, 'f')
+			wildcardbits[wildcardbits_table_length] = 'f'
+			wildcardbits_table_length=wildcardbits_table_length+1
 		end
 		for i = 0, 31 - indent do
-			table.insert(wildcardbits, '0')
+			wildcardbits[wildcardbits_table_length] = '0'
+			wildcardbits_table_length=wildcardbits_table_length+1
 		end
 		--convert into 8 string array each w/ 4 chars
 		local count, index, wildcard = 1, 1, {}
-		for k, v in pairs(wildcardbits) do
+		local wildcardbits_length = #wildcardbits
+		for i=1,wildcardbits_length do
+			local k = i
+			local v = wildcardbits[i]
 			if count > 4 then
 				count = 1
 				index = index + 1
 			end
 			if not wildcard[index] then wildcard[index] = '' end
-				wildcard[index] = wildcard[index] .. v
-				count = count + 1
-			end
+			wildcard[index] = wildcard[index] .. v
+			count = count + 1
+		end
 
 			--loop each letter in each ipbit group
 			local topip = {}
 			local bottomip = {}
-			for k, v in pairs(ipbits) do
-			local topbit = ''
-			local bottombit = ''
-			for i = 1, 4 do
-				local wild = wildcard[k]:sub(i, i)
-				local norm = v:sub(i, i)
-				if wild == 'f' then
-					topbit = topbit .. norm
-					bottombit = bottombit .. norm
-				else
-					topbit = topbit .. '0'
-					bottombit = bottombit .. 'f'
+			local ipbits_length = #ipbits
+			for i=1,ipbits_length do
+				local k = i
+				local v = ipbits[i]
+				local topbit = ''
+				local bottombit = ''
+				for i = 1, 4 do
+					local wild = wildcard[k]:sub(i, i)
+					local norm = v:sub(i, i)
+					if wild == 'f' then
+						topbit = topbit .. norm
+						bottombit = bottombit .. norm
+					else
+						topbit = topbit .. '0'
+						bottombit = bottombit .. 'f'
+					end
 				end
+				topip[k] = topbit
+				bottomip[k] = bottombit
 			end
-			topip[k] = topbit
-			bottomip[k] = bottombit
-		end
 
 		--count ips in mask
 		local ipcount = math.pow(2, 128 - mask)
-		
+
 		if expanded_ip == client_connecting_ip_expanded then
 			--print("ipv6 is in range")
 			return true
@@ -811,7 +858,10 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 
 		--network IP (route/bottom IP)
 		local bottomip = {}
-		for k, v in pairs( ip ) do
+		local ip_length = #ip
+		for i=1,ip_length do
+			local k = i
+			local v = ip[i]
 			--wildcard = 0?
 			if wildcard[k] == 0 then
 				bottomip[k] = v
@@ -825,7 +875,10 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 
 		--use network ip + wildcard to get top ip
 		local topip = {}
-		for k, v in pairs(bottomip) do
+		local bottomip_length = #bottomip
+		for i=1,bottomip_length do
+			local k = i
+			local v = bottomip[i]
 			topip[k] = v + wildcard[k]
 		end
 
@@ -1210,7 +1263,9 @@ End IP range function
 
 --function to check if ip address is whitelisted to bypass our auth
 local function check_ip_whitelist(ip_table)
-	for key,value in pairs(ip_table) do
+	local ip_table_length = #ip_table
+	for i=1,ip_table_length do
+		local value = ip_table[i]
 		if value == ip_whitelist_remote_addr then --if our ip address matches with one in the whitelist
 			local output = ngx.exit(ngx.OK) --Go to content
 			return output
@@ -1225,7 +1280,9 @@ end
 check_ip_whitelist(ip_whitelist) --run whitelist check function
 
 local function check_ip_blacklist(ip_table)
-	for key,value in pairs(ip_table) do
+	local ip_table_length = #ip_table
+	for i=1,ip_table_length do
+		local value = ip_table[i]
 		if value == ip_blacklist_remote_addr then
 			local output = ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
 			return output
@@ -1240,7 +1297,9 @@ end
 check_ip_blacklist(ip_blacklist) --run blacklist check function
 
 local function check_user_agent_blacklist(user_agent_table)
-	for key,value in pairs(user_agent_table) do
+	local user_agent_table_length = #user_agent_table
+	for i=1,user_agent_table_length do
+		local value = user_agent_table[i]
 		if value[2] == 1 then --case insensative
 			user_agent_blacklist_var = string.lower(user_agent_blacklist_var)
 			value[1] = string.lower(value[1])
@@ -1263,7 +1322,9 @@ end
 check_user_agent_blacklist(user_agent_blacklist_table) --run user agent blacklist check function
 
 local function check_user_agent_whitelist(user_agent_table)
-	for key,value in pairs(user_agent_table) do
+	local user_agent_table_length = #user_agent_table
+	for i=1,user_agent_table_length do
+		local value = user_agent_table[i]
 		if value[2] == 1 then --case insensative
 			user_agent_whitelist_var = string.lower(user_agent_whitelist_var)
 			value[1] = string.lower(value[1])
@@ -1290,34 +1351,56 @@ math.randomseed(os.time())
 
 --function to encrypt strings with our secret key / password provided
 local function calculate_signature(str)
-	return ngx.encode_base64(ngx.hmac_sha1(secret, str))
-	:gsub("[+/=]", {["+"] = "-", ["/"] = "_", ["="] = ""}) --Replace + with - and replace / with _ and remove =
+	local output = ngx.encode_base64(ngx.hmac_sha1(secret, str))
+	output = ngx.re.gsub(output, "[+]", "-", ngx_re_options) --Replace + with -
+	output = ngx.re.gsub(output, "[/]", "_", ngx_re_options) --Replace / with _
+	output = ngx.re.gsub(output, "[=]", "", ngx_re_options) --Remove =
+	return output
 end
 --calculate_signature(str)
 
 --generate random strings on the fly
 --qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890
 local charset = {}
-for i = 48,  57 do table.insert(charset, string.char(i)) end --0-9 numeric
---for i = 65,  90 do table.insert(charset, string.char(i)) end --A-Z uppercase
---for i = 97, 122 do table.insert(charset, string.char(i)) end --a-z lowercase
-table.insert(charset, string.char(95)) --insert number 95 underscore
+local charset_table_length = 1
+for i = 48,  57 do
+charset[charset_table_length] = string.char(i)
+charset_table_length=charset_table_length+1
+end --0-9 numeric
+--[[
+for i = 65,  90 do
+charset[charset_table_length] = string.char(i)
+charset_table_length=charset_table_length+1
+end --A-Z uppercase
+]]
+--[[
+for i = 97, 122 do
+charset[charset_table_length] = string.char(i)
+charset_table_length=charset_table_length+1
+end --a-z lowercase
+]]
+charset[charset_table_length] = string.char(95) --insert number 95 underscore
+charset_table_length=charset_table_length+1
 local stringrandom_table = {} --create table to store our generated vars to avoid duplicates
+local stringrandom_table_new_length = 1
 local function stringrandom(length)
 	--math.randomseed(os.time())
 	if length > 0 then
 		local output = stringrandom(length - 1) .. charset[math.random(1, #charset)]
 		local duplicate_found = 0 --mark if we find a duplicate or not
-		for key, value in pairs(stringrandom_table) do --for each value in our generated var table
-			if value == output then --if a value in our table matches our generated var
+		local stringrandom_table_length = #stringrandom_table
+		for i=1,stringrandom_table_length do --for each value in our generated var table
+			if stringrandom_table[i] == output then --if a value in our table matches our generated var
 				duplicate_found = 1 --mark as duplicate var
 				output = "_" .. output --append an underscore to the duplicate var
-				table.insert(stringrandom_table , output) --insert to the table
+				stringrandom_table[stringrandom_table_new_length] = output --insert to the table
+				stringrandom_table_new_length=stringrandom_table_new_length+1
 				break --break out of for each loop since we found a duplicate
 			end
 		end
 		if duplicate_found == 0 then --if no duplicate found
-			table.insert(stringrandom_table , output) --insert the output to our table
+			stringrandom_table[stringrandom_table_new_length] = output --insert the output to our table
+			stringrandom_table_new_length=stringrandom_table_new_length+1
 		end
 		return output
 	else
@@ -1335,24 +1418,26 @@ end
 
 --shuffle table function
 function shuffle(tbl)
-  for i = #tbl, 2, -1 do
-    local j = math.random(i)
-    tbl[i], tbl[j] = tbl[j], tbl[i]
-  end
-  return tbl
+	local tbl_length = #tbl
+	for i = tbl_length, 2, -1 do
+		local j = math.random(i)
+		tbl[i], tbl[j] = tbl[j], tbl[i]
+	end
+	return tbl
 end
 
 --for my javascript Hex output
 local function sep(str, patt, re)
-    local rstr = str:gsub(patt, "%1%" .. re)
-
-    return rstr:sub(1, #rstr - #re)
+	local rstr = str:gsub(patt, "%1%" .. re)
+	--local rstr = ngx.re.gsub(str, patt, "%1%" .. re, ngx_re_options) --this has a major issue no idea why need to investigate more
+	return rstr:sub(1, #rstr - #re)
 end
 
 local function stringtohex(str)
-    return str:gsub('.', function (c)
-        return string.format('%02X', string.byte(c))
-    end)
+	--return ngx.re.gsub(str, ".", function (c) print(tostring(c[0])) return string.format('%02X', string.byte(c[0])) end, ngx_re_options) --this has a major issue no idea why need to investigate more
+	return str:gsub('.', function (c)
+		return string.format('%02X', string.byte(c))
+	end)
 end
 
 --encrypt_javascript function
@@ -1468,14 +1553,17 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		local i = 0 --keep track of how many times we pass through
 		local r = math.random(1, l) --randomize where to split string
 		local chunks = {} --create our chunks table for string storage
+		local chunks_table_length = 1
 		local chunks_order = {} --create our chunks table for string storage that stores the value only
+		local chunks_order_table_length = 1
 		local random_var = nil --create our random string variable to use
 
 		while i <= l do
 			random_var = stringrandom(stringrandom_length) --create a random variable name to use
-			--table.insert(chunks_order, "decodeURIComponent(escape(window.atob(_" .. random_var .. ")))")
-			table.insert(chunks_order, "_" .. random_var .. "") --insert the value into our ordered table
-			table.insert(chunks, 'var _' .. random_var .. '="' .. base64_javascript:sub(i,i+r).. '";') --insert our value into our table we will scramble
+			chunks_order[chunks_order_table_length] = "_" .. random_var .. "" --insert the value into our ordered table
+			chunks_order_table_length=chunks_order_table_length+1
+			chunks[chunks_table_length] = 'var _' .. random_var .. '="' .. base64_javascript:sub(i,i+r).. '";' --insert our value into our table we will scramble
+			chunks_table_length=chunks_table_length+1
 
 			i = i+r+1
 		end
@@ -1546,9 +1634,12 @@ local cookie_name_encrypted_start_and_end_date_original = cookie_name_encrypted_
 Start Tor detection
 ]]
 if x_tor_header == 2 then --if x-tor-header is dynamic
-	x_tor_header_name = calculate_signature(tor_remote_addr .. x_tor_header_name .. currentdate):gsub("_","") --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	x_tor_header_name_allowed = calculate_signature(tor_remote_addr .. x_tor_header_name_allowed .. currentdate):gsub("_","") --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	x_tor_header_name_blocked = calculate_signature(tor_remote_addr .. x_tor_header_name_blocked .. currentdate):gsub("_","") --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
+	x_tor_header_name = calculate_signature(tor_remote_addr .. x_tor_header_name .. currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
+	x_tor_header_name = ngx.re.gsub(x_tor_header_name, "_", "", ngx_re_options) --replace underscore with nothing
+	x_tor_header_name_allowed = calculate_signature(tor_remote_addr .. x_tor_header_name_allowed .. currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
+	x_tor_header_name_allowed = ngx.re.gsub(x_tor_header_name_allowed, "_", "", ngx_re_options) --replace underscore with nothing
+	x_tor_header_name_blocked = calculate_signature(tor_remote_addr .. x_tor_header_name_blocked .. currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
+	x_tor_header_name_blocked = ngx.re.gsub(x_tor_header_name_blocked, "_", "", ngx_re_options) --replace underscore with nothing
 end
 
 if encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to be encrypted
@@ -1617,7 +1708,9 @@ local function check_authorization(authorization, authorization_dynamic)
 
 	local allow_site = nil
 	local authorization_display_user_details = nil
-	for k,v in ipairs(authorization_paths) do --for each host in our table
+	local authorization_paths_length = #authorization_paths
+	for i=1,authorization_paths_length do --for each host in our table
+		local v = authorization_paths[i]
 		if string.match(URL, v[2]) then --if our host matches one in the table
 			if v[1] == 1 then --Showbox
 				allow_site = 1 --showbox
@@ -1642,7 +1735,9 @@ local function check_authorization(authorization, authorization_dynamic)
 	local req_headers = ngx.req.get_headers() --get all request headers
 
 	if authorization_dynamic == 0 then --static
-		for key,value in pairs(authorization_logins) do --for each login
+		local authorization_logins_length = #authorization_logins
+		for i=1,authorization_logins_length do --for each login
+			local value = authorization_logins[i]
 			authorization_username = value[1] --username
 			authorization_password = value[2] --password
 			local base64_expected = authorization_username .. ":" .. authorization_password --convert to browser format
@@ -1706,7 +1801,9 @@ local function check_master_switch()
 	end
 	if master_switch == 3 then --custom host selection
 		local allow_site = nil
-		for k,v in ipairs(master_switch_custom_hosts) do --for each host in our table
+		local master_switch_custom_hosts_length = #master_switch_custom_hosts
+		for i=1,master_switch_custom_hosts_length do --for each host in our table
+			local v = master_switch_custom_hosts[i]
 			if string.match(URL, v[2]) then --if our host matches one in the table
 				if v[1] == 1 then --run auth
 					allow_site = 2 --run auth checks
@@ -1733,7 +1830,8 @@ master switch
 local answer = calculate_signature(remote_addr) --create our encrypted unique identification for the user visiting the website.
 
 if x_auth_header == 2 then --if x-auth-header is dynamic
-	x_auth_header_name = calculate_signature(remote_addr .. x_auth_header_name .. currentdate):gsub("_","") --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
+	x_auth_header_name = calculate_signature(remote_addr .. x_auth_header_name .. currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
+	x_auth_header_name = ngx.re.gsub(x_auth_header_name, "_", "", ngx_re_options) --replace underscore with nothing
 end
 
 if encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to be encrypted
