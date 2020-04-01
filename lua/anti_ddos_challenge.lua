@@ -35,7 +35,20 @@ https://www.facebook.com/C0nw0nk
 --[[
 Configuration :
 ]]
-local AntiDDoSAuth = AntiDDoSAuth or {} --Define our local Table to easly change the name at anytime to prevent collisions with other scripts or global Lua variables on the server.
+
+--[[
+localize all standard Lua and Spring API functions I use for better performance.
+]]
+local os = os
+local string = string
+local math = math
+local table = table
+local tonumber = tonumber
+local tostring = tostring
+local next = next
+--[[
+End localization
+]]
 
 --[[
 Shared memory cache
@@ -47,7 +60,7 @@ http { #inside http block
 }
 
 ]]
---AntiDDoSAuth.shared_memory = ngx.shared.antiddos --What ever memory space your server has set / defined for this to use
+--local shared_memory = ngx.shared.antiddos --What ever memory space your server has set / defined for this to use
 
 --[[
 This is a password that encrypts our puzzle and cookies unique to your sites and servers you should change this from the default.
@@ -182,7 +195,7 @@ Encrypt/Obfuscate Javascript output to prevent content scrappers and bots decryp
 2 = Base64 Data URI only
 3 = Hex encryption
 4 = Base64 Javascript Encryption
-5 = --Conor Mcknight's Javascript Scrambler (Obfuscate Javascript by putting it into vars and shuffling them like a deck of cards)
+5 = Conor Mcknight's Javascript Scrambler (Obfuscate Javascript by putting it into vars and shuffling them like a deck of cards)
 ]]
 local encrypt_javascript_output = 0
 
@@ -493,7 +506,7 @@ local authorization_message = "Restricted Area " --Message to be displayed with 
 local authorization_username_message = "Your username is :" --Message to show username
 local authorization_password_message = "Your password is :" --Message to show password
 
-local authorization_logins = { --static password list if you use this i recommend setting authorization_display_user_details = 0 unless you want to show users the login details for sensative areas ?
+local authorization_logins = { --static password list
 	{
 		"userid1", --username
 		"pass1", --password
@@ -536,19 +549,6 @@ j = enable PCRE JIT compilation
 o = compile-once mode (similar to Perl's /o modifier), to enable the worker-process-level compiled-regex cache
 ]]
 local ngx_re_options = "jo" --boost regex performance by caching
-
---[[
-localize all standard Lua and Spring API functions I use for better performance.
-]]
-local os = os
-local string = string
-local math = math
-local table = table
-local tonumber = tonumber
-local tostring = tostring
---[[
-End localization
-]]
 
 --automatically figure out the IP address of the connecting Client
 if remote_addr == "auto" then
@@ -661,8 +661,7 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 			local padding = 8 - #ipbits
 
 			for i = 1, padding do
-				table.insert(ipbits, zeroblock, '0000')
-				--ipbits[zeroblock] = '0000'
+				ipbits[zeroblock] = '0000'
 				--ipbits_length=ipbits_length+1
 			end
 		end
@@ -703,8 +702,7 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 			local padding = 8 - #ipbits_client
 
 			for i = 1, padding do
-				table.insert(ipbits_client, zeroblock_client, '0000')
-				--ipbits_client[zeroblock_client] = '0000'
+				ipbits_client[zeroblock_client] = '0000'
 				--ipbits_client_length=ipbits_client_length+1
 			end
 		end
@@ -712,10 +710,10 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		End Client IP
 		]]
 
-		local expanded_ip_count = ipbits[1] .. ':' .. ipbits[2] .. ':' .. ipbits[3] .. ':' .. ipbits[4] .. ':' .. ipbits[5] .. ':' .. ipbits[6] .. ':' .. ipbits[7] .. ':' .. ipbits[8]
+		local expanded_ip_count = (ipbits[1] or "0000") .. ':' .. (ipbits[2] or "0000") .. ':' .. (ipbits[3] or "0000") .. ':' .. (ipbits[4] or "0000") .. ':' .. (ipbits[5] or "0000") .. ':' .. (ipbits[6] or "0000") .. ':' .. (ipbits[7] or "0000") .. ':' .. (ipbits[8] or "0000")
 		expanded_ip_count = ngx.re.gsub(expanded_ip_count, ":", "", ngx_re_options)
 
-		local client_connecting_ip_count = ipbits_client[1] .. ':' .. ipbits_client[2] .. ':' .. ipbits_client[3] .. ':' .. ipbits_client[4] .. ':' .. ipbits_client[5] .. ':' .. ipbits_client[6] .. ':' .. ipbits_client[7] .. ':' .. ipbits_client[8]
+		local client_connecting_ip_count = (ipbits_client[1] or "0000") .. ':' .. (ipbits_client[2] or "0000") .. ':' .. (ipbits_client[3] or "0000") .. ':' .. (ipbits_client[4] or "0000") .. ':' .. (ipbits_client[5] or "0000") .. ':' .. (ipbits_client[6] or "0000") .. ':' .. (ipbits_client[7] or "0000") .. ':' .. (ipbits_client[8] or "0000")
 		client_connecting_ip_count = ngx.re.gsub(client_connecting_ip_count, ":", "", ngx_re_options)
 
 		--generate wildcard from mask
@@ -797,13 +795,13 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		print()
 		print( '###### INFO ######' )
 		print( 'IP in: ' .. ip )
-		print( '=> Expanded IP: ' .. ipbits[1] .. ':' .. ipbits[2] .. ':' .. ipbits[3] .. ':' .. ipbits[4] .. ':' .. ipbits[5] .. ':' .. ipbits[6] .. ':' .. ipbits[7] .. ':' .. ipbits[8] )
+		print( '=> Expanded IP: ' .. (ipbits[1] or "0000") .. ':' .. (ipbits[2] or "0000") .. ':' .. (ipbits[3] or "0000") .. ':' .. (ipbits[4] or "0000") .. ':' .. (ipbits[5] or "0000") .. ':' .. (ipbits[6] or "0000") .. ':' .. (ipbits[7] or "0000") .. ':' .. (ipbits[8] or "0000") )
 		print( 'Mask in: /' .. mask )
-		print( '=> Mask Wildcard: ' .. wildcard[1] .. ':' .. wildcard[2] .. ':' .. wildcard[3] .. ':' .. wildcard[4] .. ':' .. wildcard[5] .. ':' .. wildcard[6] .. ':' .. wildcard[7] .. ':' .. wildcard[8] )
+		print( '=> Mask Wildcard: ' .. (wildcard[1] or "0000") .. ':' .. (wildcard[2] or "0000") .. ':' .. (wildcard[3] or "0000") .. ':' .. (wildcard[4] or "0000") .. ':' .. (wildcard[5] or "0000") .. ':' .. (wildcard[6] or "0000") .. ':' .. (wildcard[7] or "0000") .. ':' .. (wildcard[8] or "0000") )
 		print( '\n###### BLOCK ######' )
 		print( '#IP\'s: ' .. ipcount )
-		print( 'Range Start: ' .. topip[1] .. ':' .. topip[2] .. ':' .. topip[3] .. ':' .. topip[4] .. ':' .. topip[5] .. ':' .. topip[6] .. ':' .. topip[7] .. ':' .. topip[8] )
-		print( 'Range End: ' .. bottomip[1] .. ':' .. bottomip[2] .. ':' .. bottomip[3] .. ':' .. bottomip[4] .. ':' .. bottomip[5] .. ':' .. bottomip[6] .. ':' .. bottomip[7] .. ':' .. bottomip[8] )
+		print( 'Range Start: ' .. (topip[1] or "0000") .. ':' .. (topip[2] or "0000") .. ':' .. (topip[3] or "0000") .. ':' .. (topip[4] or "0000") .. ':' .. (topip[5] or "0000") .. ':' .. (topip[6] or "0000") .. ':' .. (topip[7] or "0000") .. ':' .. (topip[8] or "0000") )
+		print( 'Range End: ' .. (bottomip[1] or "ffff") .. ':' .. (bottomip[2] or "ffff") .. ':' .. (bottomip[3] or "ffff") .. ':' .. (bottomip[4] or "ffff") .. ':' .. (bottomip[5] or "ffff") .. ':' .. (bottomip[6] or "ffff") .. ':' .. (bottomip[7] or "ffff") .. ':' .. (bottomip[8] or "ffff") )
 		]]
 
 	end
