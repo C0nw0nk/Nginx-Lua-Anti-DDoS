@@ -532,12 +532,12 @@ Highly usefull for protecting your web application and backends from attacks zer
 local WAF_POST_Request_table = {
 --[[
 	{
-		"task", --match post data in requests with value task
+		"^task$", --match post data in requests with value task
 		".*", --matching any
 	},
 	{
-		"name1", --exact match
-		"Henry", --regex or exact match
+		"^name1$", --regex match
+		"^.*y$", --regex or exact match
 	},
 ]]
 }
@@ -1287,33 +1287,29 @@ local function WAF_Post_Requests()
 		local read_request_body_args = (ngx.req.get_body_data() or "") --Put the request body arguments into a variable
 		local args = (ngx.decode_args(read_request_body_args) or "") --Put the Post args in to a table
 
-		if next(args) ~= nil then --Check Post args table has contents
-
-			local arguement1 = nil --create empty variable
-			local arguement2 = nil --create empty variable
+		if next(args) ~= nil then --Check Post args table has contents	
 
 			local WAF_POST_Request_table_length = #WAF_POST_Request_table
-			for i=1,WAF_POST_Request_table_length do
-				local value = WAF_POST_Request_table[i] --put table value into variable
-				local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
-				local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
-				local args_name = nil --variable to store POST data argument name
-				local args_value = nil --variable to store POST data argument value
-				if args[argument_name] then
-					args_name = argument_name --get the POST data argument name
-					args_value = args[argument_name] --get the POST data argument value
-					if string.match(argument_name, args_name) then --if the argument name in my table matches the one in the POST request
+			for key, value in next, args do
+				local arguement1 = nil --create empty variable
+				local arguement2 = nil --create empty variable
+
+				for i=1,WAF_POST_Request_table_length do
+					local value = WAF_POST_Request_table[i] --put table value into variable
+					local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
+					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
+					local args_name = tostring(key) or "" --variable to store POST data argument name
+					local args_value = tostring(value) or "" --variable to store POST data argument value
+					if string.match(args_name, argument_name) then --if the argument name in my table matches the one in the POST request
 						arguement1 = 1
 					end
-					if string.match(argument_value, args_value) then --if the argument value in my table matches the one the POST request
+					if string.match(args_value, argument_value) then --if the argument value in my table matches the one the POST request
 						arguement2 = 1
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
 						local output = ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
 						return output
 					end
-				else
-					--do nothing
 				end
 			end
 		end
