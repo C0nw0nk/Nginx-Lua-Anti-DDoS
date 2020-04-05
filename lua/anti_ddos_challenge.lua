@@ -403,45 +403,45 @@ local user_agent_whitelist_var = ngx.var.http_user_agent
 local user_agent_whitelist_table = {
 --[[
 	{
-		"Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+		"^Mozilla%/5%.0 %(compatible%; Googlebot%/2%.1%; %+http%:%/%/www%.google%.com%/bot%.html%)$",
 		2,
 	},
 	{
-		"Mozilla/5.0 (compatible; Bingbot/2.0; +http://www.bing.com/bingbot.htm)",
+		"^Mozilla%/5%.0 %(compatible%; Bingbot%/2%.0%; %+http%:%/%/www%.bing%.com%/bingbot%.htm%)$",
 		2,
 	},
 	{
-		"Mozilla/5.0 (compatible; Yahoo! Slurp; http://help.yahoo.com/help/us/ysearch/slurp)",
+		"^Mozilla%/5%.0 %(compatible%; Yahoo%! Slurp%; http%:%/%/help%.yahoo%.com%/help%/us%/ysearch%/slurp%)$",
 		2,
 	},
 	{
-		"DuckDuckBot/1.0; (+http://duckduckgo.com/duckduckbot.html)",
+		"^DuckDuckBot%/1%.0%; %(%+http%:%/%/duckduckgo%.com%/duckduckbot%.html%)$",
 		2,
 	},
 	{
-		"Mozilla/5.0 (compatible; Baiduspider/2.0; +http://www.baidu.com/search/spider.html)",
+		"^Mozilla%/5%.0 %(compatible%; Baiduspider%/2%.0%; %+http%:%/%/www%.baidu%.com%/search%/spider%.html%)$",
 		2,
 	},
 	{
-		"Mozilla/5.0 (compatible; YandexBot/3.0; +http://yandex.com/bots)",
+		"^Mozilla%/5%.0 %(compatible%; YandexBot%/3%.0%; %+http%:%/%/yandex%.com%/bots%)$",
 		2,
-	}
+	},
 	{
-		"facebot",
+		"^facebot$",
 		2,
-	}
+	},
 	{
-		"facebookexternalhit/1.0 (+http://www.facebook.com/externalhit_uatext.php)",
+		"^facebookexternalhit%/1%.0 %(%+http%:%/%/www%.facebook%.com%/externalhit_uatext%.php%)$",
 		2,
-	}
+	},
 	{
-		"facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
+		"^facebookexternalhit%/1%.1 %(%+http%:%/%/www%.facebook%.com%/externalhit_uatext%.php%)$",
 		2,
-	}
+	},
 	{
-		"ia_archiver (+http://www.alexa.com/site/help/webmasters; crawler@alexa.com)",
+		"^ia_archiver %(%+http%:%/%/www%.alexa%.com%/site%/help%/webmasters%; crawler%@alexa%.com%)$",
 		2,
-	}
+	},
 ]]
 }
 
@@ -521,6 +521,26 @@ local authorization_logins = { --static password list
 Authorization Box cookie name for sessions
 ]]
 local authorization_cookie = challenge.."_authorization" --our authorization cookie
+
+--[[
+WAF Web Application Firewall Filter for Post requests
+
+This feature allows you to intercept incomming client POST data read their POST data and filter out any unwanted code junk etc and block their POST request.
+
+Highly usefull for protecting your web application and backends from attacks zero day exploits and hacking attempts from hackers and bots.
+]]
+local WAF_POST_Request_table = {
+--[[
+	{
+		"task", --match post data in requests with value task
+		".*", --matching any
+	},
+	{
+		"name1", --exact match
+		"Henry", --regex or exact match
+	},
+]]
+}
 
 --[[
 End Configuration
@@ -1258,6 +1278,49 @@ end
 --[[
 End IP range function
 ]]
+
+--[[WAF Web Application Firewall POST Request arguments filter]]
+local function WAF_Post_Requests()
+	if next(WAF_POST_Request_table) ~= nil then --Check Post filter table has rules inside it
+
+		ngx.req.read_body() --Grab the request Body
+		local read_request_body_args = (ngx.req.get_body_data() or "") --Put the request body arguments into a variable
+		local args = (ngx.decode_args(read_request_body_args) or "") --Put the Post args in to a table
+
+		if next(args) ~= nil then --Check Post args table has contents
+
+			local arguement1 = nil --create empty variable
+			local arguement2 = nil --create empty variable
+
+			local WAF_POST_Request_table_length = #WAF_POST_Request_table
+			for i=1,WAF_POST_Request_table_length do
+				local value = WAF_POST_Request_table[i] --put table value into variable
+				local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
+				local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
+				local args_name = nil --variable to store POST data argument name
+				local args_value = nil --variable to store POST data argument value
+				if args[argument_name] then
+					args_name = argument_name --get the POST data argument name
+					args_value = args[argument_name] --get the POST data argument value
+					if string.match(argument_name, args_name) then --if the argument name in my table matches the one in the POST request
+						arguement1 = 1
+					end
+					if string.match(argument_value, args_value) then --if the argument value in my table matches the one the POST request
+						arguement2 = 1
+					end
+					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
+						local output = ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
+						return output
+					end
+				else
+					--do nothing
+				end
+			end
+		end
+	end
+end
+WAF_Post_Requests()
+--[[End WAF Web Application Firewall POST Request arguments filter]]
 
 --function to check if ip address is whitelisted to bypass our auth
 local function check_ip_whitelist(ip_table)
