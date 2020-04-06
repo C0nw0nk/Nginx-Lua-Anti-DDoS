@@ -14,6 +14,39 @@ This can protect you from many different forms of DDoS works with both HTTP and 
 No limit on attack size
 Uptime guarantee
 
+# Features :
+
+These are some of the features I built into the script so far.
+
+## Security
+
+I am Under Attack Mode (DDoS Authentication HTML Page)
+
+IP Address Whitelist
+
+IP Subnet Ranges Whitelist
+
+IP Address Blacklist
+
+IP Subnet Ranges Blacklist
+
+User-Agent Whitelist
+
+User-Agent Blacklist
+
+Protected area / Restricted access field username / password box to restrict access to sites / paths.
+
+## WAF (Web Application Firewall)
+
+Post Requests data filtering / blocking
+
+## Caching Speed and Performance
+
+Query String Sorting
+
+Query String Whitelist
+
+Query String Removal (It is a blacklist but it will just drop / remove the argument from the URL not block the request)
 
 # Information :
 
