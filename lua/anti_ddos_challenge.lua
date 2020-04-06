@@ -543,6 +543,105 @@ local WAF_POST_Request_table = {
 }
 
 --[[
+Caching Speed and Performance
+]]
+--[[
+Enable Query String Sort
+
+This will treat files with the same query strings as the same file, regardless of the order of the query strings.
+
+Example :
+Un-Ordered : .com/index.html?lol=1&char=2
+Ordered : .com/index.html?char=2&lol=1
+
+This will result in your backend applications and webserver having better performance because of a Higher Cache HIT Ratio.
+
+0 = Disabled
+1 = Enabled
+]]
+local query_string_sort_table = {
+	{
+		".*", --regex match any site / path
+		1, --enable
+	},
+	{
+		"domain.com/.*", --regex match this domain
+		1, --enable
+	},
+}
+
+--[[
+Query String Expected arguments Whitelist only
+
+So this is useful for those who know what URL arguments their sites use and want to whitelist those ONLY so any other arguments provided in the URL never reach the backend or web application and are dropped from the URL.
+]]
+local query_string_expected_args_only_table = {
+--[[
+	{
+		".*", --any site
+		{ --query strings to allow ONLY all others apart from those you list here will be removed from the URL
+			"punch",
+			"chickens",
+		},
+	},
+	{
+		"domain.com", --this domain
+		{ --query strings to allow ONLY all others apart from those you list here will be removed from the URL
+			"punch",
+			"chickens",
+		},
+	},
+]]
+}
+
+--[[
+Query String Remove arguments
+
+To remove Query strings that bypass the cache Intentionally Facebook and Google is the biggest culprit in this. It is commonly known as Cache Busting.
+
+Traffic to your site from facebook Posts / Shares the URL's will all contain this .com/index.html?fbclid=blah-blah-blah
+]]
+local query_string_remove_args_table = {
+	{
+		".*", --all sites
+		{ --query strings to remove to improve Cache HIT Ratios and Stop attacks / Cache bypassing and Busting.
+			--facebook cache busting query strings
+			"fb_action_ids",
+			"fb_action_types",
+			"fb_source",
+			"fbclid",
+			--google cache busting query strings
+			"_ga",
+			"gclid",
+			"utm_source",
+			"utm_campaign",
+			"utm_medium",
+			"utm_expid",
+			"utm_term",
+			"utm_content",
+			--other cache busting query strings
+			"age-verified",
+			"ao_noptimize",
+			"usqp",
+			"cn-reloaded",
+			"dos",
+			"ddos",
+			"lol",
+			"rnd",
+			"random",
+			"v", --some urls use ?v1.2 as a file version causing cache busting
+		},
+	},
+	{
+		"domain.com/.*", --this site
+		{ --query strings to remove to improve Cache HIT Ratios and Stop attacks / Cache bypassing and Busting.
+			--facebook cache busting query strings
+			"fbclid",
+		},
+	},
+}
+
+--[[
 End Configuration
 
 
@@ -569,6 +668,18 @@ j = enable PCRE JIT compilation
 o = compile-once mode (similar to Perl's /o modifier), to enable the worker-process-level compiled-regex cache
 ]]
 local ngx_re_options = "jo" --boost regex performance by caching
+
+--[[
+Localized vars for use later
+]]
+local scheme = ngx.var.scheme --scheme is HTTP or HTTPS
+local host = ngx.var.host --host is website domain name
+local request_uri = ngx.var.request_uri --request uri is full URL link including query strings and arguements
+local URL = scheme .. "://" .. host .. request_uri
+local user_agent = ngx.var.http_user_agent --user agent of browser
+--[[
+Localized vars for use later
+]]
 
 --automatically figure out the IP address of the connecting Client
 if remote_addr == "auto" then
@@ -599,12 +710,115 @@ if ip_blacklist_remote_addr == "auto" then
 	end
 end
 --if host of site is a tor website connecting clients will be tor network clients
-if string.match(string.lower(ngx.var.host), ".onion") then
+if string.match(string.lower(host), ".onion") then
 	remote_addr = "tor"
 end
 if remote_addr == "tor" then
 	remote_addr = tor_remote_addr
 end
+
+--[[
+Query String Remove arguments
+]]
+local function query_string_remove_args()
+	local args = ngx.req.get_uri_args() --grab our query string args and put them into a table
+	local modified = nil
+
+	local query_string_remove_args_table_length = #query_string_remove_args_table
+	for i=1,query_string_remove_args_table_length do --for each host in our table
+		local v = query_string_remove_args_table[i]
+		if string.match(URL, v[1]) then --if our host matches one in the table
+			local table_length = #v[2]
+			for i=1,table_length do --for each arg in our table
+				local value = v[2][i]
+				args[value] = nil --remove the arguement from the args table
+				modified = 1 --set args as modified
+			end
+			break --break out of the for each loop pointless to keep searching the rest since we matched our host
+		end
+	end
+	if modified == 1 then --need to set our args as our new modified one
+		ngx.req.set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
+	else
+		return --carry on script functions
+	end
+end
+query_string_remove_args()
+--[[
+Query String Remove arguments
+]]
+
+--if a table has a value inside of it
+local function has_value(table_, val)
+	for key, value in next, table_ do
+		if value == val then
+			return true
+		end
+	end
+	return false
+end
+
+--[[
+Query String Expected arguments Whitelist only
+]]
+local function query_string_expected_args_only()
+	local args = ngx.req.get_uri_args() --grab our query string args and put them into a table
+	local modified = nil
+
+	local query_string_expected_args_only_table_length = #query_string_expected_args_only_table
+	for i=1,query_string_expected_args_only_table_length do --for each host in our table
+		local v = query_string_expected_args_only_table[i]
+		if string.match(URL, v[1]) then --if our host matches one in the table
+			for key, value in next, args do
+				if has_value(v[2], tostring(key)) == false then
+					args[key] = nil --remove the arguement from the args table
+					modified = 1 --set args as modified
+				end
+			end
+			break --break out of the for each loop pointless to keep searching the rest since we matched our host
+		end
+	end
+	if modified == 1 then --need to set our args as our new modified one
+		ngx.req.set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
+	else
+		return --carry on script functions
+	end
+end
+query_string_expected_args_only()
+--[[
+Query String Expected arguments Whitelist only
+]]
+
+--[[
+Query String Sort
+]]
+local function query_string_sort()
+	local allow_site = nil
+	local query_string_sort_table_length = #query_string_sort_table
+	for i=1,query_string_sort_table_length do --for each host in our table
+		local v = query_string_sort_table[i]
+		if string.match(URL, v[1]) then --if our host matches one in the table
+			if v[2] == 1 then --run query string sort
+				allow_site = 2 --run query string sort
+			end
+			if v[2] == 0 then --bypass
+				allow_site = 1 --do not run query string sort
+			end
+			break --break out of the for each loop pointless to keep searching the rest since we matched our host
+		end
+	end
+	if allow_site == 2 then --sort our query string
+		local args = ngx.req.get_uri_args() --grab our query string args and put them into a table
+		table.sort(args) --sort our query string args table into order
+		ngx.req.set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
+	else --allow_site was 1
+		return --carry on script functions
+	end
+end
+query_string_sort()
+--[[
+End Query String Sort
+]]
 
 --[[
 Start IP range function
@@ -1671,12 +1885,6 @@ end
 if expire_time > 31536000 then --greater than one year
 	currentdate = os.date("%z",os.time()-24*60*60) --Current time zone
 end
-
-local scheme = ngx.var.scheme --scheme is HTTP or HTTPS
-local host = ngx.var.host --host is website domain name
-local request_uri = ngx.var.request_uri --request uri is full URL link including query strings and arguements
-local URL = scheme .. "://" .. host .. request_uri
-local user_agent = ngx.var.http_user_agent --user agent of browser
 
 local expected_header_status = 200
 local authentication_page_status_output = 503
