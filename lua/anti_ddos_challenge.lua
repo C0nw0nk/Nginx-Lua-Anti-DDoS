@@ -605,6 +605,9 @@ local query_string_remove_args_table = {
 	{
 		".*", --all sites
 		{ --query strings to remove to improve Cache HIT Ratios and Stop attacks / Cache bypassing and Busting.
+			--Cloudflare cache busting query strings (get added to url from captcha and javascript pages very naughty breaking sites caches)
+			"__cf_chl_jschl_tk__",
+			"__cf_chl_captcha_tk__",
 			--facebook cache busting query strings
 			"fb_action_ids",
 			"fb_action_types",
