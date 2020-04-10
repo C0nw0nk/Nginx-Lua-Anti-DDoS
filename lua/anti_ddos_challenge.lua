@@ -592,6 +592,193 @@ local query_string_expected_args_only_table = {
 		},
 	},
 ]]
+	--for all sites specific static files that should never have query strings on the end of the URL (This will improve Caching and performance)
+	{
+		"%/.*%.js",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.css",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.ico",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.jpg",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.jpeg",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.bmp",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.gif",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.xml",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.txt",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.png",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.swf",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.pdf",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.zip",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.rar",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.7z",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.woff2",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.woff",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.wof",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.eot",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.ttf",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.svg",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.ejs",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.ps",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.pict",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.webp",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.eps",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.pls",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.csv",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.mid",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.doc",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.ppt",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.tif",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.xls",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.otf",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.jar",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	--video file formats
+	{
+		"%/.*%.mp4",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.webm",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.ogg",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.flv",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.mov",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	--music file formats
+	{
+		"%/.*%.mp3",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.m4a",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.aac",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.oga",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.flac",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
+	{
+		"%/.*%.wav",
+		{}, --no args to accept so any provided in the url will be removed.
+	},
 }
 
 --[[
@@ -623,6 +810,8 @@ local query_string_remove_args_table = {
 			"utm_term",
 			"utm_content",
 			--other cache busting query strings
+			"cache",
+			"caching",
 			"age-verified",
 			"ao_noptimize",
 			"usqp",
@@ -633,6 +822,8 @@ local query_string_remove_args_table = {
 			"rnd",
 			"random",
 			"v", --some urls use ?v1.2 as a file version causing cache busting
+			"ver",
+			"version",
 		},
 	},
 	{
