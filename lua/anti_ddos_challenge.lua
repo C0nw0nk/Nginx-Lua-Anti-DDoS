@@ -543,6 +543,111 @@ local WAF_POST_Request_table = {
 }
 
 --[[
+WAF Web Application Firewall Filter for Headers in requests
+
+You can use this to block exploits in request headers such as malicious cookies clients try to send
+
+Header exploits in requests they might send such as SQL info to inject into sites highly useful for blocking SQLi and many other attack types
+]]
+local WAF_Header_Request_table = {
+--[[
+	{
+		"^foo$", --match header name
+		".*", --matching any value
+	},
+	{
+		"^user-agent$", --header name
+		"^.*MJ12Bot.*$", --block a bad bot with user-agent header
+	},
+	{
+		"^cookie$", --Block a Cookie Exploit
+		".*SNaPjpCNuf9RYfAfiPQgklMGpOY.*",
+	},
+]]
+}
+
+--[[
+WAF Web Application Firewall Filter for query strings in requests
+
+To block exploits in query strings from potential bots and hackers
+]]
+local WAF_query_string_Request_table = {
+	--[[
+		PHP easter egg exploit blocking
+		[server with expose_php = on]
+		.php?=PHPB8B5F2A0-3C92-11d3-A3A9-4C7B08C10000
+		.php?=PHPE9568F34-D428-11d2-A769-00AA001ACF42
+		.php?=PHPE9568F35-D428-11d2-A769-00AA001ACF42
+		.php?=PHPE9568F36-D428-11d2-A769-00AA001ACF42
+	]]
+	{
+		"^.*$", --match any name
+		"^PHP.*$", --matching any value
+	},
+	{
+		"base64%_encode", --regex match name
+		"^.*$", --regex or exact match value
+	},
+	{
+		"base64%_decode", --regex match name
+		"^.*$", --regex or exact match value
+	},
+	--[[
+		File injection protection
+	]]
+	{
+		"[a-zA-Z0-9_]", --regex match name
+		"http%:%/%/", --regex or exact match value
+	},
+	{
+		"[a-zA-Z0-9_]", --regex match name
+		"https%:%/%/", --regex or exact match value
+	},
+	--[[
+		SQLi SQL Injections
+	]]
+	{
+		"^.*$",
+		"union.*select.*%(",
+	},
+	{
+		"^.*$",
+		"concat.*%(",
+	},
+	{
+		"^.*$",
+		"union.*all.*select.*",
+	},
+}
+
+--[[
+WAF Web Application Firewall Filter for URL Paths in requests
+
+You can use this to protect server configuration files / paths and sensative material on sites
+]]
+local WAF_URI_Request_table = {
+	{
+		"^.*$", --match any website on server
+		".*%.htaccess.*", --protect apache server .htaccess files
+	},
+	{
+		"^.*$", --match any website on server
+		".*config%.php.*", --protect config files
+	},
+	{
+		"^.*$", --match any website on server
+		".*configuration%.php.*", --protect joomla configuration.php files
+	},
+	--[[
+		Disallow direct access to system directories
+	]]
+	{
+		"^.*$", --match any website on server
+		".*%/cache.*", --protect /cache folder
+	},
+}
+
+--[[
 Caching Speed and Performance
 ]]
 --[[
@@ -836,6 +941,378 @@ local query_string_remove_args_table = {
 }
 
 --[[
+To restore original visitor IP addresses at your origin web server this will send a request header to your backend application or proxy containing the clients real IP address
+]]
+local send_ip_to_backend_custom_headers = {
+	{
+		".*",
+		{
+			{"CF-Connecting-IP",}, --CF-Connecting-IP Cloudflare CDN
+			{"True-Client-IP",}, --True-Client-IP Akamai CDN
+			{"X-Client-IP",} --Amazon Cloudfront
+		},
+	},
+	--[[
+	{
+		"%/.*%.mp4", --custom url paths
+		{
+			{"CF-Connecting-IP",}, --CF-Connecting-IP
+			{"True-Client-IP",}, --True-Client-IP
+		},
+	},
+	]]
+}
+
+--[[
+Custom headers
+
+To add custom headers to URLs paths to increase server performance and speed to cache items
+and to remove headers for security purposes that could expose software the server is running etc
+]]
+local custom_headers = {
+	{
+		".*",
+		{ --headers to improve server security for all websites
+			{"Server",nil,}, --Server version / identity exposure remove
+			{"X-Powered-By",nil,}, --PHP Powered by version / identity exposure remove
+			{"X-Content-Encoded-By",nil,}, --Joomla Content encoded by remove
+			{"X-Content-Type-Options","nosniff",}, --block MIME-type sniffing
+			{"X-XSS-Protection","1; mode=block",}, --block cross-site scripting (XSS) attacks
+			{"x-turbo-charged-by",nil,}, --remove x-turbo-charged-by LiteSpeed
+		},
+	},
+	{
+		"%/.*%.js",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.css",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.ico",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.jpg",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.jpeg",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.bmp",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.gif",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.xml",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.txt",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.png",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.swf",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.pdf",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.zip",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.rar",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.7z",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.woff2",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.woff",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.wof",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.eot",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.ttf",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.svg",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.ejs",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.ps",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.pict",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.webp",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.eps",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.pls",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.csv",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.mid",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.doc",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.ppt",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.tif",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.xls",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.otf",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.jar",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	--video file formats
+	{
+		"%/.*%.mp4",
+		{
+			{"X-Frame-Options","SAMEORIGIN",}, --this file can only be embeded within a iframe on the same domain name stops hotlinking and leeching
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.webm",
+		{
+			{"X-Frame-Options","SAMEORIGIN",}, --this file can only be embeded within a iframe on the same domain name stops hotlinking and leeching
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.ogg",
+		{
+			{"X-Frame-Options","SAMEORIGIN",}, --this file can only be embeded within a iframe on the same domain name stops hotlinking and leeching
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.flv",
+		{
+			{"X-Frame-Options","SAMEORIGIN",}, --this file can only be embeded within a iframe on the same domain name stops hotlinking and leeching
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.mov",
+		{
+			{"X-Frame-Options","SAMEORIGIN",}, --this file can only be embeded within a iframe on the same domain name stops hotlinking and leeching
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	--music file formats
+	{
+		"%/.*%.mp3",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.m4a",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.aac",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.oga",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.flac",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+	{
+		"%/.*%.wav",
+		{
+			{"Cache-Control","max-age=315360000, stale-while-revalidate=315360000, stale-if-error=315360000, public, immutable",}, --cache headers to save server bandwidth.
+			{"Pragma","public",},
+		},
+	},
+}
+
+--[[
 End Configuration
 
 
@@ -875,6 +1352,33 @@ local user_agent = ngx.var.http_user_agent --user agent of browser
 Localized vars for use later
 ]]
 
+--[[
+Header Modifications
+]]
+local function header_modification()
+	local custom_headers_length = #custom_headers
+	for i=1,custom_headers_length do --for each host in our table
+		local v = custom_headers[i]
+		if string.match(URL, v[1]) then --if our host matches one in the table
+			local table_length = #v[2]
+			for first=1,table_length do --for each arg in our table
+				local value1 = v[2][first][1]
+				local value2 = v[2][first][2]
+				if value1 ~= nil and value2 ~= nil then
+					ngx.header[value1] = value2
+				end
+				if value2 == nil then
+					ngx.header[value1] = nil --remove the header
+				end
+			end
+		end
+	end
+end
+header_modification()
+--[[
+End Header Modifications
+]]
+
 --automatically figure out the IP address of the connecting Client
 if remote_addr == "auto" then
 	if ngx.var.http_cf_connecting_ip ~= nil then
@@ -903,6 +1407,30 @@ if ip_blacklist_remote_addr == "auto" then
 		ip_blacklist_remote_addr = ngx.var.remote_addr
 	end
 end
+
+--[[
+headers to restore original visitor IP addresses at your origin web server
+]]
+local function header_append_ip()
+	local custom_headers_length = #send_ip_to_backend_custom_headers
+	for i=1,custom_headers_length do --for each host in our table
+		local v = custom_headers[i]
+		if string.match(URL, v[1]) then --if our host matches one in the table
+			local table_length = #v[2]
+			for first=1,table_length do --for each arg in our table
+				local value1 = v[2][first][1]
+				if value1 ~= nil then
+					ngx.req.set_header(value1, remote_addr)
+				end
+			end
+		end
+	end
+end
+header_append_ip()
+--[[
+End headers to restore original visitor IP addresses at your origin web server
+]]
+
 --if host of site is a tor website connecting clients will be tor network clients
 if string.match(string.lower(host), ".onion") then
 	remote_addr = "tor"
@@ -1697,12 +2225,15 @@ local function WAF_Post_Requests()
 
 		if next(args) ~= nil then --Check Post args table has contents	
 
-			local WAF_POST_Request_table_length = #WAF_POST_Request_table
-			for key, value in next, args do
-				local arguement1 = nil --create empty variable
-				local arguement2 = nil --create empty variable
+			local arguement1 = nil --create empty variable
+			local arguement2 = nil --create empty variable
 
-				for i=1,WAF_POST_Request_table_length do
+			local WAF_table_length = #WAF_POST_Request_table
+			for key, value in next, args do
+
+				for i=1,WAF_table_length do
+					arguement1 = nil --reset to nil each loop
+					arguement2 = nil --reset to nil each loop
 					local value = WAF_POST_Request_table[i] --put table value into variable
 					local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
 					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
@@ -1725,6 +2256,115 @@ local function WAF_Post_Requests()
 end
 WAF_Post_Requests()
 --[[End WAF Web Application Firewall POST Request arguments filter]]
+
+--[[WAF Web Application Firewall Header Request arguments filter]]
+local function WAF_Header_Requests()
+	if next(WAF_Header_Request_table) ~= nil then --Check Header filter table has rules inside it
+
+		local argument_request_headers = ngx.req.get_headers() --get our client request headers and put them into a table
+
+		if next(argument_request_headers) ~= nil then --Check Header args table has contents	
+
+			local arguement1 = nil --create empty variable
+			local arguement2 = nil --create empty variable
+
+			local WAF_table_length = #WAF_Header_Request_table
+			for key, value in next, argument_request_headers do
+
+				for i=1,WAF_table_length do
+					arguement1 = nil --reset to nil each loop
+					arguement2 = nil --reset to nil each loop
+					local value = WAF_Header_Request_table[i] --put table value into variable
+					local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
+					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
+					local args_name = tostring(key) or "" --variable to store Header data argument name
+					local args_value = tostring(ngx.req.get_headers()[args_name]) or ""
+					if string.match(args_name, argument_name) then --if the argument name in my table matches the one in the request
+						arguement1 = 1
+					end
+					if string.match(args_value, argument_value) then --if the argument value in my table matches the one the request
+						arguement2 = 1
+					end
+					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
+						local output = ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
+						return output
+					end
+				end
+			end
+		end
+	end
+end
+WAF_Header_Requests()
+--[[End WAF Web Application Firewall Header Request arguments filter]]
+
+--[[WAF Web Application Firewall Query String Request arguments filter]]
+local function WAF_query_string_Request()
+	if next(WAF_query_string_Request_table) ~= nil then --Check query string filter table has rules inside it
+
+		local args = ngx.req.get_uri_args() --grab our query string args and put them into a table
+
+		if next(args) ~= nil then --Check query string args table has contents
+
+			local arguement1 = nil --create empty variable
+			local arguement2 = nil --create empty variable
+
+			local WAF_table_length = #WAF_query_string_Request_table
+			for key, value in next, args do
+
+				for i=1,WAF_table_length do
+					arguement1 = nil --reset to nil each loop
+					arguement2 = nil --reset to nil each loop
+					local value = WAF_query_string_Request_table[i] --put table value into variable
+					local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
+					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
+					local args_name = tostring(key) or "" --variable to store query string data argument name
+					local args_value = tostring(ngx.req.get_uri_args()[args_name]) or "" --variable to store query string data argument value
+					if string.match(args_name, argument_name) then --if the argument name in my table matches the one in the request
+						arguement1 = 1
+					end
+					if string.match(args_value, argument_value) then --if the argument value in my table matches the one the request
+						arguement2 = 1
+					end
+					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
+						local output = ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
+						return output
+					end
+				end
+			end
+		end
+	end
+end
+WAF_query_string_Request()
+--[[End WAF Web Application Firewall Query String Request arguments filter]]
+
+--[[WAF Web Application Firewall URI Request arguments filter]]
+local function WAF_URI_Request()
+	if next(WAF_URI_Request_table) ~= nil then --Check Post filter table has rules inside it
+
+		--[[
+		Because ngx.var.uri is a bit stupid I strip the query string of the request uri.
+		The reason for this it is subject to normalisation
+		Consecutive / characters are replace by a single / 
+		and URL encoded characters are decoded 
+		but then your back end webserver / application recieve the encoded uri!?
+		So to keep the security strong I match the same version your web application would need protecting from (Yes the encoded copy that could contain malicious / exploitable contents)
+		]]
+		local args = string.gsub(request_uri, "?.*", "") --remove the query string from the uri
+		
+		local WAF_table_length = #WAF_URI_Request_table
+		for i=1,WAF_table_length do --for each host in our table
+			local v = WAF_URI_Request_table[i]
+			if string.match(URL, v[1]) then --if our host matches one in the table
+				if string.match(args, v[2]) then
+					local output = ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
+					return output
+				end
+			end
+		end
+	end
+end
+WAF_URI_Request()
+--[[End WAF Web Application Firewall URI Request arguments filter]]
 
 --function to check if ip address is whitelisted to bypass our auth
 local function check_ip_whitelist(ip_table)
