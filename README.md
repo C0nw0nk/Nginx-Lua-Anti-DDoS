@@ -38,7 +38,19 @@ Protected area / Restricted access field username / password box to restrict acc
 
 ## WAF (Web Application Firewall)
 
-Post Requests data filtering / blocking
+IPv4 and IPv6 blocking and whitelisting including subnet ranges.
+
+User-Agent blocking and whitelisting to block bad bots and exploits / scanners.
+
+Ability to inspect POST Data / Fields and block malicious POST requests / exploits.
+
+Ability to inspect URL for malicious content SQL/SQI Injections XSS attacks / exploits.
+
+Ability to inspect query strings and arguements for malicious content / exploits.
+
+Ability to inspect all Request Headers provided by the client connecting.
+
+Ability to inspect cookies for exploits.
 
 ## Caching Speed and Performance
 
@@ -47,6 +59,16 @@ Query String Sorting
 Query String Whitelist
 
 Query String Removal (It is a blacklist but it will just drop / remove the argument from the URL not block the request)
+
+Minification / Compression of files removing white space and nulled out code / lines JS JavaScript, CSS Stylesheets, HTML etc
+
+## Customization of error pages responses and webpage outputs
+
+Custom error page interception to replace with your own error pages
+
+Hide Web application errors such as PHP errorrs MySQL errors it will intercept them and display a custom error page instead of showing visitors sensative information
+
+Modify webpage outputs to replace contents on pages / files
 
 # Information :
 
