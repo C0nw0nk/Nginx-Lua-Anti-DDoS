@@ -2441,7 +2441,7 @@ local function check_user_agent_whitelist(user_agent_table)
 		if value[2] == 4 then --regex lower case insensative
 			user_agent_whitelist_var = string.lower(user_agent_whitelist_var)
 		end
-		if string.match(user_agent_whitelist_var, value[1]) then
+		if user_agent_whitelist_var and string.match(user_agent_whitelist_var, value[1]) then
 			local output = ngx.exit(ngx.OK) --Go to content
 			return output
 		end
