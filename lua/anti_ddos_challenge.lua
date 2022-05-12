@@ -17,14 +17,7 @@ If you fork or make any changes to improve this or fix problems please do make a
 
 
 Disclaimer :
-I am not responsible for what you do with this script nor liable,
-This script was released under default Copyright Law as a proof of concept.
-For those who want to know what that means for your use of this script read the following : http://choosealicense.com/no-license/
-
-Legal Usage :
-For those who wish to use this in production you should contact me to purchase a private license to use this legally.
-For those who wish to use this in a commerical enviorment contact me to come to an agreement and purchase a commerical usage license.
-For those who wish to purchase the rights to this from me contact me also to discuss pricing and terms and come to a sensible agreement.
+I am not responsible for what you do with this script nor liable.
 
 Contact : (You can also contact me via github)
 https://www.facebook.com/C0nw0nk
