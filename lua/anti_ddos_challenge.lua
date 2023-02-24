@@ -1833,22 +1833,22 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		local isnetworkip = ( ip[1] == bottomip[1] and ip[2] == bottomip[2] and ip[3] == bottomip[3] and ip[4] == bottomip[4] )
 		local isbroadcastip = ( ip[1] == topip[1] and ip[2] == topip[2] and ip[3] == topip[3] and ip[4] == topip[4] )
 
-		local ip1 = tostring(ip1)
-		local ip2 = tostring(ip2)
-		local ip3 = tostring(ip3)
-		local ip4 = tostring(ip4)
-		local client_ip1 = tostring(client_ip1)
-		local client_ip2 = tostring(client_ip2)
-		local client_ip3 = tostring(client_ip3)
-		local client_ip4 = tostring(client_ip4)
-		local in_range_low_end1 = tostring(bottomip[1])
-		local in_range_low_end2 = tostring(bottomip[2])
-		local in_range_low_end3 = tostring(bottomip[3])
-		local in_range_low_end4 = tostring(bottomip[4])
-		local in_range_top_end1 = tostring(topip[1])
-		local in_range_top_end2 = tostring(topip[2])
-		local in_range_top_end3 = tostring(topip[3])
-		local in_range_top_end4 = tostring(topip[4])
+		local ip1 = tonumber(ip1)
+		local ip2 = tonumber(ip2)
+		local ip3 = tonumber(ip3)
+		local ip4 = tonumber(ip4)
+		local client_ip1 = tonumber(client_ip1)
+		local client_ip2 = tonumber(client_ip2)
+		local client_ip3 = tonumber(client_ip3)
+		local client_ip4 = tonumber(client_ip4)
+		local in_range_low_end1 = tonumber(bottomip[1])
+		local in_range_low_end2 = tonumber(bottomip[2])
+		local in_range_low_end3 = tonumber(bottomip[3])
+		local in_range_low_end4 = tonumber(bottomip[4])
+		local in_range_top_end1 = tonumber(topip[1])
+		local in_range_top_end2 = tonumber(topip[2])
+		local in_range_top_end3 = tonumber(topip[3])
+		local in_range_top_end4 = tonumber(topip[4])
 
 		if tonumber(mask) == 1 then --127, 255, 255, 255
 			if client_ip1 >= in_range_low_end1 --in range low end
@@ -2434,7 +2434,7 @@ local function check_user_agent_whitelist(user_agent_table)
 		if value[2] == 4 then --regex lower case insensative
 			user_agent_whitelist_var = string.lower(user_agent_whitelist_var)
 		end
-		if string.match(user_agent_whitelist_var, value[1]) then
+		if user_agent_whitelist_var and string.match(user_agent_whitelist_var, value[1]) then
 			local output = ngx.exit(ngx.OK) --Go to content
 			return output
 		end
