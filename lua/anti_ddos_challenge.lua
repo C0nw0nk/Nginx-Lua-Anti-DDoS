@@ -346,7 +346,7 @@ If you want to block access to bad bots / specific user-agents you can use this.
 
 I added some examples of bad bots to block access to.
 ]]
-local user_agent_blacklist_var = ngx.var.http_user_agent
+local user_agent_blacklist_var = ngx.var.http_user_agent or ""
 local user_agent_blacklist_table = {
 	{
 		"^$",
@@ -392,7 +392,7 @@ If you want to allow access to specific user-agents use this.
 
 I added some examples of user-agents you could whitelist mostly search engine crawlers.
 ]]
-local user_agent_whitelist_var = ngx.var.http_user_agent
+local user_agent_whitelist_var = ngx.var.http_user_agent or ""
 local user_agent_whitelist_table = {
 --[[
 	{
