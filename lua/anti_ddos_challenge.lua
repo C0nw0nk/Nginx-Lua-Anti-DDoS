@@ -235,7 +235,7 @@ Unique ID to identify each individual Tor user who connects to the website
 Using their User-Agent as a static variable to latch onto works well.
 ngx.var.http_user_agent --Default
 ]]
-local tor_remote_addr = ngx.var.http_user_agent
+local tor_remote_addr = ngx.var.http_user_agent or ""
 
 --[[
 X-Tor-Header to be static or Dynamic setting this as dynamic is the best form of security
