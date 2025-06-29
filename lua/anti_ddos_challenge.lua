@@ -40,6 +40,44 @@ local tonumber = tonumber
 local tostring = tostring
 local next = next
 local ngx = ngx
+local os_time = os.time
+local os_date = os.date
+local math_randomseed = math.randomseed
+local math_random = math.random
+local math_floor = math.floor
+local math_pow = math.pow
+local table_sort = table.sort
+local table_concat = table.concat
+local string_match = string.match
+local string_lower = string.lower
+local string_find = string.find
+local string_sub = string.sub
+local string_char = string.char
+local string_gsub = string.gsub
+local string_format = string.format
+local string_byte = string.byte
+local ngx_re_gsub = ngx.re.gsub
+local ngx_hmac_sha1 = ngx.hmac_sha1
+local ngx_encode_base64 = ngx.encode_base64
+local ngx_req_get_uri_args = ngx.req.get_uri_args
+local ngx_req_set_header = ngx.req.set_header
+local ngx_req_get_headers = ngx.req.get_headers
+local ngx_req_set_uri_args = ngx.req.set_uri_args
+local ngx_req_read_body = ngx.req.read_body
+local ngx_req_get_body_data = ngx.req.get_body_data
+local ngx_decode_args = ngx.decode_args
+local ngx_cookie_time = ngx.cookie_time
+local ngx_time = ngx.time
+local ngx_header = ngx.header
+local ngx_var = ngx.var
+local ngx_status = ngx.status
+local ngx_exit = ngx.exit
+local ngx_say = ngx.say
+local ngx_HTTP_OK = ngx.HTTP_OK
+local ngx_HTTP_FORBIDDEN = ngx.HTTP_FORBIDDEN
+local ngx_HTTP_UNAUTHORIZED = ngx.HTTP_UNAUTHORIZED
+local ngx_HTTP_NO_CONTENT = ngx.HTTP_NO_CONTENT
+local ngx_OK = ngx.OK
 --[[
 End localization
 ]]
@@ -154,9 +192,9 @@ Javascript Puzzle for web browser to solve do not touch this unless you understa
 
 --Make our Javascript puzzle a little bit more dynamic than the static equation above it will change every 24 hours :) I made this because the static one is pretty poor security compared to this but this can be improved allot though.
 --TODO: IMPROVE THIS!
-local JavascriptPuzzleVars = [[parseInt("]] .. os.date("%Y%m%d",os.time()-24*60*60) .. [[", 10) + parseInt("]] .. os.date("%d%m%Y",os.time()-24*60*60) ..[[", 10)]] --Javascript output of our two random numbers
-local JavascriptPuzzleVars_answer = os.date("%Y%m%d",os.time()-24*60*60) + os.date("%d%m%Y",os.time()-24*60*60) --lua output of our two random numbers
-local JavascriptPuzzleVars_answer = math.floor(JavascriptPuzzleVars_answer+0.5) --fix bug removing the 0. decimal on the end of the figure
+local JavascriptPuzzleVars = [[parseInt("]] .. os_date("%Y%m%d",os_time()-24*60*60) .. [[", 10) + parseInt("]] .. os_date("%d%m%Y",os_time()-24*60*60) ..[[", 10)]] --Javascript output of our two random numbers
+local JavascriptPuzzleVars_answer = os_date("%Y%m%d",os_time()-24*60*60) + os_date("%d%m%Y",os_time()-24*60*60) --lua output of our two random numbers
+local JavascriptPuzzleVars_answer = math_floor(JavascriptPuzzleVars_answer+0.5) --fix bug removing the 0. decimal on the end of the figure
 local JavascriptPuzzleVars_answer = tostring(JavascriptPuzzleVars_answer) --convert the numeric output to a string
 
 --[[
@@ -1353,16 +1391,16 @@ local function header_modification()
 	local custom_headers_length = #custom_headers
 	for i=1,custom_headers_length do --for each host in our table
 		local v = custom_headers[i]
-		if string.match(URL, v[1]) then --if our host matches one in the table
+		if string_match(URL, v[1]) then --if our host matches one in the table
 			local table_length = #v[2]
 			for first=1,table_length do --for each arg in our table
 				local value1 = v[2][first][1]
 				local value2 = v[2][first][2]
 				if value1 ~= nil and value2 ~= nil then
-					ngx.header[value1] = value2
+					ngx_header[value1] = value2
 				end
 				if value2 == nil then
-					ngx.header[value1] = nil --remove the header
+					ngx_header[value1] = nil --remove the header
 				end
 			end
 		end
@@ -1409,12 +1447,12 @@ local function header_append_ip()
 	local custom_headers_length = #send_ip_to_backend_custom_headers
 	for i=1,custom_headers_length do --for each host in our table
 		local v = custom_headers[i]
-		if string.match(URL, v[1]) then --if our host matches one in the table
+		if string_match(URL, v[1]) then --if our host matches one in the table
 			local table_length = #v[2]
 			for first=1,table_length do --for each arg in our table
 				local value1 = v[2][first][1]
 				if value1 ~= nil then
-					ngx.req.set_header(value1, remote_addr)
+					ngx_req_set_header(value1, remote_addr)
 				end
 			end
 		end
@@ -1426,7 +1464,7 @@ End headers to restore original visitor IP addresses at your origin web server
 ]]
 
 --if host of site is a tor website connecting clients will be tor network clients
-if string.match(string.lower(host), ".onion") then
+if string_match(string_lower(host), ".onion") then
 	remote_addr = "tor"
 end
 if remote_addr == "tor" then
@@ -1437,13 +1475,13 @@ end
 Query String Remove arguments
 ]]
 local function query_string_remove_args()
-	local args = ngx.req.get_uri_args() --grab our query string args and put them into a table
+	local args = ngx_req_get_uri_args() --grab our query string args and put them into a table
 	local modified = nil
 
 	local query_string_remove_args_table_length = #query_string_remove_args_table
 	for i=1,query_string_remove_args_table_length do --for each host in our table
 		local v = query_string_remove_args_table[i]
-		if string.match(URL, v[1]) then --if our host matches one in the table
+		if string_match(URL, v[1]) then --if our host matches one in the table
 			local table_length = #v[2]
 			for i=1,table_length do --for each arg in our table
 				local value = v[2][i]
@@ -1454,7 +1492,7 @@ local function query_string_remove_args()
 		end
 	end
 	if modified == 1 then --need to set our args as our new modified one
-		ngx.req.set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
+		ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
 	else
 		return --carry on script functions
 	end
@@ -1478,13 +1516,13 @@ end
 Query String Expected arguments Whitelist only
 ]]
 local function query_string_expected_args_only()
-	local args = ngx.req.get_uri_args() --grab our query string args and put them into a table
+	local args = ngx_req_get_uri_args() --grab our query string args and put them into a table
 	local modified = nil
 
 	local query_string_expected_args_only_table_length = #query_string_expected_args_only_table
 	for i=1,query_string_expected_args_only_table_length do --for each host in our table
 		local v = query_string_expected_args_only_table[i]
-		if string.match(URL, v[1]) then --if our host matches one in the table
+		if string_match(URL, v[1]) then --if our host matches one in the table
 			for key, value in next, args do
 				if has_value(v[2], tostring(key)) == false then
 					args[key] = nil --remove the arguement from the args table
@@ -1495,7 +1533,7 @@ local function query_string_expected_args_only()
 		end
 	end
 	if modified == 1 then --need to set our args as our new modified one
-		ngx.req.set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
+		ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
 	else
 		return --carry on script functions
 	end
@@ -1513,7 +1551,7 @@ local function query_string_sort()
 	local query_string_sort_table_length = #query_string_sort_table
 	for i=1,query_string_sort_table_length do --for each host in our table
 		local v = query_string_sort_table[i]
-		if string.match(URL, v[1]) then --if our host matches one in the table
+		if string_match(URL, v[1]) then --if our host matches one in the table
 			if v[2] == 1 then --run query string sort
 				allow_site = 2 --run query string sort
 			end
@@ -1524,9 +1562,9 @@ local function query_string_sort()
 		end
 	end
 	if allow_site == 2 then --sort our query string
-		local args = ngx.req.get_uri_args() --grab our query string args and put them into a table
-		table.sort(args) --sort our query string args table into order
-		ngx.req.set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
+		local args = ngx_req_get_uri_args() --grab our query string args and put them into a table
+		table_sort(args) --sort our query string args table into order
+		ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
 	else --allow_site was 1
 		return --carry on script functions
 	end
@@ -1540,17 +1578,17 @@ End Query String Sort
 Start IP range function
 ]]
 local function ip_address_in_range(input_ip, client_connecting_ip)
-	if string.match(input_ip, "/") then --input ip is a subnet
+	if string_match(input_ip, "/") then --input ip is a subnet
 		--do nothing
 	else
 		return
 	end
 
 	local ip_type = nil
-	if string.match(input_ip, "%:") and string.match(client_connecting_ip, "%:") then --if both input and connecting ip are ipv6 addresses
+	if string_match(input_ip, "%:") and string_match(client_connecting_ip, "%:") then --if both input and connecting ip are ipv6 addresses
 		--ipv6
 		ip_type = 1
-	elseif string.match(input_ip, "%.") and string.match(client_connecting_ip, "%.") then --if both input and connecting ip are ipv4 addresses
+	elseif string_match(input_ip, "%.") and string_match(client_connecting_ip, "%.") then --if both input and connecting ip are ipv4 addresses
 		--ipv4
 		ip_type = 2
 	else
@@ -1568,12 +1606,12 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 			local pos, arr = 0, {}
 			local arr_table_length = 1
 			--for each divider found
-			for st, sp in function() return string.find(string, divide, pos, true) end do
-				arr[arr_table_length] = string.sub(string, pos, st - 1 ) --attach chars left of current divider
+			for st, sp in function() return string_find(string, divide, pos, true) end do
+				arr[arr_table_length] = string_sub(string, pos, st - 1 ) --attach chars left of current divider
 				arr_table_length=arr_table_length+1
 				pos = sp + 1 --jump past current divider
 			end
-				arr[arr_table_length] = string.sub(string, pos) -- Attach chars right of last divider
+				arr[arr_table_length] = string_sub(string, pos) -- Attach chars right of last divider
 				arr_table_length=arr_table_length+1
 			return arr
 		end
@@ -1661,21 +1699,21 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		]]
 
 		local expanded_ip_count = (ipbits[1] or "0000") .. ':' .. (ipbits[2] or "0000") .. ':' .. (ipbits[3] or "0000") .. ':' .. (ipbits[4] or "0000") .. ':' .. (ipbits[5] or "0000") .. ':' .. (ipbits[6] or "0000") .. ':' .. (ipbits[7] or "0000") .. ':' .. (ipbits[8] or "0000")
-		expanded_ip_count = ngx.re.gsub(expanded_ip_count, ":", "", ngx_re_options)
+		expanded_ip_count = ngx_re_gsub(expanded_ip_count, ":", "", ngx_re_options)
 
 		local client_connecting_ip_count = (ipbits_client[1] or "0000") .. ':' .. (ipbits_client[2] or "0000") .. ':' .. (ipbits_client[3] or "0000") .. ':' .. (ipbits_client[4] or "0000") .. ':' .. (ipbits_client[5] or "0000") .. ':' .. (ipbits_client[6] or "0000") .. ':' .. (ipbits_client[7] or "0000") .. ':' .. (ipbits_client[8] or "0000")
-		client_connecting_ip_count = ngx.re.gsub(client_connecting_ip_count, ":", "", ngx_re_options)
+		client_connecting_ip_count = ngx_re_gsub(client_connecting_ip_count, ":", "", ngx_re_options)
 
 		--generate wildcard from mask
 		local indent = mask / 4
 
-		expanded_ip_count = string.sub(expanded_ip_count, 0, indent)
-		client_connecting_ip_count = string.sub(client_connecting_ip_count, 0, indent)
+		expanded_ip_count = string_sub(expanded_ip_count, 0, indent)
+		client_connecting_ip_count = string_sub(client_connecting_ip_count, 0, indent)
 
-		local client_connecting_ip_expanded = ngx.re.gsub(client_connecting_ip_count, "....", "%1:", ngx_re_options)
-		client_connecting_ip_expanded = ngx.re.gsub(client_connecting_ip_count, ":$", "", ngx_re_options)
-		local expanded_ip = ngx.re.gsub(expanded_ip_count, "....", "%1:", ngx_re_options)
-		expanded_ip = ngx.re.gsub(expanded_ip_count, ":$", "", ngx_re_options)
+		local client_connecting_ip_expanded = ngx_re_gsub(client_connecting_ip_count, "....", "%1:", ngx_re_options)
+		client_connecting_ip_expanded = ngx_re_gsub(client_connecting_ip_count, ":$", "", ngx_re_options)
+		local expanded_ip = ngx_re_gsub(expanded_ip_count, "....", "%1:", ngx_re_options)
+		expanded_ip = ngx_re_gsub(expanded_ip_count, ":$", "", ngx_re_options)
 
 		local wildcardbits = {}
 		local wildcardbits_table_length = 1
@@ -1727,7 +1765,7 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 			end
 
 		--count ips in mask
-		local ipcount = math.pow(2, 128 - mask)
+		local ipcount = math_pow(2, 128 - mask)
 
 		if expanded_ip == client_connecting_ip_expanded then
 			--print("ipv6 is in range")
@@ -1802,7 +1840,7 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		local wildcard = masks[tonumber( mask )]
 
 		--number of ips in mask
-		local ipcount = math.pow(2, ( 32 - mask ))
+		local ipcount = math_pow(2, ( 32 - mask ))
 
 		--network IP (route/bottom IP)
 		local bottomip = {}
@@ -2213,9 +2251,9 @@ End IP range function
 local function WAF_Post_Requests()
 	if next(WAF_POST_Request_table) ~= nil then --Check Post filter table has rules inside it
 
-		ngx.req.read_body() --Grab the request Body
-		local read_request_body_args = (ngx.req.get_body_data() or "") --Put the request body arguments into a variable
-		local args = (ngx.decode_args(read_request_body_args) or "") --Put the Post args in to a table
+		ngx_req_read_body() --Grab the request Body
+		local read_request_body_args = (ngx_req_get_body_data() or "") --Put the request body arguments into a variable
+		local args = (ngx_decode_args(read_request_body_args) or "") --Put the Post args in to a table
 
 		if next(args) ~= nil then --Check Post args table has contents	
 
@@ -2233,14 +2271,14 @@ local function WAF_Post_Requests()
 					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
 					local args_name = tostring(key) or "" --variable to store POST data argument name
 					local args_value = tostring(value) or "" --variable to store POST data argument value
-					if string.match(args_name, argument_name) then --if the argument name in my table matches the one in the POST request
+					if string_match(args_name, argument_name) then --if the argument name in my table matches the one in the POST request
 						arguement1 = 1
 					end
-					if string.match(args_value, argument_value) then --if the argument value in my table matches the one the POST request
+					if string_match(args_value, argument_value) then --if the argument value in my table matches the one the POST request
 						arguement2 = 1
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-						local output = ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
+						local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
 						return output
 					end
 				end
@@ -2255,7 +2293,7 @@ WAF_Post_Requests()
 local function WAF_Header_Requests()
 	if next(WAF_Header_Request_table) ~= nil then --Check Header filter table has rules inside it
 
-		local argument_request_headers = ngx.req.get_headers() --get our client request headers and put them into a table
+		local argument_request_headers = ngx_req_get_headers() --get our client request headers and put them into a table
 
 		if next(argument_request_headers) ~= nil then --Check Header args table has contents	
 
@@ -2272,15 +2310,15 @@ local function WAF_Header_Requests()
 					local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
 					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
 					local args_name = tostring(key) or "" --variable to store Header data argument name
-					local args_value = tostring(ngx.req.get_headers()[args_name]) or ""
-					if string.match(args_name, argument_name) then --if the argument name in my table matches the one in the request
+					local args_value = tostring(ngx_req_get_headers()[args_name]) or ""
+					if string_match(args_name, argument_name) then --if the argument name in my table matches the one in the request
 						arguement1 = 1
 					end
-					if string.match(args_value, argument_value) then --if the argument value in my table matches the one the request
+					if string_match(args_value, argument_value) then --if the argument value in my table matches the one the request
 						arguement2 = 1
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-						local output = ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
+						local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
 						return output
 					end
 				end
@@ -2295,7 +2333,7 @@ WAF_Header_Requests()
 local function WAF_query_string_Request()
 	if next(WAF_query_string_Request_table) ~= nil then --Check query string filter table has rules inside it
 
-		local args = ngx.req.get_uri_args() --grab our query string args and put them into a table
+		local args = ngx_req_get_uri_args() --grab our query string args and put them into a table
 
 		if next(args) ~= nil then --Check query string args table has contents
 
@@ -2312,15 +2350,15 @@ local function WAF_query_string_Request()
 					local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
 					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
 					local args_name = tostring(key) or "" --variable to store query string data argument name
-					local args_value = tostring(ngx.req.get_uri_args()[args_name]) or "" --variable to store query string data argument value
-					if string.match(args_name, argument_name) then --if the argument name in my table matches the one in the request
+					local args_value = tostring(ngx_req_get_uri_args()[args_name]) or "" --variable to store query string data argument value
+					if string_match(args_name, argument_name) then --if the argument name in my table matches the one in the request
 						arguement1 = 1
 					end
-					if string.match(args_value, argument_value) then --if the argument value in my table matches the one the request
+					if string_match(args_value, argument_value) then --if the argument value in my table matches the one the request
 						arguement2 = 1
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-						local output = ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
+						local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
 						return output
 					end
 				end
@@ -2343,14 +2381,14 @@ local function WAF_URI_Request()
 		but then your back end webserver / application recieve the encoded uri!?
 		So to keep the security strong I match the same version your web application would need protecting from (Yes the encoded copy that could contain malicious / exploitable contents)
 		]]
-		local args = string.gsub(request_uri, "?.*", "") --remove the query string from the uri
+		local args = string_gsub(request_uri, "?.*", "") --remove the query string from the uri
 		
 		local WAF_table_length = #WAF_URI_Request_table
 		for i=1,WAF_table_length do --for each host in our table
 			local v = WAF_URI_Request_table[i]
-			if string.match(URL, v[1]) then --if our host matches one in the table
-				if string.match(args, v[2]) then
-					local output = ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
+			if string_match(URL, v[1]) then --if our host matches one in the table
+				if string_match(args, v[2]) then
+					local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
 					return output
 				end
 			end
@@ -2366,10 +2404,10 @@ local function check_ip_whitelist(ip_table)
 	for i=1,ip_table_length do
 		local value = ip_table[i]
 		if value == ip_whitelist_remote_addr then --if our ip address matches with one in the whitelist
-			local output = ngx.exit(ngx.OK) --Go to content
+			local output = ngx_exit(ngx_OK) --Go to content
 			return output
 		elseif ip_address_in_range(value, ip_whitelist_remote_addr) == true then
-			local output = ngx.exit(ngx.OK) --Go to content
+			local output = ngx_exit(ngx_OK) --Go to content
 			return output
 		end
 	end
@@ -2383,10 +2421,10 @@ local function check_ip_blacklist(ip_table)
 	for i=1,ip_table_length do
 		local value = ip_table[i]
 		if value == ip_blacklist_remote_addr then
-			local output = ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
+			local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
 			return output
 		elseif ip_address_in_range(value, ip_blacklist_remote_addr) == true then
-			local output = ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
+			local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
 			return output
 		end
 	end
@@ -2400,18 +2438,18 @@ local function check_user_agent_blacklist(user_agent_table)
 	for i=1,user_agent_table_length do
 		local value = user_agent_table[i]
 		if value[2] == 1 then --case insensative
-			user_agent_blacklist_var = string.lower(user_agent_blacklist_var)
-			value[1] = string.lower(value[1])
+			user_agent_blacklist_var = string_lower(user_agent_blacklist_var)
+			value[1] = string_lower(value[1])
 		end
 		if value[2] == 2 then --case sensative
 		end
 		if value[2] == 3 then --regex case sensative
 		end
 		if value[2] == 4 then --regex lower case insensative
-			user_agent_blacklist_var = string.lower(user_agent_blacklist_var)
+			user_agent_blacklist_var = string_lower(user_agent_blacklist_var)
 		end
-		if string.match(user_agent_blacklist_var, value[1])then
-			local output = ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
+		if string_match(user_agent_blacklist_var, value[1])then
+			local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
 			return output
 		end
 	end
@@ -2425,18 +2463,18 @@ local function check_user_agent_whitelist(user_agent_table)
 	for i=1,user_agent_table_length do
 		local value = user_agent_table[i]
 		if value[2] == 1 then --case insensative
-			user_agent_whitelist_var = string.lower(user_agent_whitelist_var)
-			value[1] = string.lower(value[1])
+			user_agent_whitelist_var = string_lower(user_agent_whitelist_var)
+			value[1] = string_lower(value[1])
 		end
 		if value[2] == 2 then --case sensative
 		end
 		if value[2] == 3 then --regex case sensative
 		end
 		if value[2] == 4 then --regex lower case insensative
-			user_agent_whitelist_var = string.lower(user_agent_whitelist_var)
+			user_agent_whitelist_var = string_lower(user_agent_whitelist_var)
 		end
-		if user_agent_whitelist_var and string.match(user_agent_whitelist_var, value[1]) then
-			local output = ngx.exit(ngx.OK) --Go to content
+		if user_agent_whitelist_var and string_match(user_agent_whitelist_var, value[1]) then
+			local output = ngx_exit(ngx_OK) --Go to content
 			return output
 		end
 	end
@@ -2446,14 +2484,14 @@ end
 check_user_agent_whitelist(user_agent_whitelist_table) --run user agent whitelist check function
 
 --to have better randomization upon encryption
-math.randomseed(os.time())
+math_randomseed(os_time())
 
 --function to encrypt strings with our secret key / password provided
 local function calculate_signature(str)
-	local output = ngx.encode_base64(ngx.hmac_sha1(secret, str))
-	output = ngx.re.gsub(output, "[+]", "-", ngx_re_options) --Replace + with -
-	output = ngx.re.gsub(output, "[/]", "_", ngx_re_options) --Replace / with _
-	output = ngx.re.gsub(output, "[=]", "", ngx_re_options) --Remove =
+	local output = ngx_encode_base64(ngx_hmac_sha1(secret, str))
+	output = ngx_re_gsub(output, "[+]", "-", ngx_re_options) --Replace + with -
+	output = ngx_re_gsub(output, "[/]", "_", ngx_re_options) --Replace / with _
+	output = ngx_re_gsub(output, "[=]", "", ngx_re_options) --Remove =
 	return output
 end
 --calculate_signature(str)
@@ -2463,29 +2501,29 @@ end
 local charset = {}
 local charset_table_length = 1
 for i = 48,  57 do
-charset[charset_table_length] = string.char(i)
+charset[charset_table_length] = string_char(i)
 charset_table_length=charset_table_length+1
 end --0-9 numeric
 --[[
 for i = 65,  90 do
-charset[charset_table_length] = string.char(i)
+charset[charset_table_length] = string_char(i)
 charset_table_length=charset_table_length+1
 end --A-Z uppercase
 ]]
 --[[
 for i = 97, 122 do
-charset[charset_table_length] = string.char(i)
+charset[charset_table_length] = string_char(i)
 charset_table_length=charset_table_length+1
 end --a-z lowercase
 ]]
-charset[charset_table_length] = string.char(95) --insert number 95 underscore
+charset[charset_table_length] = string_char(95) --insert number 95 underscore
 charset_table_length=charset_table_length+1
 local stringrandom_table = {} --create table to store our generated vars to avoid duplicates
 local stringrandom_table_new_length = 1
 local function stringrandom(length)
-	--math.randomseed(os.time())
+	--math_randomseed(os_time())
 	if length > 0 then
-		local output = stringrandom(length - 1) .. charset[math.random(1, #charset)]
+		local output = stringrandom(length - 1) .. charset[math_random(1, #charset)]
 		local duplicate_found = 0 --mark if we find a duplicate or not
 		local stringrandom_table_length = #stringrandom_table
 		for i=1,stringrandom_table_length do --for each value in our generated var table
@@ -2512,14 +2550,14 @@ local stringrandom_length = "" --create our random length variable
 if dynamic_javascript_vars_length == 1 then --if our javascript random var length is to be static
 	stringrandom_length = dynamic_javascript_vars_length_static --set our length as our static value
 else --it is to be dynamic
-	stringrandom_length = math.random(dynamic_javascript_vars_length_start, dynamic_javascript_vars_length_end) --set our length to be our dynamic min and max value
+	stringrandom_length = math_random(dynamic_javascript_vars_length_start, dynamic_javascript_vars_length_end) --set our length to be our dynamic min and max value
 end
 
 --shuffle table function
 local function shuffle(tbl)
 	local tbl_length = #tbl
 	for i = tbl_length, 2, -1 do
-		local j = math.random(i)
+		local j = math_random(i)
 		tbl[i], tbl[j] = tbl[j], tbl[i]
 	end
 	return tbl
@@ -2528,14 +2566,14 @@ end
 --for my javascript Hex output
 local function sep(str, patt, re)
 	local rstr = str:gsub(patt, "%1%" .. re)
-	--local rstr = ngx.re.gsub(str, patt, "%1%" .. re, ngx_re_options) --this has a major issue no idea why need to investigate more
+	--local rstr = ngx_re_gsub(str, patt, "%1%" .. re, ngx_re_options) --this has a major issue no idea why need to investigate more
 	return rstr:sub(1, #rstr - #re)
 end
 
 local function stringtohex(str)
-	--return ngx.re.gsub(str, ".", function (c) print(tostring(c[0])) return string.format('%02X', string.byte(c[0])) end, ngx_re_options) --this has a major issue no idea why need to investigate more
+	--return ngx_re_gsub(str, ".", function (c) print(tostring(c[0])) return string_format('%02X', string_byte(c[0])) end, ngx_re_options) --this has a major issue no idea why need to investigate more
 	return str:gsub('.', function (c)
-		return string.format('%02X', string.byte(c))
+		return string_format('%02X', string_byte(c))
 	end)
 end
 
@@ -2544,7 +2582,7 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 	local output = "" --Empty var
 
 	if type == 0 then
-		type = math.random(3, 5) --Random encryption
+		type = math_random(3, 5) --Random encryption
 	end
 
 	if type == 1 or type == nil then --No encryption
@@ -2566,18 +2604,18 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 
 		if tonumber(num_encrypt) ~= nil then --If number of times extra to rencrypt is set
 			for i=1, #num_encrypt do --for each number
-				string1 = ngx.encode_base64(base64_data_uri)
+				string1 = ngx_encode_base64(base64_data_uri)
 			end
 		end
 
 		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
-			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\"></script>"
+			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx_encode_base64(string1) .. "\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\"></script>"
 		end
 		if defer_async == "1" then --Defer
-			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" defer=\"defer\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\"></script>"
+			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx_encode_base64(string1) .. "\" defer=\"defer\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\"></script>"
 		end
 		if defer_async == "2" then --Async
-			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" async=\"async\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\"></script>"
+			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx_encode_base64(string1) .. "\" async=\"async\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\"></script>"
 		end
 	end
 
@@ -2587,14 +2625,14 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		local encrypt_type_origin = encrypt_type --Store var passed to function in local var
 
 		if tonumber(encrypt_type) == nil or tonumber(encrypt_type) <= 0 then
-			encrypt_type = math.random(2, 2) --Random encryption
+			encrypt_type = math_random(2, 2) --Random encryption
 		end
 		--I was inspired by http://www.hightools.net/javascript-encrypter.php so i built it myself
 		if tonumber(encrypt_type) == 1 then
 			hexadecimal_x = "%" .. sep(hex_output, "%x%x", "%") --hex output insert a char every 2 chars %x%x
 		end
 		if tonumber(encrypt_type) == 2 then
-			hexadecimal_x = string.char(92) .. "x" .. sep(hex_output, "%x%x", string.char(92) .. "x") --hex output insert a char every 2 chars %x%x
+			hexadecimal_x = string_char(92) .. "x" .. sep(hex_output, "%x%x", string_char(92) .. "x") --hex output insert a char every 2 chars %x%x
 		end
 
 		--TODO: Fix this.
@@ -2602,7 +2640,7 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		if tonumber(num_encrypt) ~= nil then --If number of times extra to rencrypt is set
 			for i=1, num_encrypt do --for each number
 				if tonumber(encrypt_type) ~= nil then
-					encrypt_type = math.random(1, 2) --Random encryption
+					encrypt_type = math_random(1, 2) --Random encryption
 					if tonumber(encrypt_type) == 1 then
 						--hexadecimal_x = "%" .. sep(ndk.set_var.set_encode_hex("eval(decodeURIComponent('" .. hexadecimal_x .. "'))"), "%x%x", "%") --hex output insert a char every 2 chars %x%x
 					end
@@ -2626,11 +2664,11 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 	end
 
 	if type == 4 then --Base64 javascript decode
-		local base64_javascript = "eval(decodeURIComponent(escape(window.atob('" .. ngx.encode_base64(string1) .. "'))))"
+		local base64_javascript = "eval(decodeURIComponent(escape(window.atob('" .. ngx_encode_base64(string1) .. "'))))"
 
 		if tonumber(num_encrypt) ~= nil then --If number of times extra to rencrypt is set
 			for i=1, num_encrypt do --for each number
-				base64_javascript = "eval(decodeURIComponent(escape(window.atob('" .. ngx.encode_base64(base64_javascript) .. "'))))"
+				base64_javascript = "eval(decodeURIComponent(escape(window.atob('" .. ngx_encode_base64(base64_javascript) .. "'))))"
 			end
 		end
 
@@ -2646,11 +2684,11 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 	end
 
 	if type == 5 then --Conor Mcknight's Javascript Scrambler (Obfuscate Javascript by putting it into vars and shuffling them like a deck of cards)
-		local base64_javascript = ngx.encode_base64(string1) --base64 encode our script
+		local base64_javascript = ngx_encode_base64(string1) --base64 encode our script
 
 		local l = #base64_javascript --count number of chars our variable has
 		local i = 0 --keep track of how many times we pass through
-		local r = math.random(1, l) --randomize where to split string
+		local r = math_random(1, l) --randomize where to split string
 		local chunks = {} --create our chunks table for string storage
 		local chunks_table_length = 1
 		local chunks_order = {} --create our chunks table for string storage that stores the value only
@@ -2669,8 +2707,8 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 
 		shuffle(chunks) --scramble our table
 
-		output = table.concat(chunks, "") --put our scrambled table into string
-		output = output .. "eval(decodeURIComponent(escape(window.atob(" .. table.concat(chunks_order, " + " ) .. "))));" --put our scrambled table and ordered table into a string
+		output = table_concat(chunks, "") --put our scrambled table into string
+		output = output .. "eval(decodeURIComponent(escape(window.atob(" .. table_concat(chunks_order, " + " ) .. "))));" --put our scrambled table and ordered table into a string
 		
 		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
 			output = "<script type=\"text/javascript\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\">" .. output .. "</script>"
@@ -2687,31 +2725,31 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 end
 --end encrypt_javascript function
 
-local currenttime = ngx.time() --Current time on server
+local currenttime = ngx_time() --Current time on server
 
 local currentdate = "" --make current date a empty var
 
 --Make sure our current date is in align with expires_time variable so that the auth page only shows when the cookie expires
 if expire_time <= 60 then --less than equal to one minute
-	currentdate = os.date("%M",os.time()-24*60*60) --Current minute
+	currentdate = os_date("%M",os_time()-24*60*60) --Current minute
 end
 if expire_time > 60 then --greater than one minute
-	currentdate = os.date("%H",os.time()-24*60*60) --Current hour
+	currentdate = os_date("%H",os_time()-24*60*60) --Current hour
 end
 if expire_time > 3600 then --greater than one hour
-	currentdate = os.date("%d",os.time()-24*60*60) --Current day of the year
+	currentdate = os_date("%d",os_time()-24*60*60) --Current day of the year
 end
 if expire_time > 86400 then --greater than one day
-	currentdate = os.date("%W",os.time()-24*60*60) --Current week
+	currentdate = os_date("%W",os_time()-24*60*60) --Current week
 end
 if expire_time > 6048000 then --greater than one week
-	currentdate = os.date("%m",os.time()-24*60*60) --Current month
+	currentdate = os_date("%m",os_time()-24*60*60) --Current month
 end
 if expire_time > 2628000 then --greater than one month
-	currentdate = os.date("%Y",os.time()-24*60*60) --Current year
+	currentdate = os_date("%Y",os_time()-24*60*60) --Current year
 end
 if expire_time > 31536000 then --greater than one year
-	currentdate = os.date("%z",os.time()-24*60*60) --Current time zone
+	currentdate = os_date("%z",os_time()-24*60*60) --Current time zone
 end
 
 local expected_header_status = 200
@@ -2728,11 +2766,11 @@ Start Tor detection
 ]]
 if x_tor_header == 2 then --if x-tor-header is dynamic
 	x_tor_header_name = calculate_signature(tor_remote_addr .. x_tor_header_name .. currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	x_tor_header_name = ngx.re.gsub(x_tor_header_name, "_", "", ngx_re_options) --replace underscore with nothing
+	x_tor_header_name = ngx_re_gsub(x_tor_header_name, "_", "", ngx_re_options) --replace underscore with nothing
 	x_tor_header_name_allowed = calculate_signature(tor_remote_addr .. x_tor_header_name_allowed .. currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	x_tor_header_name_allowed = ngx.re.gsub(x_tor_header_name_allowed, "_", "", ngx_re_options) --replace underscore with nothing
+	x_tor_header_name_allowed = ngx_re_gsub(x_tor_header_name_allowed, "_", "", ngx_re_options) --replace underscore with nothing
 	x_tor_header_name_blocked = calculate_signature(tor_remote_addr .. x_tor_header_name_blocked .. currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	x_tor_header_name_blocked = ngx.re.gsub(x_tor_header_name_blocked, "_", "", ngx_re_options) --replace underscore with nothing
+	x_tor_header_name_blocked = ngx_re_gsub(x_tor_header_name_blocked, "_", "", ngx_re_options) --replace underscore with nothing
 end
 
 if encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to be encrypted
@@ -2743,13 +2781,13 @@ end
 
 --block tor function to block traffic from tor users
 local function blocktor()
-	local output = ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
+	local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
 	return output
 end
 
 --check the connecting client to see if they have our required matching tor cookie name in their request
 local tor_cookie_name = "cookie_" .. cookie_tor
-local tor_cookie_value = ngx.var[tor_cookie_name] or ""
+local tor_cookie_value = ngx_var[tor_cookie_name] or ""
 
 if tor_cookie_value == cookie_tor_value_allow then --if their cookie value matches the value we expect
 	if tor == 2 then --perform check if tor users should be allowed or blocked if tor users already browsing your site have been granted access and you change this setting you want them to be blocked now so this makes sure they are denied any further access before their cookie expires
@@ -2792,10 +2830,10 @@ local function check_authorization(authorization, authorization_dynamic)
 	local remote_addr = tor_remote_addr --set for compatibility with Tor Clients
 	if authorization == 2 then --Cookie sessions
 		local cookie_name = "cookie_" .. authorization_cookie
-		local cookie_value = ngx.var[cookie_name] or ""
+		local cookie_value = ngx_var[cookie_name] or ""
 		expected_cookie_value = calculate_signature(remote_addr .. "authenticate" .. currentdate) --encrypt our expected cookie value
 		if cookie_value == expected_cookie_value then --cookie value client gave us matches what we expect it to be
-			ngx.exit(ngx.OK) --Go to content
+			ngx_exit(ngx_OK) --Go to content
 		end
 	end
 
@@ -2804,7 +2842,7 @@ local function check_authorization(authorization, authorization_dynamic)
 	local authorization_paths_length = #authorization_paths
 	for i=1,authorization_paths_length do --for each host in our table
 		local v = authorization_paths[i]
-		if string.match(URL, v[2]) then --if our host matches one in the table
+		if string_match(URL, v[2]) then --if our host matches one in the table
 			if v[1] == 1 then --Showbox
 				allow_site = 1 --showbox
 			end
@@ -2825,7 +2863,7 @@ local function check_authorization(authorization, authorization_dynamic)
 	local authorization_username = nil
 	local authorization_password = nil
 
-	local req_headers = ngx.req.get_headers() --get all request headers
+	local req_headers = ngx_req_get_headers() --get all request headers
 
 	if authorization_dynamic == 0 then --static
 		local authorization_logins_length = #authorization_logins
@@ -2834,13 +2872,13 @@ local function check_authorization(authorization, authorization_dynamic)
 			authorization_username = value[1] --username
 			authorization_password = value[2] --password
 			local base64_expected = authorization_username .. ":" .. authorization_password --convert to browser format
-			base64_expected = ngx.encode_base64(base64_expected) --base64 encode like browser format
+			base64_expected = ngx_encode_base64(base64_expected) --base64 encode like browser format
 			local authroization_user_pass = "Basic " .. base64_expected --append Basic to start like browser header does
 			if req_headers["Authorization"] == authroization_user_pass then --if the details match what we expect
 				if authorization == 2 then --Cookie sessions
-					set_cookie1 = authorization_cookie.."="..expected_cookie_value.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";"
+					set_cookie1 = authorization_cookie.."="..expected_cookie_value.."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";"
 					set_cookies = {set_cookie1}
-					ngx.header["Set-Cookie"] = set_cookies --send client a cookie for their session to be valid
+					ngx_header["Set-Cookie"] = set_cookies --send client a cookie for their session to be valid
 				end
 				allow_access = 1 --grant access
 				break --break out foreach loop since our user and pass was correct
@@ -2850,32 +2888,32 @@ local function check_authorization(authorization, authorization_dynamic)
 	if authorization_dynamic == 1 then --dynamic
 		authorization_username = calculate_signature(remote_addr .. "username" .. currentdate) --encrypt username
 		authorization_password = calculate_signature(remote_addr .. "password" .. currentdate) --encrypt password
-		authorization_username = string.sub(authorization_username, 1, authorization_dynamic_length) --change username to set length
-		authorization_password = string.sub(authorization_password, 1, authorization_dynamic_length) --change password to set length
+		authorization_username = string_sub(authorization_username, 1, authorization_dynamic_length) --change username to set length
+		authorization_password = string_sub(authorization_password, 1, authorization_dynamic_length) --change password to set length
 
 		local base64_expected = authorization_username .. ":" .. authorization_password --convert to browser format
-		base64_expected = ngx.encode_base64(base64_expected) --base64 encode like browser format
+		base64_expected = ngx_encode_base64(base64_expected) --base64 encode like browser format
 		local authroization_user_pass = "Basic " .. base64_expected --append Basic to start like browser header does
 		if req_headers["Authorization"] == authroization_user_pass then --if the details match what we expect
 			if authorization == 2 then --Cookie sessions
-				set_cookie1 = authorization_cookie.."="..expected_cookie_value.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";"
+				set_cookie1 = authorization_cookie.."="..expected_cookie_value.."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";"
 				set_cookies = {set_cookie1}
-				ngx.header["Set-Cookie"] = set_cookies --send client a cookie for their session to be valid
+				ngx_header["Set-Cookie"] = set_cookies --send client a cookie for their session to be valid
 			end
 			allow_access = 1 --grant access
 		end
 	end
 
 	if allow_access == 1 then
-		ngx.exit(ngx.OK) --Go to content
+		ngx_exit(ngx_OK) --Go to content
 	else
-		ngx.status = ngx.HTTP_UNAUTHORIZED --send client unathorized header
+		ngx_status = ngx_HTTP_UNAUTHORIZED --send client unathorized header
 		if authorization_display_user_details == 0 then
-			ngx.header['WWW-Authenticate'] = 'Basic realm="' .. authorization_message .. '", charset="' .. default_charset .. '"' --send client a box to input required username and password fields
+			ngx_header['WWW-Authenticate'] = 'Basic realm="' .. authorization_message .. '", charset="' .. default_charset .. '"' --send client a box to input required username and password fields
 		else
-			ngx.header['WWW-Authenticate'] = 'Basic realm="' .. authorization_message .. ' ' .. authorization_username_message .. ' ' .. authorization_username .. ' ' .. authorization_password_message .. ' ' .. authorization_password .. '", charset="' .. default_charset .. '"' --send client a box to input required username and password fields
+			ngx_header['WWW-Authenticate'] = 'Basic realm="' .. authorization_message .. ' ' .. authorization_username_message .. ' ' .. authorization_username .. ' ' .. authorization_password_message .. ' ' .. authorization_password .. '", charset="' .. default_charset .. '"' --send client a box to input required username and password fields
 		end
-		ngx.exit(ngx.HTTP_UNAUTHORIZED) --deny access any further
+		ngx_exit(ngx_HTTP_UNAUTHORIZED) --deny access any further
 	end
 end
 check_authorization(authorization, authorization_dynamic)
@@ -2889,7 +2927,7 @@ master switch
 --master switch check
 local function check_master_switch()
 	if master_switch == 2 then --script disabled
-		local output = ngx.exit(ngx.OK) --Go to content
+		local output = ngx_exit(ngx_OK) --Go to content
 		return output
 	end
 	if master_switch == 3 then --custom host selection
@@ -2897,7 +2935,7 @@ local function check_master_switch()
 		local master_switch_custom_hosts_length = #master_switch_custom_hosts
 		for i=1,master_switch_custom_hosts_length do --for each host in our table
 			local v = master_switch_custom_hosts[i]
-			if string.match(URL, v[2]) then --if our host matches one in the table
+			if string_match(URL, v[2]) then --if our host matches one in the table
 				if v[1] == 1 then --run auth
 					allow_site = 2 --run auth checks
 				end
@@ -2908,7 +2946,7 @@ local function check_master_switch()
 			end
 		end
 		if allow_site == 1 then --checks passed site allowed grant direct access
-			local output = ngx.exit(ngx.OK) --Go to content
+			local output = ngx_exit(ngx_OK) --Go to content
 			return output
 		else --allow_site was 2 to disallow direct access we matched a host to protect
 			return --carry on script functions to display auth page
@@ -2924,7 +2962,7 @@ local answer = calculate_signature(remote_addr) --create our encrypted unique id
 
 if x_auth_header == 2 then --if x-auth-header is dynamic
 	x_auth_header_name = calculate_signature(remote_addr .. x_auth_header_name .. currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	x_auth_header_name = ngx.re.gsub(x_auth_header_name, "_", "", ngx_re_options) --replace underscore with nothing
+	x_auth_header_name = ngx_re_gsub(x_auth_header_name, "_", "", ngx_re_options) --replace underscore with nothing
 end
 
 if encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to be encrypted
@@ -2941,24 +2979,24 @@ Grant access function to either grant or deny user access to our website
 local function grant_access()
 	--our uid cookie
 	local cookie_name = "cookie_" .. challenge
-	local cookie_value = ngx.var[cookie_name] or ""
+	local cookie_value = ngx_var[cookie_name] or ""
 	--our start date cookie
 	local cookie_name_start_date_name = "cookie_" .. cookie_name_start_date
-	local cookie_name_start_date_value = ngx.var[cookie_name_start_date_name] or ""
+	local cookie_name_start_date_value = ngx_var[cookie_name_start_date_name] or ""
 	local cookie_name_start_date_value_unix = tonumber(cookie_name_start_date_value)
 	--our end date cookie
 	local cookie_name_end_date_name = "cookie_" .. cookie_name_end_date
-	local cookie_name_end_date_value = ngx.var[cookie_name_end_date_name] or ""
+	local cookie_name_end_date_value = ngx_var[cookie_name_end_date_name] or ""
 	--our start date and end date combined to a unique id
 	local cookie_name_encrypted_start_and_end_date_name = "cookie_" .. cookie_name_encrypted_start_and_end_date
-	local cookie_name_encrypted_start_and_end_date_value = ngx.var[cookie_name_encrypted_start_and_end_date_name] or ""
+	local cookie_name_encrypted_start_and_end_date_value = ngx_var[cookie_name_encrypted_start_and_end_date_name] or ""
 
 	if cookie_value ~= answer then --if cookie value not equal to or matching our expected cookie they should be giving us
 		return --return to refresh the page so it tries again
 	end
 
 	--if x-auth-answer is correct to the user unique id time stamps etc meaning browser figured it out then set a new cookie that grants access without needed these checks
-	local req_headers = ngx.req.get_headers() --get all request headers
+	local req_headers = ngx_req_get_headers() --get all request headers
 	if req_headers["x-requested-with"] == "XMLHttpRequest" then --if request header matches request type of XMLHttpRequest
 		if req_headers[x_tor_header_name] == x_tor_header_name_value and req_headers[x_auth_header_name] == JavascriptPuzzleVars_answer then --if the header and value are what we expect then the client is legitimate
 			remote_addr = tor_remote_addr --set as our defined static tor variable to use
@@ -2969,41 +3007,41 @@ local function grant_access()
 			cookie_name_end_date = calculate_signature(remote_addr .. cookie_name_end_date_original .. currentdate) --create our cookie_name_end_date again under the new remote_addr (Stops a double page refresh loop)
 			cookie_name_encrypted_start_and_end_date = calculate_signature(remote_addr .. cookie_name_encrypted_start_and_end_date_original .. currentdate) --create our cookie_name_encrypted_start_and_end_date again under the new remote_addr (Stops a double page refresh loop)
 
-			set_cookie1 = challenge.."="..answer.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie incase javascript setting this cookies time stamp correctly has issues
-			set_cookie2 = cookie_name_start_date.."="..currenttime.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start date cookie
-			set_cookie3 = cookie_name_end_date.."="..(currenttime+expire_time).."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --end date cookie
-			set_cookie4 = cookie_name_encrypted_start_and_end_date.."="..calculate_signature(remote_addr .. currenttime .. (currenttime+expire_time) ).."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start and end date combined to unique id
-			set_cookie5 = cookie_tor.."="..cookie_tor_value.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --create our tor cookie to identify the client as a tor user
+			set_cookie1 = challenge.."="..answer.."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie incase javascript setting this cookies time stamp correctly has issues
+			set_cookie2 = cookie_name_start_date.."="..currenttime.."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start date cookie
+			set_cookie3 = cookie_name_end_date.."="..(currenttime+expire_time).."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --end date cookie
+			set_cookie4 = cookie_name_encrypted_start_and_end_date.."="..calculate_signature(remote_addr .. currenttime .. (currenttime+expire_time) ).."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start and end date combined to unique id
+			set_cookie5 = cookie_tor.."="..cookie_tor_value.."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --create our tor cookie to identify the client as a tor user
 
 			set_cookies = {set_cookie1 , set_cookie2 , set_cookie3 , set_cookie4, set_cookie5}
-			ngx.header["Set-Cookie"] = set_cookies
-			ngx.header["X-Content-Type-Options"] = "nosniff"
-			ngx.header["X-Frame-Options"] = "SAMEORIGIN"
-			ngx.header["X-XSS-Protection"] = "1; mode=block"
-			ngx.header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
-			ngx.header["Pragma"] = "no-cache"
-			ngx.header["Expires"] = "0"
-			ngx.header.content_type = "text/html; charset=" .. default_charset
-			ngx.status = expected_header_status
-			ngx.exit(ngx.HTTP_NO_CONTENT)
+			ngx_header["Set-Cookie"] = set_cookies
+			ngx_header["X-Content-Type-Options"] = "nosniff"
+			ngx_header["X-Frame-Options"] = "SAMEORIGIN"
+			ngx_header["X-XSS-Protection"] = "1; mode=block"
+			ngx_header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+			ngx_header["Pragma"] = "no-cache"
+			ngx_header["Expires"] = "0"
+			ngx_header.content_type = "text/html; charset=" .. default_charset
+			ngx_status = expected_header_status
+			ngx_exit(ngx_HTTP_NO_CONTENT)
 		end
 		if req_headers[x_auth_header_name] == JavascriptPuzzleVars_answer then --if the answer header provided by the browser Javascript matches what our Javascript puzzle answer should be
-			set_cookie1 = challenge.."="..cookie_value.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie incase javascript setting this cookies time stamp correctly has issues
-			set_cookie2 = cookie_name_start_date.."="..currenttime.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start date cookie
-			set_cookie3 = cookie_name_end_date.."="..(currenttime+expire_time).."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --end date cookie
-			set_cookie4 = cookie_name_encrypted_start_and_end_date.."="..calculate_signature(remote_addr .. currenttime .. (currenttime+expire_time) ).."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start and end date combined to unique id
+			set_cookie1 = challenge.."="..cookie_value.."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie incase javascript setting this cookies time stamp correctly has issues
+			set_cookie2 = cookie_name_start_date.."="..currenttime.."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start date cookie
+			set_cookie3 = cookie_name_end_date.."="..(currenttime+expire_time).."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --end date cookie
+			set_cookie4 = cookie_name_encrypted_start_and_end_date.."="..calculate_signature(remote_addr .. currenttime .. (currenttime+expire_time) ).."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start and end date combined to unique id
 
 			set_cookies = {set_cookie1 , set_cookie2 , set_cookie3 , set_cookie4}
-			ngx.header["Set-Cookie"] = set_cookies
-			ngx.header["X-Content-Type-Options"] = "nosniff"
-			ngx.header["X-Frame-Options"] = "SAMEORIGIN"
-			ngx.header["X-XSS-Protection"] = "1; mode=block"
-			ngx.header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
-			ngx.header["Pragma"] = "no-cache"
-			ngx.header["Expires"] = "0"
-			ngx.header.content_type = "text/html; charset=" .. default_charset
-			ngx.status = expected_header_status
-			ngx.exit(ngx.HTTP_NO_CONTENT)
+			ngx_header["Set-Cookie"] = set_cookies
+			ngx_header["X-Content-Type-Options"] = "nosniff"
+			ngx_header["X-Frame-Options"] = "SAMEORIGIN"
+			ngx_header["X-XSS-Protection"] = "1; mode=block"
+			ngx_header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+			ngx_header["Pragma"] = "no-cache"
+			ngx_header["Expires"] = "0"
+			ngx_header.content_type = "text/html; charset=" .. default_charset
+			ngx_status = expected_header_status
+			ngx_exit(ngx_HTTP_NO_CONTENT)
 		end
 	end
 
@@ -3021,7 +3059,7 @@ local function grant_access()
 	end
 	--else all checks passed bypass our firewall and show page content
 
-	local output = ngx.exit(ngx.OK) --Go to content
+	local output = ngx_exit(ngx_OK) --Go to content
 	return output
 end
 --grant_access()
@@ -3047,7 +3085,7 @@ then if GET request response had specific passed security check response header
 run window.location.reload(); Javascript
 ]]
 if javascript_REQUEST_TYPE == 3 then --Dynamic Random request
-	javascript_REQUEST_TYPE = math.random (1, 2) --Randomize between 1 and 2
+	javascript_REQUEST_TYPE = math_random (1, 2) --Randomize between 1 and 2
 end
 if javascript_REQUEST_TYPE == 1 then --GET request
 	javascript_REQUEST_TYPE = "GET"
@@ -3128,7 +3166,7 @@ local javascript_anti_ddos = [[
 			var time = now.getTime();
 			time += 300 * 1000;
 			now.setTime(time);
-			document.cookie = ']] .. challenge .. [[=]] .. answer .. [[' + '; expires=' + ']] .. ngx.cookie_time(currenttime+expire_time) .. [[' + '; path=/';
+			document.cookie = ']] .. challenge .. [[=]] .. answer .. [[' + '; expires=' + ']] .. ngx_cookie_time(currenttime+expire_time) .. [[' + '; path=/';
 			//javascript puzzle for browser to figure out to get answer
 			]] .. JavascriptVars_opening .. [[
 			]] .. JavascriptPuzzleVariable .. [[
@@ -3283,19 +3321,19 @@ local anti_ddos_html_output = [[
 --All previous checks failed and no access_granted permited so display authentication check page.
 --Output Anti-DDoS Authentication Page
 if set_cookies == nil then
-set_cookies = challenge.."="..answer.."; path=/; expires=" .. ngx.cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie in header here incase browsers javascript can't set cookies due to permissions.
+set_cookies = challenge.."="..answer.."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie in header here incase browsers javascript can't set cookies due to permissions.
 end
-ngx.header["Set-Cookie"] = set_cookies
-ngx.header["X-Content-Type-Options"] = "nosniff"
-ngx.header["X-Frame-Options"] = "SAMEORIGIN"
-ngx.header["X-XSS-Protection"] = "1; mode=block"
-ngx.header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
-ngx.header["Pragma"] = "no-cache"
-ngx.header["Expires"] = "0"
+ngx_header["Set-Cookie"] = set_cookies
+ngx_header["X-Content-Type-Options"] = "nosniff"
+ngx_header["X-Frame-Options"] = "SAMEORIGIN"
+ngx_header["X-XSS-Protection"] = "1; mode=block"
+ngx_header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+ngx_header["Pragma"] = "no-cache"
+ngx_header["Expires"] = "0"
 if credits == 1 then
-ngx.header["X-Anti-DDoS"] = "Conor McKnight | facebook.com/C0nw0nk"
+ngx_header["X-Anti-DDoS"] = "Conor McKnight | facebook.com/C0nw0nk"
 end
-ngx.header.content_type = "text/html; charset=" .. default_charset
-ngx.status = authentication_page_status_output
-ngx.say(anti_ddos_html_output)
-ngx.exit(ngx.HTTP_OK)
+ngx_header.content_type = "text/html; charset=" .. default_charset
+ngx_status = authentication_page_status_output
+ngx_say(anti_ddos_html_output)
+ngx_exit(ngx_HTTP_OK)
