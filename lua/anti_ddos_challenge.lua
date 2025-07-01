@@ -32,14 +32,14 @@ Configuration :
 --[[
 localize all standard Lua and Spring API functions I use for better performance.
 ]]
-local os = os
+--local os = os
 local string = string
 local math = math
 local table = table
 local tonumber = tonumber
 local tostring = tostring
 local next = next
-local ngx = ngx
+--local ngx = ngx
 local os_time = os.time
 local os_date = os.date
 local math_randomseed = math.randomseed
@@ -52,6 +52,7 @@ local string_match = string.match
 local string_lower = string.lower
 local string_find = string.find
 local string_sub = string.sub
+local string_len = string.len
 local string_char = string.char
 local string_gsub = string.gsub
 local string_format = string.format
@@ -78,6 +79,11 @@ local ngx_HTTP_FORBIDDEN = ngx.HTTP_FORBIDDEN
 local ngx_HTTP_UNAUTHORIZED = ngx.HTTP_UNAUTHORIZED
 local ngx_HTTP_NO_CONTENT = ngx.HTTP_NO_CONTENT
 local ngx_OK = ngx.OK
+local ngx_var_http_cf_connecting_ip = ngx.var.http_cf_connecting_ip
+local ngx_var_http_x_forwarded_for = ngx.var.http_x_forwarded_for
+local ngx_var_remote_addr = ngx.var.remote_addr
+local ngx_var_binary_remote_addr = ngx.var.binary_remote_addr
+local ngx_var_http_user_agent = ngx.var.http_user_agent
 --[[
 End localization
 ]]
@@ -102,14 +108,14 @@ local secret = " enigma" --Signature secret key --CHANGE ME FROM DEFAULT!
 --[[
 Unique id to identify each individual user and machine trying to access your website IP address works well.
 
-ngx.var.http_cf_connecting_ip --If you proxy your traffic through cloudflare use this
-ngx.var.http_x_forwarded_for --If your traffic is proxied through another server / service.
-ngx.var.remote_addr --Users IP address
-ngx.var.binary_remote_addr --Users IP address in binary
-ngx.var.http_user_agent --use this to protect Tor servers from DDoS
+ngx_var_http_cf_connecting_ip --If you proxy your traffic through cloudflare use this
+ngx_var_http_x_forwarded_for --If your traffic is proxied through another server / service.
+ngx_var_remote_addr --Users IP address
+ngx_var_binary_remote_addr --Users IP address in binary
+ngx_var_http_user_agent --use this to protect Tor servers from DDoS
 
 You can combine multiple if you like. You can do so like this.
-local remote_addr = ngx.var.remote_addr .. ngx.var.http_user_agent
+local remote_addr = ngx_var_remote_addr .. ngx_var_http_user_agent
 
 remote_addr = "tor" this will mean this script will be functioning for tor users only
 remote_addr = "auto" the script will automatically get the clients IP this is the default it is the smartest and most compatible method with every service proxy etc
@@ -272,9 +278,9 @@ local tor = 1 --Allow Tor Users
 --[[
 Unique ID to identify each individual Tor user who connects to the website
 Using their User-Agent as a static variable to latch onto works well.
-ngx.var.http_user_agent --Default
+ngx_var_http_user_agent --Default
 ]]
-local tor_remote_addr = ngx.var.http_user_agent or ""
+local tor_remote_addr = ngx_var_http_user_agent or ""
 
 --[[
 X-Tor-Header to be static or Dynamic setting this as dynamic is the best form of security
@@ -385,7 +391,7 @@ If you want to block access to bad bots / specific user-agents you can use this.
 
 I added some examples of bad bots to block access to.
 ]]
-local user_agent_blacklist_var = ngx.var.http_user_agent or ""
+local user_agent_blacklist_var = ngx_var_http_user_agent or ""
 local user_agent_blacklist_table = {
 	{
 		"^$",
@@ -431,7 +437,7 @@ If you want to allow access to specific user-agents use this.
 
 I added some examples of user-agents you could whitelist mostly search engine crawlers.
 ]]
-local user_agent_whitelist_var = ngx.var.http_user_agent or ""
+local user_agent_whitelist_var = ngx_var_http_user_agent or ""
 local user_agent_whitelist_table = {
 --[[
 	{
@@ -1379,7 +1385,7 @@ local scheme = ngx.var.scheme --scheme is HTTP or HTTPS
 local host = ngx.var.host --host is website domain name
 local request_uri = ngx.var.request_uri --request uri is full URL link including query strings and arguements
 local URL = scheme .. "://" .. host .. request_uri
-local user_agent = ngx.var.http_user_agent --user agent of browser
+local user_agent = ngx_var_http_user_agent --user agent of browser
 --[[
 Localized vars for use later
 ]]
@@ -1413,30 +1419,30 @@ End Header Modifications
 
 --automatically figure out the IP address of the connecting Client
 if remote_addr == "auto" then
-	if ngx.var.http_cf_connecting_ip ~= nil then
-		remote_addr = ngx.var.http_cf_connecting_ip
-	elseif ngx.var.http_x_forwarded_for ~= nil then
-		remote_addr = ngx.var.http_x_forwarded_for
+	if ngx_var_http_cf_connecting_ip ~= nil then
+		remote_addr = ngx_var_http_cf_connecting_ip
+	elseif ngx_var_http_x_forwarded_for ~= nil then
+		remote_addr = ngx_var_http_x_forwarded_for
 	else
-		remote_addr = ngx.var.remote_addr
+		remote_addr = ngx_var_remote_addr
 	end
 end
 if ip_whitelist_remote_addr == "auto" then
-	if ngx.var.http_cf_connecting_ip ~= nil then
-		ip_whitelist_remote_addr = ngx.var.http_cf_connecting_ip
-	elseif ngx.var.http_x_forwarded_for ~= nil then
-		ip_whitelist_remote_addr = ngx.var.http_x_forwarded_for
+	if ngx_var_http_cf_connecting_ip ~= nil then
+		ip_whitelist_remote_addr = ngx_var_http_cf_connecting_ip
+	elseif ngx_var_http_x_forwarded_for ~= nil then
+		ip_whitelist_remote_addr = ngx_var_http_x_forwarded_for
 	else
-		ip_whitelist_remote_addr = ngx.var.remote_addr
+		ip_whitelist_remote_addr = ngx_var_remote_addr
 	end
 end
 if ip_blacklist_remote_addr == "auto" then
-	if ngx.var.http_cf_connecting_ip ~= nil then
-		ip_blacklist_remote_addr = ngx.var.http_cf_connecting_ip
-	elseif ngx.var.http_x_forwarded_for ~= nil then
-		ip_blacklist_remote_addr = ngx.var.http_x_forwarded_for
+	if ngx_var_http_cf_connecting_ip ~= nil then
+		ip_blacklist_remote_addr = ngx_var_http_cf_connecting_ip
+	elseif ngx_var_http_x_forwarded_for ~= nil then
+		ip_blacklist_remote_addr = ngx_var_http_x_forwarded_for
 	else
-		ip_blacklist_remote_addr = ngx.var.remote_addr
+		ip_blacklist_remote_addr = ngx_var_remote_addr
 	end
 end
 
@@ -1446,7 +1452,8 @@ headers to restore original visitor IP addresses at your origin web server
 local function header_append_ip()
 	local custom_headers_length = #send_ip_to_backend_custom_headers
 	for i=1,custom_headers_length do --for each host in our table
-		local v = custom_headers[i]
+		--local v = custom_headers[i]
+		local v = send_ip_to_backend_custom_headers[i]
 		if string_match(URL, v[1]) then --if our host matches one in the table
 			local table_length = #v[2]
 			for first=1,table_length do --for each arg in our table
@@ -1620,7 +1627,7 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		Input IP
 		]]
 		--validate actual ip
-		local a, b, ip, mask = input_ip:find('([%w:]+)/(%d+)')
+		local a, b, ip, mask = string_find(input_ip, '([%w:]+)/(%d+)')
 
 		--get ip bits
 		local ipbits = explode(ip, ':')
@@ -1632,12 +1639,12 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 			local k = i
 			local v = ipbits[i]
 			--length 0? we're at the :: bit
-			if v:len() == 0 then
+			if string_len(v) == 0 then
 				zeroblock = k
 
 				--length not 0 but not 4, prepend 0's
-			elseif v:len() < 4 then
-				local padding = 4 - v:len()
+			elseif string_len(v) < 4 then
+				local padding = 4 - string_len(v)
 				for i = 1, padding do
 					ipbits[k] = 0 .. ipbits[k]
 				end
@@ -1661,7 +1668,7 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		Client IP
 		]]
 		--validate actual ip
-		local a, b, clientip, mask_client = client_connecting_ip:find('([%w:]+)')
+		local a, b, clientip, mask_client = string_find(client_connecting_ip, '([%w:]+)')
 
 		--get ip bits
 		local ipbits_client = explode(clientip, ':')
@@ -1673,12 +1680,12 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 			local k = i
 			local v = ipbits_client[i]
 			--length 0? we're at the :: bit
-			if v:len() == 0 then
+			if string_len(v) == 0 then
 				zeroblock_client = k
 
 				--length not 0 but not 4, prepend 0's
-			elseif v:len() < 4 then
-				local padding = 4 - v:len()
+			elseif string_len(v) < 4 then
+				local padding = 4 - string_len(v)
 				for i = 1, padding do
 					ipbits_client[k] = 0 .. ipbits_client[k]
 				end
@@ -1750,8 +1757,8 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 				local topbit = ''
 				local bottombit = ''
 				for i = 1, 4 do
-					local wild = wildcard[k]:sub(i, i)
-					local norm = v:sub(i, i)
+					local wild = string_sub(wildcard[k], i, i)
+					local norm = string_sub(v, i, i)
 					if wild == 'f' then
 						topbit = topbit .. norm
 						bottombit = bottombit .. norm
@@ -1796,9 +1803,9 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 
 	if ip_type == 2 then --ipv4
 
-		local a, b, ip1, ip2, ip3, ip4, mask = input_ip:find('(%d+).(%d+).(%d+).(%d+)/(%d+)')
+		local a, b, ip1, ip2, ip3, ip4, mask = string_find(input_ip, '(%d+).(%d+).(%d+).(%d+)/(%d+)')
 		local ip = { tonumber( ip1 ), tonumber( ip2 ), tonumber( ip3 ), tonumber( ip4 ) }
-		local a, b, client_ip1, client_ip2, client_ip3, client_ip4 = client_connecting_ip:find('(%d+).(%d+).(%d+).(%d+)')
+		local a, b, client_ip1, client_ip2, client_ip3, client_ip4 = string_find(client_connecting_ip, '(%d+).(%d+).(%d+).(%d+)')
 		local client_ip = { tonumber( client_ip1 ), tonumber( client_ip2 ), tonumber( client_ip3 ), tonumber( client_ip4 ) }
 
 		--list masks => wildcard
@@ -2236,10 +2243,10 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 end
 --[[
 usage
-if ip_address_in_range("255.255.0.0/17", ngx.var.remote_addr) == true then --ipv4
+if ip_address_in_range("255.255.0.0/17", ngx_var_remote_addr) == true then --ipv4
 	print("IPv4 in range")
 end
-if ip_address_in_range("2a02:0c68::/29", ngx.var.remote_addr) == true then --ipv6
+if ip_address_in_range("2a02:0c68::/29", ngx_var_remote_addr) == true then --ipv6
 	print("IPv6 in range")
 end
 ]]
@@ -2565,14 +2572,14 @@ end
 
 --for my javascript Hex output
 local function sep(str, patt, re)
-	local rstr = str:gsub(patt, "%1%" .. re)
+	local rstr = string_gsub(str, patt, "%1%" .. re)
 	--local rstr = ngx_re_gsub(str, patt, "%1%" .. re, ngx_re_options) --this has a major issue no idea why need to investigate more
-	return rstr:sub(1, #rstr - #re)
+	return string_sub(rstr, 1, #rstr - #re)
 end
 
 local function stringtohex(str)
 	--return ngx_re_gsub(str, ".", function (c) print(tostring(c[0])) return string_format('%02X', string_byte(c[0])) end, ngx_re_options) --this has a major issue no idea why need to investigate more
-	return str:gsub('.', function (c)
+	return string_gsub(str, '.', function (c)
 		return string_format('%02X', string_byte(c))
 	end)
 end
@@ -2699,7 +2706,7 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 			random_var = stringrandom(stringrandom_length) --create a random variable name to use
 			chunks_order[chunks_order_table_length] = "_" .. random_var .. "" --insert the value into our ordered table
 			chunks_order_table_length=chunks_order_table_length+1
-			chunks[chunks_table_length] = 'var _' .. random_var .. '="' .. base64_javascript:sub(i,i+r).. '";' --insert our value into our table we will scramble
+			chunks[chunks_table_length] = 'var _' .. random_var .. '="' .. string_sub(base64_javascript,i,i+r).. '";' --insert our value into our table we will scramble
 			chunks_table_length=chunks_table_length+1
 
 			i = i+r+1
@@ -3236,12 +3243,12 @@ ddos_credits = "" --make empty string
 end
 
 --Fix remote_addr output as what ever IP address the Client is using
-if ngx.var.http_cf_connecting_ip ~= nil then
-remote_addr = ngx.var.http_cf_connecting_ip
-elseif ngx.var.http_x_forwarded_for ~= nil then
-remote_addr = ngx.var.http_x_forwarded_for
+if ngx_var_http_cf_connecting_ip ~= nil then
+remote_addr = ngx_var_http_cf_connecting_ip
+elseif ngx_var_http_x_forwarded_for ~= nil then
+remote_addr = ngx_var_http_x_forwarded_for
 else
-remote_addr = ngx.var.remote_addr
+remote_addr = ngx_var_remote_addr
 end
 
 local request_details = [[
