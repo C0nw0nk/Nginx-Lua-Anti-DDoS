@@ -82,7 +82,6 @@ local ngx_OK = ngx.OK
 local ngx_var_http_cf_connecting_ip = ngx.var.http_cf_connecting_ip
 local ngx_var_http_x_forwarded_for = ngx.var.http_x_forwarded_for
 local ngx_var_remote_addr = ngx.var.remote_addr
-local ngx_var_binary_remote_addr = ngx.var.binary_remote_addr
 local ngx_var_http_user_agent = ngx.var.http_user_agent
 --[[
 End localization
@@ -111,7 +110,6 @@ Unique id to identify each individual user and machine trying to access your web
 ngx_var_http_cf_connecting_ip --If you proxy your traffic through cloudflare use this
 ngx_var_http_x_forwarded_for --If your traffic is proxied through another server / service.
 ngx_var_remote_addr --Users IP address
-ngx_var_binary_remote_addr --Users IP address in binary
 ngx_var_http_user_agent --use this to protect Tor servers from DDoS
 
 You can combine multiple if you like. You can do so like this.
