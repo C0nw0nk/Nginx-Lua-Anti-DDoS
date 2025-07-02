@@ -2826,6 +2826,13 @@ if encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to be encrypte
 	authorization_cookie = calculate_signature(remote_addr .. authorization_cookie .. currentdate) --encrypt our auth box session cookie name
 end
 
+local set_cookies = nil
+local set_cookie1 = nil
+local set_cookie2 = nil
+local set_cookie3 = nil
+local set_cookie4 = nil
+local set_cookie5 = nil
+
 local function check_authorization(authorization, authorization_dynamic)
 	if authorization == 0 or nil then --auth box disabled
 		return
