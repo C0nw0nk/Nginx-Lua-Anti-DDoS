@@ -83,6 +83,9 @@ local ngx_var_http_cf_connecting_ip = ngx.var.http_cf_connecting_ip
 local ngx_var_http_x_forwarded_for = ngx.var.http_x_forwarded_for
 local ngx_var_remote_addr = ngx.var.remote_addr
 local ngx_var_http_user_agent = ngx.var.http_user_agent
+local ngx_log = ngx.log
+-- https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#nginx-log-level-constants
+local ngx_LOG_TYPE = ngx.STDERR
 --[[
 End localization
 ]]
@@ -1349,6 +1352,24 @@ local custom_headers = {
 }
 
 --[[
+Logging of users ip address
+This can be useful if you use fail2ban or banip that will read your log files
+for users who lets say fail to solve the puzzle multiple times within minutes or hours you can ban those ip addresses since you know they are bots.
+by default nginx syslog would be error.log file you can change the log type via `local ngx_LOG_TYPE =` variable
+
+0 = Disable logging
+1 = Enable logging
+]]
+local log_users_on_puzzle = 0
+local log_on_puzzle_text_start = "[Deny] IP : "
+local log_on_puzzle_text_end = " - Attempting to solve Auth puzzle"
+
+
+local log_users_granted_access = 0
+local log_on_granted_text_start = "[Grant] IP : "
+local log_on_granted_text_end = " - Solved the puzzle"
+
+--[[
 End Configuration
 
 
@@ -2254,13 +2275,15 @@ End IP range function
 
 --[[WAF Web Application Firewall POST Request arguments filter]]
 local function WAF_Post_Requests()
-	if next(WAF_POST_Request_table) ~= nil then --Check Post filter table has rules inside it
+	--if next(WAF_POST_Request_table) ~= nil then --Check Post filter table has rules inside it
+	if #WAF_POST_Request_table > 0 then --Check Post filter table has rules inside it
 
 		ngx_req_read_body() --Grab the request Body
 		local read_request_body_args = (ngx_req_get_body_data() or "") --Put the request body arguments into a variable
 		local args = (ngx_decode_args(read_request_body_args) or "") --Put the Post args in to a table
 
-		if next(args) ~= nil then --Check Post args table has contents	
+		--if next(args) ~= nil then --Check Post args table has contents
+		if #args > 0 then --Check Post args table has contents	
 
 			local arguement1 = nil --create empty variable
 			local arguement2 = nil --create empty variable
@@ -2296,11 +2319,13 @@ WAF_Post_Requests()
 
 --[[WAF Web Application Firewall Header Request arguments filter]]
 local function WAF_Header_Requests()
-	if next(WAF_Header_Request_table) ~= nil then --Check Header filter table has rules inside it
+	--if next(WAF_Header_Request_table) ~= nil then --Check Header filter table has rules inside it
+	if #WAF_Header_Request_table > 0 then --Check Header filter table has rules inside it
 
 		local argument_request_headers = ngx_req_get_headers() --get our client request headers and put them into a table
 
-		if next(argument_request_headers) ~= nil then --Check Header args table has contents	
+		--if next(argument_request_headers) ~= nil then --Check Header args table has contents
+		if #argument_request_headers > 0 then --Check Header args table has contents
 
 			local arguement1 = nil --create empty variable
 			local arguement2 = nil --create empty variable
@@ -2336,11 +2361,13 @@ WAF_Header_Requests()
 
 --[[WAF Web Application Firewall Query String Request arguments filter]]
 local function WAF_query_string_Request()
-	if next(WAF_query_string_Request_table) ~= nil then --Check query string filter table has rules inside it
+	--if next(WAF_query_string_Request_table) ~= nil then --Check query string filter table has rules inside it
+	if #WAF_query_string_Request_table > 0 then --Check query string filter table has rules inside it
 
 		local args = ngx_req_get_uri_args() --grab our query string args and put them into a table
 
-		if next(args) ~= nil then --Check query string args table has contents
+		--if next(args) ~= nil then --Check query string args table has contents
+		if #args > 0 then --Check query string args table has contents
 
 			local arguement1 = nil --create empty variable
 			local arguement2 = nil --create empty variable
@@ -2376,7 +2403,8 @@ WAF_query_string_Request()
 
 --[[WAF Web Application Firewall URI Request arguments filter]]
 local function WAF_URI_Request()
-	if next(WAF_URI_Request_table) ~= nil then --Check Post filter table has rules inside it
+	--if next(WAF_URI_Request_table) ~= nil then --Check Post filter table has rules inside it
+	if #WAF_URI_Request_table > 0 then --Check Post filter table has rules inside it
 
 		--[[
 		Because ngx.var.uri is a bit stupid I strip the query string of the request uri.
@@ -3071,6 +3099,10 @@ local function grant_access()
 	end
 	--else all checks passed bypass our firewall and show page content
 
+	if log_users_granted_access == 1 then
+		ngx_log(ngx_LOG_TYPE,  log_on_granted_text_start .. remote_addr .. log_on_granted_text_end)
+	end
+
 	local output = ngx_exit(ngx_OK) --Go to content
 	return output
 end
@@ -3081,6 +3113,10 @@ End Required Functions
 ]]
 
 grant_access() --perform checks to see if user can access the site or if they will see our denial of service status below
+
+if log_users_on_puzzle == 1 then
+	ngx_log(ngx_LOG_TYPE,  log_on_puzzle_text_start .. remote_addr .. log_on_puzzle_text_end)
+end
 
 --[[
 Build HTML Template
