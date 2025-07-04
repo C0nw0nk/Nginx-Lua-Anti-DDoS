@@ -86,6 +86,7 @@ local ngx_var_http_user_agent = ngx.var.http_user_agent
 local ngx_log = ngx.log
 -- https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#nginx-log-level-constants
 local ngx_LOG_TYPE = ngx.STDERR
+local os_time_saved = os_time()-24*60*60
 --[[
 End localization
 ]]
@@ -199,8 +200,8 @@ Javascript Puzzle for web browser to solve do not touch this unless you understa
 
 --Make our Javascript puzzle a little bit more dynamic than the static equation above it will change every 24 hours :) I made this because the static one is pretty poor security compared to this but this can be improved allot though.
 --TODO: IMPROVE THIS!
-local JavascriptPuzzleVars = [[parseInt("]] .. os_date("%Y%m%d",os_time()-24*60*60) .. [[", 10) + parseInt("]] .. os_date("%d%m%Y",os_time()-24*60*60) ..[[", 10)]] --Javascript output of our two random numbers
-local JavascriptPuzzleVars_answer = os_date("%Y%m%d",os_time()-24*60*60) + os_date("%d%m%Y",os_time()-24*60*60) --lua output of our two random numbers
+local JavascriptPuzzleVars = [[parseInt("]] .. os_date("%Y%m%d",os_time_saved) .. [[", 10) + parseInt("]] .. os_date("%d%m%Y",os_time_saved) ..[[", 10)]] --Javascript output of our two random numbers
+local JavascriptPuzzleVars_answer = os_date("%Y%m%d",os_time_saved) + os_date("%d%m%Y",os_time_saved) --lua output of our two random numbers
 local JavascriptPuzzleVars_answer = math_floor(JavascriptPuzzleVars_answer+0.5) --fix bug removing the 0. decimal on the end of the figure
 local JavascriptPuzzleVars_answer = tostring(JavascriptPuzzleVars_answer) --convert the numeric output to a string
 
@@ -1530,8 +1531,10 @@ Query String Remove arguments
 
 --if a table has a value inside of it
 local function has_value(table_, val)
-	for key, value in next, table_ do
-		if value == val then
+	for i=1,#table_ do
+		if table_[i] == val then
+	--for key, value in next, table_ do
+		--if value == val then
 			return true
 		end
 	end
@@ -2764,25 +2767,25 @@ local currentdate = "" --make current date a empty var
 
 --Make sure our current date is in align with expires_time variable so that the auth page only shows when the cookie expires
 if expire_time <= 60 then --less than equal to one minute
-	currentdate = os_date("%M",os_time()-24*60*60) --Current minute
+	currentdate = os_date("%M",os_time_saved) --Current minute
 end
 if expire_time > 60 then --greater than one minute
-	currentdate = os_date("%H",os_time()-24*60*60) --Current hour
+	currentdate = os_date("%H",os_time_saved) --Current hour
 end
 if expire_time > 3600 then --greater than one hour
-	currentdate = os_date("%d",os_time()-24*60*60) --Current day of the year
+	currentdate = os_date("%d",os_time_saved) --Current day of the year
 end
 if expire_time > 86400 then --greater than one day
-	currentdate = os_date("%W",os_time()-24*60*60) --Current week
+	currentdate = os_date("%W",os_time_saved) --Current week
 end
 if expire_time > 6048000 then --greater than one week
-	currentdate = os_date("%m",os_time()-24*60*60) --Current month
+	currentdate = os_date("%m",os_time_saved) --Current month
 end
 if expire_time > 2628000 then --greater than one month
-	currentdate = os_date("%Y",os_time()-24*60*60) --Current year
+	currentdate = os_date("%Y",os_time_saved) --Current year
 end
 if expire_time > 31536000 then --greater than one year
-	currentdate = os_date("%z",os_time()-24*60*60) --Current time zone
+	currentdate = os_date("%z",os_time_saved) --Current time zone
 end
 
 local expected_header_status = 200
