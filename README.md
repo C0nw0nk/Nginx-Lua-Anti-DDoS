@@ -36,6 +36,8 @@ User-Agent Blacklist
 
 Protected area / Restricted access field username / password box to restrict access to sites / paths.
 
+Enable or disable logging of users who either fail or succeed solving the authentication puzzle. (Fail2Ban users can use this to ban bots AI tools and IP addresses from the log file)
+
 ## WAF (Web Application Firewall)
 
 IPv4 and IPv6 blocking and whitelisting including subnet ranges.
