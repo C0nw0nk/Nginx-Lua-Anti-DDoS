@@ -42,7 +42,7 @@ local next = next
 --local ngx = ngx
 local os_time = os.time
 local os_date = os.date
-local math_randomseed = math.randomseed
+--local math_randomseed = math.randomseed
 local math_random = math.random
 local math_floor = math.floor
 local math_pow = math.pow
@@ -200,8 +200,10 @@ Javascript Puzzle for web browser to solve do not touch this unless you understa
 
 --Make our Javascript puzzle a little bit more dynamic than the static equation above it will change every 24 hours :) I made this because the static one is pretty poor security compared to this but this can be improved allot though.
 --TODO: IMPROVE THIS!
-local JavascriptPuzzleVars = [[parseInt("]] .. os_date("%Y%m%d",os_time_saved) .. [[", 10) + parseInt("]] .. os_date("%d%m%Y",os_time_saved) ..[[", 10)]] --Javascript output of our two random numbers
-local JavascriptPuzzleVars_answer = os_date("%Y%m%d",os_time_saved) + os_date("%d%m%Y",os_time_saved) --lua output of our two random numbers
+local os_date_stored1 = os_date("%Y%m%d",os_time_saved)
+local os_date_stored2 = os_date("%d%m%Y",os_time_saved)
+local JavascriptPuzzleVars = [[parseInt("]] .. os_date_stored1 .. [[", 10) + parseInt("]] .. os_date_stored2 ..[[", 10)]] --Javascript output of our two random numbers
+local JavascriptPuzzleVars_answer = os_date_stored1 + os_date_stored2 --lua output of our two random numbers
 local JavascriptPuzzleVars_answer = math_floor(JavascriptPuzzleVars_answer+0.5) --fix bug removing the 0. decimal on the end of the figure
 local JavascriptPuzzleVars_answer = tostring(JavascriptPuzzleVars_answer) --convert the numeric output to a string
 
@@ -2520,7 +2522,7 @@ end
 check_user_agent_whitelist(user_agent_whitelist_table) --run user agent whitelist check function
 
 --to have better randomization upon encryption
-math_randomseed(os_time())
+--math_randomseed(os_time_saved)
 
 --function to encrypt strings with our secret key / password provided
 local function calculate_signature(str)
@@ -2557,7 +2559,6 @@ charset_table_length=charset_table_length+1
 local stringrandom_table = {} --create table to store our generated vars to avoid duplicates
 local stringrandom_table_new_length = 1
 local function stringrandom(length)
-	--math_randomseed(os_time())
 	if length > 0 then
 		local output = stringrandom(length - 1) .. charset[math_random(1, #charset)]
 		local duplicate_found = 0 --mark if we find a duplicate or not
