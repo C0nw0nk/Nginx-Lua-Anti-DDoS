@@ -45,6 +45,7 @@ local os_date = os.date
 --local math_randomseed = math.randomseed
 local math_random = math.random
 local math_floor = math.floor
+local math_sin = math.sin
 local math_pow = math.pow
 local table_sort = table.sort
 local table_concat = table.concat
@@ -57,6 +58,7 @@ local string_char = string.char
 local string_gsub = string.gsub
 local string_format = string.format
 local string_byte = string.byte
+local bit_bxor = bit.bxor
 local ngx_re_gsub = ngx.re.gsub
 local ngx_hmac_sha1 = ngx.hmac_sha1
 local ngx_encode_base64 = ngx.encode_base64
@@ -1428,7 +1430,7 @@ End Header Modifications
 String XOR helper function
 ]]
 local function xorChar(c, key)
-    return string.char(bit.bxor(string.byte(c), key))
+    return string_char(bit_bxor(string_byte(c), key))
 end
 --[[
 End String XOR helper function
@@ -1437,7 +1439,7 @@ End String XOR helper function
 Char Shift helper function
 ]]
 local function shiftChar(c, amount)
-    return string.char((string.byte(c) + amount) % 256)
+    return string_char((string_byte(c) + amount) % 256)
 end
 --[[
 End Char Shift helper function
@@ -1445,16 +1447,16 @@ End Char Shift helper function
 --[[
 Calculate answer Function
 ]]--
-local function calculateAnswer(client_signature)
-    local seed = math.sin(tonumber(os.date("%Y%m%d", os.time() - 24*60*60))) * 1000
-    local key = math.floor(seed) % 256
-    local shiftAmount = math.floor((seed * math.sin(seed)) % 10) + 1
+local function calculateAnswer(client_signature) 
+    local seed = math_sin(tonumber(os_date("%Y%m%d", os_time_saved))) * 1000
+    local key = math_floor(seed) % 256
+    local shiftAmount = math_floor((seed * math_sin(seed)) % 10) + 1
 
-    local result = {}
+    local result = ""
     for i = 1, #client_signature do
-        table.insert(result, shiftChar(xorChar(client_signature:sub(i, i), (key + i - 1) % 256), shiftAmount))
+        result = result .. shiftChar(xorChar(client_signature:sub(i, i), (key + i - 1) % 256), shiftAmount)
     end
-    return ngx_encode_base64(table.concat(result))
+    return ngx_encode_base64(result)
 end
 --[[
 End Calculate answer Function
@@ -3024,6 +3026,7 @@ master switch
 ]]
 
 local answer = calculate_signature(remote_addr) --create our encrypted unique identification for the user visiting the website.
+local JsPuzzleAnswer = calculateAnswer(answer) -- Localize the answer to be used further
 
 if x_auth_header == 2 then --if x-auth-header is dynamic
 	x_auth_header_name = calculate_signature(remote_addr .. x_auth_header_name .. currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
@@ -3063,7 +3066,7 @@ local function grant_access()
 	--if x-auth-answer is correct to the user unique id time stamps etc meaning browser figured it out then set a new cookie that grants access without needed these checks
 	local req_headers = ngx_req_get_headers() --get all request headers
 	if req_headers["x-requested-with"] == "XMLHttpRequest" then --if request header matches request type of XMLHttpRequest
-		if req_headers[x_tor_header_name] == x_tor_header_name_value and req_headers[x_auth_header_name] == calculateAnswer(answer) then --if the header and value are what we expect then the client is legitimate
+		if req_headers[x_tor_header_name] == x_tor_header_name_value and req_headers[x_auth_header_name] == JsPuzzleAnswer then --if the header and value are what we expect then the client is legitimate
 			remote_addr = tor_remote_addr --set as our defined static tor variable to use
 			
 			challenge = calculate_signature(remote_addr .. challenge_original .. currentdate) --create our encrypted unique identification for the user visiting the website again. (Stops a double page refresh loop)
@@ -3090,7 +3093,7 @@ local function grant_access()
 			ngx_status = expected_header_status
 			ngx_exit(ngx_HTTP_NO_CONTENT)
 		end
-		if req_headers[x_auth_header_name] == calculateAnswer(answer) then --if the answer header provided by the browser Javascript matches what our Javascript puzzle answer should be
+		if req_headers[x_auth_header_name] == JsPuzzleAnswer then --if the answer header provided by the browser Javascript matches what our Javascript puzzle answer should be
 			set_cookie1 = challenge.."="..cookie_value.."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie incase javascript setting this cookies time stamp correctly has issues
 			set_cookie2 = cookie_name_start_date.."="..currenttime.."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start date cookie
 			set_cookie3 = cookie_name_end_date.."="..(currenttime+expire_time).."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --end date cookie
