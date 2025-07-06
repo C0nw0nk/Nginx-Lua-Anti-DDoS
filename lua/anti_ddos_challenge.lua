@@ -416,6 +416,26 @@ local user_agent_blacklist_table = {
 		"python",
 		1,
 	},
+	{ -- Block AI bots / tools that steal and content scrape
+		"ChatGPT",
+		1,
+	},
+	{
+		"GPTBot",
+		1,
+	},
+	{
+		"Deepseek",
+		1,
+	},
+	{
+		"OAI-",
+		1,
+	},
+	{
+		"AI2Bot",
+		1,
+	},
 }
 
 --[[
