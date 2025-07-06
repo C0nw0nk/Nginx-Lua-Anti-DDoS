@@ -1468,8 +1468,8 @@ End Char Shift helper function
 Calculate answer Function
 ]]--
 local function calculateAnswer(client_signature) 
-    local seed = math_sin(tonumber(os_date("%Y%m%d", os_time_saved))) * 1000
-    local key = math_floor(seed) % 256
+    local seed = math_floor(math_sin(tonumber(os_date("%Y%m%d", os_time_saved))) * 1000)
+    local key = seed % 256
     local shiftAmount = math_floor((seed * math_sin(seed)) % 10) + 1
 
     local result = ""
@@ -3209,6 +3209,7 @@ local JsPuzzleVar1 = "_" .. stringrandom(stringrandom_length)
 local JsPuzzleVar2 = "_" .. stringrandom(stringrandom_length)
 local JsPuzzleVar3 = "_" .. stringrandom(stringrandom_length)
 local JsPuzzleVar4 = "_" .. stringrandom(stringrandom_length)
+local JsPuzzleVar5 = "_" .. stringrandom(stringrandom_length)
 
 --[[
 Begin Tor Browser Checks
@@ -3259,11 +3260,14 @@ Javascript Puzzle for web browser to solve do not touch this unless you understa
 --Improved the script
 --Moved the script to be able to use answer (ip+signature string)
 local JavascriptPuzzleVars = [[
-	(function(){var ]]..JsPuzzleVar1..[[=1E3*Math.sin(']]..os_date("%Y%m%d",os_time()-24*60*60)..[['),]]..JsPuzzleVar2..[[=Math.floor(]]..JsPuzzleVar1..[[)%256,]]..JsPuzzleVar3..[[=Math.floor(]]..JsPuzzleVar1..[[*Math.sin(]]..JsPuzzleVar1..[[)%10)+1;]]..JsPuzzleVar1..[[=']]..answer..[['.split("").map(function(]]..JsPuzzleVar1..[[,]]..JsPuzzleVar4..[[){return String.fromCharCode((String.fromCharCode(]]..JsPuzzleVar1..[[.charCodeAt(0)^(]]..JsPuzzleVar2..[[+]]..JsPuzzleVar4..[[)%256).charCodeAt(0)+]]..JsPuzzleVar3..[[)%256)}).join("");return btoa(]]..JsPuzzleVar1..[[)})();
+	(function(){var ]]..JsPuzzleVar1..[[=Math.floor(1E3*Math.sin(']]..os_date("%Y%m%d", os_time_saved)..[[')),]]..JsPuzzleVar2..[[=]]..JsPuzzleVar5..[[(]]..JsPuzzleVar1..[[,256),]]..JsPuzzleVar3..[[=Math.floor(]]..JsPuzzleVar5..[[(]]..JsPuzzleVar1..[[*Math.sin(]]..JsPuzzleVar1..[[),10))+1;]]..JsPuzzleVar1..[[=']]..answer..[['.split("").map(function(]]..JsPuzzleVar1..[[,]]..JsPuzzleVar4..[[){return String.fromCharCode(]]..JsPuzzleVar5..[[((String.fromCharCode(]]..JsPuzzleVar5..[[(]]..JsPuzzleVar1..[[.charCodeAt(0)^(]]..JsPuzzleVar2..[[+]]..JsPuzzleVar4..[[),256)).charCodeAt(0)+]]..JsPuzzleVar3..[[),256))}).join("");return btoa(]]..JsPuzzleVar1..[[)})();
 ]] --JavaScript code to produce a unique string by using client's signature and yesterday's date and XORing them
    --Made it more secure by using random variable names on each run.
    --Could be obfuscated as well in the future
-   
+
+local JavascriptPuzzleHelperFunctions = [[
+	function ]]..JsPuzzleVar5..[[(_,__){return ((_ % __) + __) % __;}
+]]
    
 
 local JavascriptPuzzleVariable = [[
@@ -3291,6 +3295,7 @@ local javascript_anti_ddos = [[
 			document.cookie = ']] .. challenge .. [[=]] .. answer .. [[' + '; expires=' + ']] .. ngx_cookie_time(currenttime+expire_time) .. [[' + '; path=/';
 			//javascript puzzle for browser to figure out to get answer
 			]] .. JavascriptVars_opening .. [[
+			]] .. JavascriptPuzzleHelperFunctions .. [[
 			]] .. JavascriptPuzzleVariable .. [[
 			]] .. JavascriptVars_closing .. [[
 			//end javascript puzzle
