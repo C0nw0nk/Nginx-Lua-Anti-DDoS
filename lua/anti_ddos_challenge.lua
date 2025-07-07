@@ -1,4 +1,4 @@
-
+os_clock = os.clock()
 --[[
 Introduction and details :
 
@@ -3150,7 +3150,7 @@ local function grant_access()
 	if log_users_granted_access == 1 then
 		ngx_log(ngx_LOG_TYPE,  log_on_granted_text_start .. remote_addr .. log_on_granted_text_end)
 	end
-
+	ngx_log(ngx_LOG_TYPE,  "Elapsed time is: " .. os.clock()-os_clock)
 	local output = ngx_exit(ngx_OK) --Go to content
 	return output
 end
@@ -3463,4 +3463,5 @@ end
 ngx_header.content_type = "text/html; charset=" .. default_charset
 ngx_status = authentication_page_status_output
 ngx_say(anti_ddos_html_output)
+ngx_log(ngx_LOG_TYPE,  "Elapsed time is: " .. os.clock()-os_clock)
 ngx_exit(ngx_HTTP_OK)
