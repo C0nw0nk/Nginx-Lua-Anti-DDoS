@@ -1474,7 +1474,7 @@ local function calculateAnswer(client_signature)
 
     local result = ""
     for i = 1, #client_signature do
-        result = result .. shiftChar(xorChar(client_signature:sub(i, i), (key + i - 1) % 256), shiftAmount)
+        result = result .. shiftChar(xorChar(string_sub(client_signature, i, i), (key + i - 1) % 256), shiftAmount)
     end
     return ngx_encode_base64(result)
 end
