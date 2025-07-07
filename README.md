@@ -1,4 +1,4 @@
-### This is the developmen branch the main difference between this branch and the main branch is it includes `os.clock()` to measure execution times for the script.
+### This is the development branch the main difference between this branch and the main branch is it includes `os.clock()` to measure execution times for the script.
 
 [![Languages](https://img.shields.io/github/languages/count/C0nw0nk/Nginx-Lua-Anti-DDoS) ![Top language](https://img.shields.io/github/languages/top/C0nw0nk/Nginx-Lua-Anti-DDoS) ![File size](https://img.shields.io/github/size/C0nw0nk/Nginx-Lua-Anti-DDoS/lua/anti_ddos_challenge.lua)](https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/funding)
 
