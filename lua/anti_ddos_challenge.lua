@@ -1423,12 +1423,10 @@ Localized vars for use later
 Header Modifications
 ]]
 local function header_modification()
-	local custom_headers_length = #custom_headers
-	for i=1,custom_headers_length do --for each host in our table
+	for i=1,#custom_headers do --for each host in our table
 		local v = custom_headers[i]
 		if string_match(URL, v[1]) then --if our host matches one in the table
-			local table_length = #v[2]
-			for first=1,table_length do --for each arg in our table
+			for first=1,#v[2] do --for each arg in our table
 				local value1 = v[2][first][1]
 				local value2 = v[2][first][2]
 				if value1 ~= nil and value2 ~= nil then
@@ -1515,13 +1513,11 @@ end
 headers to restore original visitor IP addresses at your origin web server
 ]]
 local function header_append_ip()
-	local custom_headers_length = #send_ip_to_backend_custom_headers
-	for i=1,custom_headers_length do --for each host in our table
+	for i=1,#send_ip_to_backend_custom_headers do --for each host in our table
 		--local v = custom_headers[i]
 		local v = send_ip_to_backend_custom_headers[i]
 		if string_match(URL, v[1]) then --if our host matches one in the table
-			local table_length = #v[2]
-			for first=1,table_length do --for each arg in our table
+			for first=1,#v[2] do --for each arg in our table
 				local value1 = v[2][first][1]
 				if value1 ~= nil then
 					ngx_req_set_header(value1, remote_addr)
@@ -1550,12 +1546,10 @@ local function query_string_remove_args()
 	local args = ngx_req_get_uri_args() --grab our query string args and put them into a table
 	local modified = nil
 
-	local query_string_remove_args_table_length = #query_string_remove_args_table
-	for i=1,query_string_remove_args_table_length do --for each host in our table
+	for i=1,#query_string_remove_args_table do --for each host in our table
 		local v = query_string_remove_args_table[i]
 		if string_match(URL, v[1]) then --if our host matches one in the table
-			local table_length = #v[2]
-			for i=1,table_length do --for each arg in our table
+			for i=1,#v[2] do --for each arg in our table
 				local value = v[2][i]
 				args[value] = nil --remove the arguement from the args table
 				modified = 1 --set args as modified
@@ -1576,10 +1570,10 @@ Query String Remove arguments
 
 --if a table has a value inside of it
 local function has_value(table_, val)
-	for i=1,#table_ do
-		if table_[i] == val then
-	--for key, value in next, table_ do
-		--if value == val then
+	--for i=1,#table_ do
+		--if table_[i] == val then
+	for key, value in next, table_ do
+		if value == val then
 			return true
 		end
 	end
@@ -1593,8 +1587,7 @@ local function query_string_expected_args_only()
 	local args = ngx_req_get_uri_args() --grab our query string args and put them into a table
 	local modified = nil
 
-	local query_string_expected_args_only_table_length = #query_string_expected_args_only_table
-	for i=1,query_string_expected_args_only_table_length do --for each host in our table
+	for i=1,#query_string_expected_args_only_table do --for each host in our table
 		local v = query_string_expected_args_only_table[i]
 		if string_match(URL, v[1]) then --if our host matches one in the table
 			for key, value in next, args do
@@ -1622,8 +1615,8 @@ Query String Sort
 ]]
 local function query_string_sort()
 	local allow_site = nil
-	local query_string_sort_table_length = #query_string_sort_table
-	for i=1,query_string_sort_table_length do --for each host in our table
+
+	for i=1,#query_string_sort_table do --for each host in our table
 		local v = query_string_sort_table[i]
 		if string_match(URL, v[1]) then --if our host matches one in the table
 			if v[2] == 1 then --run query string sort
@@ -2330,16 +2323,15 @@ local function WAF_Post_Requests()
 		local read_request_body_args = (ngx_req_get_body_data() or "") --Put the request body arguments into a variable
 		local args = (ngx_decode_args(read_request_body_args) or "") --Put the Post args in to a table
 
-		--if next(args) ~= nil then --Check Post args table has contents
-		if #args > 0 then --Check Post args table has contents	
+		if next(args) ~= nil then --Check Post args table has contents
+		--if #args > 0 then --Check Post args table has contents	
 
 			local arguement1 = nil --create empty variable
 			local arguement2 = nil --create empty variable
 
-			local WAF_table_length = #WAF_POST_Request_table
 			for key, value in next, args do
 
-				for i=1,WAF_table_length do
+				for i=1,#WAF_POST_Request_table do
 					arguement1 = nil --reset to nil each loop
 					arguement2 = nil --reset to nil each loop
 					local value = WAF_POST_Request_table[i] --put table value into variable
@@ -2378,10 +2370,9 @@ local function WAF_Header_Requests()
 			local arguement1 = nil --create empty variable
 			local arguement2 = nil --create empty variable
 
-			local WAF_table_length = #WAF_Header_Request_table
 			for key, value in next, argument_request_headers do
 
-				for i=1,WAF_table_length do
+				for i=1,#WAF_Header_Request_table do
 					arguement1 = nil --reset to nil each loop
 					arguement2 = nil --reset to nil each loop
 					local value = WAF_Header_Request_table[i] --put table value into variable
@@ -2414,16 +2405,15 @@ local function WAF_query_string_Request()
 
 		local args = ngx_req_get_uri_args() --grab our query string args and put them into a table
 
-		--if next(args) ~= nil then --Check query string args table has contents
-		if #args > 0 then --Check query string args table has contents
+		if next(args) ~= nil then --Check query string args table has contents
+		--if #args > 0 then --Check query string args table has contents
 
 			local arguement1 = nil --create empty variable
 			local arguement2 = nil --create empty variable
 
-			local WAF_table_length = #WAF_query_string_Request_table
 			for key, value in next, args do
 
-				for i=1,WAF_table_length do
+				for i=1,#WAF_query_string_Request_table do
 					arguement1 = nil --reset to nil each loop
 					arguement2 = nil --reset to nil each loop
 					local value = WAF_query_string_Request_table[i] --put table value into variable
@@ -2463,9 +2453,8 @@ local function WAF_URI_Request()
 		So to keep the security strong I match the same version your web application would need protecting from (Yes the encoded copy that could contain malicious / exploitable contents)
 		]]
 		local args = string_gsub(request_uri, "?.*", "") --remove the query string from the uri
-		
-		local WAF_table_length = #WAF_URI_Request_table
-		for i=1,WAF_table_length do --for each host in our table
+
+		for i=1,#WAF_URI_Request_table do --for each host in our table
 			local v = WAF_URI_Request_table[i]
 			if string_match(URL, v[1]) then --if our host matches one in the table
 				if string_match(args, v[2]) then
@@ -2481,8 +2470,7 @@ WAF_URI_Request()
 
 --function to check if ip address is whitelisted to bypass our auth
 local function check_ip_whitelist(ip_table)
-	local ip_table_length = #ip_table
-	for i=1,ip_table_length do
+	for i=1,#ip_table do
 		local value = ip_table[i]
 		if value == ip_whitelist_remote_addr then --if our ip address matches with one in the whitelist
 			local output = ngx_exit(ngx_OK) --Go to content
@@ -2498,8 +2486,7 @@ end
 check_ip_whitelist(ip_whitelist) --run whitelist check function
 
 local function check_ip_blacklist(ip_table)
-	local ip_table_length = #ip_table
-	for i=1,ip_table_length do
+	for i=1,#ip_table do
 		local value = ip_table[i]
 		if value == ip_blacklist_remote_addr then
 			local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
@@ -2515,8 +2502,7 @@ end
 check_ip_blacklist(ip_blacklist) --run blacklist check function
 
 local function check_user_agent_blacklist(user_agent_table)
-	local user_agent_table_length = #user_agent_table
-	for i=1,user_agent_table_length do
+	for i=1,#user_agent_table do
 		local value = user_agent_table[i]
 		if value[2] == 1 then --case insensative
 			user_agent_blacklist_var = string_lower(user_agent_blacklist_var)
@@ -2540,8 +2526,7 @@ end
 check_user_agent_blacklist(user_agent_blacklist_table) --run user agent blacklist check function
 
 local function check_user_agent_whitelist(user_agent_table)
-	local user_agent_table_length = #user_agent_table
-	for i=1,user_agent_table_length do
+	for i=1,#user_agent_table do
 		local value = user_agent_table[i]
 		if value[2] == 1 then --case insensative
 			user_agent_whitelist_var = string_lower(user_agent_whitelist_var)
@@ -2605,8 +2590,7 @@ local function stringrandom(length)
 	if length > 0 then
 		local output = stringrandom(length - 1) .. charset[math_random(1, #charset)]
 		local duplicate_found = 0 --mark if we find a duplicate or not
-		local stringrandom_table_length = #stringrandom_table
-		for i=1,stringrandom_table_length do --for each value in our generated var table
+		for i=1,#stringrandom_table do --for each value in our generated var table
 			if stringrandom_table[i] == output then --if a value in our table matches our generated var
 				duplicate_found = 1 --mark as duplicate var
 				output = "_" .. output --append an underscore to the duplicate var
@@ -2635,8 +2619,7 @@ end
 
 --shuffle table function
 local function shuffle(tbl)
-	local tbl_length = #tbl
-	for i = tbl_length, 2, -1 do
+	for i = #tbl, 2, -1 do
 		local j = math_random(i)
 		tbl[i], tbl[j] = tbl[j], tbl[i]
 	end
@@ -2926,8 +2909,7 @@ local function check_authorization(authorization, authorization_dynamic)
 
 	local allow_site = nil
 	local authorization_display_user_details = nil
-	local authorization_paths_length = #authorization_paths
-	for i=1,authorization_paths_length do --for each host in our table
+	for i=1,#authorization_paths do --for each host in our table
 		local v = authorization_paths[i]
 		if string_match(URL, v[2]) then --if our host matches one in the table
 			if v[1] == 1 then --Showbox
@@ -2953,8 +2935,7 @@ local function check_authorization(authorization, authorization_dynamic)
 	local req_headers = ngx_req_get_headers() --get all request headers
 
 	if authorization_dynamic == 0 then --static
-		local authorization_logins_length = #authorization_logins
-		for i=1,authorization_logins_length do --for each login
+		for i=1,#authorization_logins do --for each login
 			local value = authorization_logins[i]
 			authorization_username = value[1] --username
 			authorization_password = value[2] --password
@@ -3019,8 +3000,7 @@ local function check_master_switch()
 	end
 	if master_switch == 3 then --custom host selection
 		local allow_site = nil
-		local master_switch_custom_hosts_length = #master_switch_custom_hosts
-		for i=1,master_switch_custom_hosts_length do --for each host in our table
+		for i=1,#master_switch_custom_hosts do --for each host in our table
 			local v = master_switch_custom_hosts[i]
 			if string_match(URL, v[2]) then --if our host matches one in the table
 				if v[1] == 1 then --run auth
