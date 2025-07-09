@@ -1694,8 +1694,8 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 
 		--now to build an expanded ip
 		local zeroblock
-		local ipbits_length = #ipbits
-		for i=1,ipbits_length do
+		--local ipbits_length = #ipbits
+		for i=1,#ipbits do
 			local k = i
 			local v = ipbits[i]
 			--length 0? we're at the :: bit
@@ -1704,8 +1704,8 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 
 				--length not 0 but not 4, prepend 0's
 			elseif string_len(v) < 4 then
-				local padding = 4 - string_len(v)
-				for i = 1, padding do
+				--local padding = 4 - string_len(v)
+				for i = 1, 4 - string_len(v) do
 					ipbits[k] = 0 .. ipbits[k]
 				end
 			end
@@ -1713,9 +1713,9 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		if zeroblock and #ipbits < 8 then
 			--remove zeroblock
 			ipbits[zeroblock] = '0000'
-			local padding = 8 - #ipbits
+			--local padding = 8 - #ipbits
 
-			for i = 1, padding do
+			for i = 1, 8 - #ipbits do
 				ipbits[zeroblock] = '0000'
 				--ipbits_length=ipbits_length+1
 			end
@@ -1735,8 +1735,8 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 
 		--now to build an expanded ip
 		local zeroblock_client
-		local ipbits_client_length = #ipbits_client
-		for i=1,ipbits_client_length do
+		--local ipbits_client_length = #ipbits_client
+		for i=1,#ipbits_client do
 			local k = i
 			local v = ipbits_client[i]
 			--length 0? we're at the :: bit
@@ -1745,8 +1745,8 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 
 				--length not 0 but not 4, prepend 0's
 			elseif string_len(v) < 4 then
-				local padding = 4 - string_len(v)
-				for i = 1, padding do
+				--local padding = 4 - string_len(v)
+				for i = 1, 4 - string_len(v) do
 					ipbits_client[k] = 0 .. ipbits_client[k]
 				end
 			end
@@ -1754,9 +1754,9 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		if zeroblock_client and #ipbits_client < 8 then
 			--remove zeroblock
 			ipbits_client[zeroblock_client] = '0000'
-			local padding = 8 - #ipbits_client
+			--local padding = 8 - #ipbits_client
 
-			for i = 1, padding do
+			for i = 1, 8 - #ipbits_client do
 				ipbits_client[zeroblock_client] = '0000'
 				--ipbits_client_length=ipbits_client_length+1
 			end
@@ -1794,8 +1794,8 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		end
 		--convert into 8 string array each w/ 4 chars
 		local count, index, wildcard = 1, 1, {}
-		local wildcardbits_length = #wildcardbits
-		for i=1,wildcardbits_length do
+		--local wildcardbits_length = #wildcardbits
+		for i=1,#wildcardbits do
 			local k = i
 			local v = wildcardbits[i]
 			if count > 4 then
@@ -1810,8 +1810,8 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 			--loop each letter in each ipbit group
 			local topip = {}
 			local bottomip = {}
-			local ipbits_length = #ipbits
-			for i=1,ipbits_length do
+			--local ipbits_length = #ipbits
+			for i=1,#ipbits do
 				local k = i
 				local v = ipbits[i]
 				local topbit = ''
@@ -1911,8 +1911,8 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 
 		--network IP (route/bottom IP)
 		local bottomip = {}
-		local ip_length = #ip
-		for i=1,ip_length do
+		--local ip_length = #ip
+		for i=1,#ip do
 			local k = i
 			local v = ip[i]
 			--wildcard = 0?
@@ -1928,8 +1928,8 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 
 		--use network ip + wildcard to get top ip
 		local topip = {}
-		local bottomip_length = #bottomip
-		for i=1,bottomip_length do
+		--local bottomip_length = #bottomip
+		for i=1,#bottomip do
 			local k = i
 			local v = bottomip[i]
 			topip[k] = v + wildcard[k]
@@ -2364,8 +2364,8 @@ local function WAF_Header_Requests()
 
 		local argument_request_headers = ngx_req_get_headers() --get our client request headers and put them into a table
 
-		--if next(argument_request_headers) ~= nil then --Check Header args table has contents
-		if #argument_request_headers > 0 then --Check Header args table has contents
+		if next(argument_request_headers) ~= nil then --Check Header args table has contents
+		--if #argument_request_headers > 0 then --Check Header args table has contents
 
 			local arguement1 = nil --create empty variable
 			local arguement2 = nil --create empty variable
