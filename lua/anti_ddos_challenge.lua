@@ -33,9 +33,9 @@ Configuration :
 localize all standard Lua and ngx functions I use for better performance.
 ]]
 --local os = os
-local string = string
-local math = math
-local table = table
+--local string = string
+--local math = math
+--local table = table
 local tonumber = tonumber
 local tostring = tostring
 local next = next
