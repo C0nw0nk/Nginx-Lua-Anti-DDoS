@@ -30,7 +30,7 @@ Configuration :
 ]]
 
 --[[
-localize all standard Lua and Spring API functions I use for better performance.
+localize all standard Lua and ngx functions I use for better performance.
 ]]
 --local os = os
 local string = string
@@ -1835,28 +1835,26 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		local ipcount = math_pow(2, 128 - mask)
 
 		if expanded_ip == client_connecting_ip_expanded then
-			--print("ipv6 is in range")
+			--ngx_log(ngx_LOG_TYPE,"ipv6 is in range")
 			return true
 		end
 
 		--output
 		--[[
-		print()
-		print('indent' .. indent)
-		print('client_ip numeric : ' .. client_connecting_ip_count )
-		print('input ip numeric : ' .. expanded_ip_count )
-		print('client_ip : ' .. client_connecting_ip_expanded )
-		print('input ip : ' .. expanded_ip )
-		print()
-		print( '###### INFO ######' )
-		print( 'IP in: ' .. ip )
-		print( '=> Expanded IP: ' .. (ipbits[1] or "0000") .. ':' .. (ipbits[2] or "0000") .. ':' .. (ipbits[3] or "0000") .. ':' .. (ipbits[4] or "0000") .. ':' .. (ipbits[5] or "0000") .. ':' .. (ipbits[6] or "0000") .. ':' .. (ipbits[7] or "0000") .. ':' .. (ipbits[8] or "0000") )
-		print( 'Mask in: /' .. mask )
-		print( '=> Mask Wildcard: ' .. (wildcard[1] or "0000") .. ':' .. (wildcard[2] or "0000") .. ':' .. (wildcard[3] or "0000") .. ':' .. (wildcard[4] or "0000") .. ':' .. (wildcard[5] or "0000") .. ':' .. (wildcard[6] or "0000") .. ':' .. (wildcard[7] or "0000") .. ':' .. (wildcard[8] or "0000") )
-		print( '\n###### BLOCK ######' )
-		print( '#IP\'s: ' .. ipcount )
-		print( 'Range Start: ' .. (topip[1] or "0000") .. ':' .. (topip[2] or "0000") .. ':' .. (topip[3] or "0000") .. ':' .. (topip[4] or "0000") .. ':' .. (topip[5] or "0000") .. ':' .. (topip[6] or "0000") .. ':' .. (topip[7] or "0000") .. ':' .. (topip[8] or "0000") )
-		print( 'Range End: ' .. (bottomip[1] or "ffff") .. ':' .. (bottomip[2] or "ffff") .. ':' .. (bottomip[3] or "ffff") .. ':' .. (bottomip[4] or "ffff") .. ':' .. (bottomip[5] or "ffff") .. ':' .. (bottomip[6] or "ffff") .. ':' .. (bottomip[7] or "ffff") .. ':' .. (bottomip[8] or "ffff") )
+		ngx_log(ngx_LOG_TYPE,'indent' .. indent)
+		ngx_log(ngx_LOG_TYPE,'client_ip numeric : ' .. client_connecting_ip_count )
+		ngx_log(ngx_LOG_TYPE,'input ip numeric : ' .. expanded_ip_count )
+		ngx_log(ngx_LOG_TYPE,'client_ip : ' .. client_connecting_ip_expanded )
+		ngx_log(ngx_LOG_TYPE,'input ip : ' .. expanded_ip )
+		ngx_log(ngx_LOG_TYPE, '###### INFO ######' )
+		ngx_log(ngx_LOG_TYPE, 'IP in: ' .. ip )
+		ngx_log(ngx_LOG_TYPE, '=> Expanded IP: ' .. (ipbits[1] or "0000") .. ':' .. (ipbits[2] or "0000") .. ':' .. (ipbits[3] or "0000") .. ':' .. (ipbits[4] or "0000") .. ':' .. (ipbits[5] or "0000") .. ':' .. (ipbits[6] or "0000") .. ':' .. (ipbits[7] or "0000") .. ':' .. (ipbits[8] or "0000") )
+		ngx_log(ngx_LOG_TYPE, 'Mask in: /' .. mask )
+		ngx_log(ngx_LOG_TYPE, '=> Mask Wildcard: ' .. (wildcard[1] or "0000") .. ':' .. (wildcard[2] or "0000") .. ':' .. (wildcard[3] or "0000") .. ':' .. (wildcard[4] or "0000") .. ':' .. (wildcard[5] or "0000") .. ':' .. (wildcard[6] or "0000") .. ':' .. (wildcard[7] or "0000") .. ':' .. (wildcard[8] or "0000") )
+		ngx_log(ngx_LOG_TYPE, '\n###### BLOCK ######' )
+		ngx_log(ngx_LOG_TYPE, '#IP\'s: ' .. ipcount )
+		ngx_log(ngx_LOG_TYPE, 'Range Start: ' .. (topip[1] or "0000") .. ':' .. (topip[2] or "0000") .. ':' .. (topip[3] or "0000") .. ':' .. (topip[4] or "0000") .. ':' .. (topip[5] or "0000") .. ':' .. (topip[6] or "0000") .. ':' .. (topip[7] or "0000") .. ':' .. (topip[8] or "0000") )
+		ngx_log(ngx_LOG_TYPE, 'Range End: ' .. (bottomip[1] or "ffff") .. ':' .. (bottomip[2] or "ffff") .. ':' .. (bottomip[3] or "ffff") .. ':' .. (bottomip[4] or "ffff") .. ':' .. (bottomip[5] or "ffff") .. ':' .. (bottomip[6] or "ffff") .. ':' .. (bottomip[7] or "ffff") .. ':' .. (bottomip[8] or "ffff") )
 		]]
 
 	end
@@ -2283,19 +2281,18 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 
 		--output
 		--[[
-		print()
-		print( '###### INFO ######' )
-		print( 'IP in: ' .. ip[1] .. '.' .. ip[2] .. '.' .. ip[3] .. '.' .. ip[4]  )
-		print( 'Mask in: /' .. mask )
-		print( '=> Mask Wildcard: ' .. wildcard[1] .. '.' .. wildcard[2] .. '.' .. wildcard[3] .. '.' .. wildcard[4]  )
-		print( '=> in IP is network-ip: ' .. tostring( isnetworkip ) )
-		print( '=> in IP is broadcast-ip: ' .. tostring( isbroadcastip ) )
-		print( '\n###### BLOCK ######' )
-		print( '#IP\'s: ' .. ipcount )
-		print( 'Bottom/Network: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] .. '/' .. mask )
-		print( 'Top/Broadcast: ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] )
-		print( 'Subnet Range: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] .. ' - ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] )
-		print( 'Host Range: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] + 1 .. ' - ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] - 1 )
+		ngx_log(ngx_LOG_TYPE, '###### INFO ######' )
+		ngx_log(ngx_LOG_TYPE, 'IP in: ' .. ip[1] .. '.' .. ip[2] .. '.' .. ip[3] .. '.' .. ip[4]  )
+		ngx_log(ngx_LOG_TYPE, 'Mask in: /' .. mask )
+		ngx_log(ngx_LOG_TYPE, '=> Mask Wildcard: ' .. wildcard[1] .. '.' .. wildcard[2] .. '.' .. wildcard[3] .. '.' .. wildcard[4]  )
+		ngx_log(ngx_LOG_TYPE, '=> in IP is network-ip: ' .. tostring( isnetworkip ) )
+		ngx_log(ngx_LOG_TYPE, '=> in IP is broadcast-ip: ' .. tostring( isbroadcastip ) )
+		ngx_log(ngx_LOG_TYPE, '\n###### BLOCK ######' )
+		ngx_log(ngx_LOG_TYPE, '#IP\'s: ' .. ipcount )
+		ngx_log(ngx_LOG_TYPE, 'Bottom/Network: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] .. '/' .. mask )
+		ngx_log(ngx_LOG_TYPE, 'Top/Broadcast: ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] )
+		ngx_log(ngx_LOG_TYPE, 'Subnet Range: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] .. ' - ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] )
+		ngx_log(ngx_LOG_TYPE, 'Host Range: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] + 1 .. ' - ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] - 1 )
 		]]
 
 	end
@@ -2304,10 +2301,10 @@ end
 --[[
 usage
 if ip_address_in_range("255.255.0.0/17", ngx_var_remote_addr) == true then --ipv4
-	print("IPv4 in range")
+	ngx_log(ngx_LOG_TYPE,"IPv4 in range")
 end
 if ip_address_in_range("2a02:0c68::/29", ngx_var_remote_addr) == true then --ipv6
-	print("IPv6 in range")
+	ngx_log(ngx_LOG_TYPE,"IPv6 in range")
 end
 ]]
 --[[
@@ -2634,7 +2631,7 @@ local function sep(str, patt, re)
 end
 
 local function stringtohex(str)
-	--return ngx_re_gsub(str, ".", function (c) print(tostring(c[0])) return string_format('%02X', string_byte(c[0])) end, ngx_re_options) --this has a major issue no idea why need to investigate more
+	--return ngx_re_gsub(str, ".", function (c) ngx_log(ngx_LOG_TYPE,tostring(c[0])) return string_format('%02X', string_byte(c[0])) end, ngx_re_options) --this has a major issue no idea why need to investigate more
 	return string_gsub(str, '.', function (c)
 		return string_format('%02X', string_byte(c))
 	end)
@@ -2666,7 +2663,7 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		local base64_data_uri = string1
 
 		if tonumber(num_encrypt) ~= nil then --If number of times extra to rencrypt is set
-			for i=1, #num_encrypt do --for each number
+			for i=1, tonumber(num_encrypt) do --for each number
 				string1 = ngx_encode_base64(base64_data_uri)
 			end
 		end
@@ -2701,7 +2698,7 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		--TODO: Fix this.
 		--num_encrypt = "3" --test var
 		if tonumber(num_encrypt) ~= nil then --If number of times extra to rencrypt is set
-			for i=1, num_encrypt do --for each number
+			for i=1, tonumber(num_encrypt) do --for each number
 				if tonumber(encrypt_type) ~= nil then
 					encrypt_type = math_random(1, 2) --Random encryption
 					if tonumber(encrypt_type) == 1 then
@@ -2730,7 +2727,7 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		local base64_javascript = "eval(decodeURIComponent(escape(window.atob('" .. ngx_encode_base64(string1) .. "'))))"
 
 		if tonumber(num_encrypt) ~= nil then --If number of times extra to rencrypt is set
-			for i=1, num_encrypt do --for each number
+			for i=1, tonumber(num_encrypt) do --for each number
 				base64_javascript = "eval(decodeURIComponent(escape(window.atob('" .. ngx_encode_base64(base64_javascript) .. "'))))"
 			end
 		end
