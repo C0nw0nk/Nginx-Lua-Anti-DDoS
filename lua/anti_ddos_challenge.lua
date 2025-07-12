@@ -2746,23 +2746,25 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 	if type == 5 then --Conor Mcknight's Javascript Scrambler (Obfuscate Javascript by putting it into vars and shuffling them like a deck of cards)
 		local base64_javascript = ngx_encode_base64(string1) --base64 encode our script
 
-		local l = #base64_javascript --count number of chars our variable has
-		local i = 0 --keep track of how many times we pass through
-		local r = math_random(1, l) --randomize where to split string
+		local counter = 0 --keep track of how many times we pass through
+		local r = math_random(1, #base64_javascript) --randomize where to split string
 		local chunks = {} --create our chunks table for string storage
 		local chunks_table_length = 1
 		local chunks_order = {} --create our chunks table for string storage that stores the value only
 		local chunks_order_table_length = 1
 		local random_var = nil --create our random string variable to use
 
-		while i <= l do
-			random_var = stringrandom(stringrandom_length) --create a random variable name to use
-			chunks_order[chunks_order_table_length] = "_" .. random_var .. "" --insert the value into our ordered table
-			chunks_order_table_length=chunks_order_table_length+1
-			chunks[chunks_table_length] = 'var _' .. random_var .. '="' .. string_sub(base64_javascript,i,i+r).. '";' --insert our value into our table we will scramble
-			chunks_table_length=chunks_table_length+1
-
-			i = i+r+1
+		for i=1, #base64_javascript do
+			if counter <= #base64_javascript then
+				random_var = stringrandom(stringrandom_length) --create a random variable name to use
+				chunks_order[chunks_order_table_length] = "_" .. random_var .. "" --insert the value into our ordered table
+				chunks_order_table_length=chunks_order_table_length+1
+				chunks[chunks_table_length] = 'var _' .. random_var .. '="' .. string_sub(base64_javascript,counter,counter+r).. '";' --insert our value into our table we will scramble
+				chunks_table_length=chunks_table_length+1
+				counter = counter+r+1
+			else
+				break
+			end
 		end
 
 		shuffle(chunks) --scramble our table
@@ -3127,7 +3129,7 @@ local function grant_access()
 	if log_users_granted_access == 1 then
 		ngx_log(ngx_LOG_TYPE,  log_on_granted_text_start .. remote_addr .. log_on_granted_text_end)
 	end
-	ngx_log(ngx_LOG_TYPE,  "Elapsed time is: " .. os.clock()-os_clock)
+	ngx_log(ngx_LOG_TYPE,  " Grant Elapsed time is: " .. os.clock()-os_clock)
 	local output = ngx_exit(ngx_OK) --Go to content
 	return output
 end
@@ -3440,5 +3442,5 @@ end
 ngx_header.content_type = "text/html; charset=" .. default_charset
 ngx_status = authentication_page_status_output
 ngx_say(anti_ddos_html_output)
-ngx_log(ngx_LOG_TYPE,  "Elapsed time is: " .. os.clock()-os_clock)
+ngx_log(ngx_LOG_TYPE,  " Puzzle Elapsed time is: " .. os.clock()-os_clock)
 ngx_exit(ngx_HTTP_OK)
