@@ -2746,23 +2746,25 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 	if type == 5 then --Conor Mcknight's Javascript Scrambler (Obfuscate Javascript by putting it into vars and shuffling them like a deck of cards)
 		local base64_javascript = ngx_encode_base64(string1) --base64 encode our script
 
-		local l = #base64_javascript --count number of chars our variable has
-		local i = 0 --keep track of how many times we pass through
-		local r = math_random(1, l) --randomize where to split string
+		local counter = 0 --keep track of how many times we pass through
+		local r = math_random(1, #base64_javascript) --randomize where to split string
 		local chunks = {} --create our chunks table for string storage
 		local chunks_table_length = 1
 		local chunks_order = {} --create our chunks table for string storage that stores the value only
 		local chunks_order_table_length = 1
 		local random_var = nil --create our random string variable to use
 
-		while i <= l do
-			random_var = stringrandom(stringrandom_length) --create a random variable name to use
-			chunks_order[chunks_order_table_length] = "_" .. random_var .. "" --insert the value into our ordered table
-			chunks_order_table_length=chunks_order_table_length+1
-			chunks[chunks_table_length] = 'var _' .. random_var .. '="' .. string_sub(base64_javascript,i,i+r).. '";' --insert our value into our table we will scramble
-			chunks_table_length=chunks_table_length+1
-
-			i = i+r+1
+		for i=1, #base64_javascript do
+			if counter <= #base64_javascript then
+				random_var = stringrandom(stringrandom_length) --create a random variable name to use
+				chunks_order[chunks_order_table_length] = "_" .. random_var .. "" --insert the value into our ordered table
+				chunks_order_table_length=chunks_order_table_length+1
+				chunks[chunks_table_length] = 'var _' .. random_var .. '="' .. string_sub(base64_javascript,counter,counter+r).. '";' --insert our value into our table we will scramble
+				chunks_table_length=chunks_table_length+1
+				counter = counter+r+1
+			else
+				break
+			end
 		end
 
 		shuffle(chunks) --scramble our table
