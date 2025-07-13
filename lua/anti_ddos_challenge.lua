@@ -32,17 +32,11 @@ Configuration :
 --[[
 localize all standard Lua and ngx functions I use for better performance.
 ]]
---local os = os
---local string = string
---local math = math
---local table = table
 local tonumber = tonumber
 local tostring = tostring
 local next = next
---local ngx = ngx
 local os_time = os.time
 local os_date = os.date
---local math_randomseed = math.randomseed
 local math_random = math.random
 local math_floor = math.floor
 local math_sin = math.sin
@@ -1423,17 +1417,19 @@ Localized vars for use later
 Header Modifications
 ]]
 local function header_modification()
-	for i=1,#custom_headers do --for each host in our table
-		local v = custom_headers[i]
-		if string_match(URL, v[1]) then --if our host matches one in the table
-			for first=1,#v[2] do --for each arg in our table
-				local value1 = v[2][first][1]
-				local value2 = v[2][first][2]
-				if value1 ~= nil and value2 ~= nil then
-					ngx_header[value1] = value2
-				end
-				if value2 == nil then
-					ngx_header[value1] = nil --remove the header
+	if #custom_headers > 0 then
+		for i=1,#custom_headers do --for each host in our table
+			local v = custom_headers[i]
+			if string_match(URL, v[1]) then --if our host matches one in the table
+				for first=1,#v[2] do --for each arg in our table
+					local value1 = v[2][first][1]
+					local value2 = v[2][first][2]
+					if value1 ~= nil and value2 ~= nil then
+						ngx_header[value1] = value2
+					end
+					if value2 == nil then
+						ngx_header[value1] = nil --remove the header
+					end
 				end
 			end
 		end
@@ -1513,15 +1509,18 @@ end
 headers to restore original visitor IP addresses at your origin web server
 ]]
 local function header_append_ip()
-	for i=1,#send_ip_to_backend_custom_headers do --for each host in our table
-		--local v = custom_headers[i]
-		local v = send_ip_to_backend_custom_headers[i]
-		if string_match(URL, v[1]) then --if our host matches one in the table
-			for first=1,#v[2] do --for each arg in our table
-				local value1 = v[2][first][1]
-				if value1 ~= nil then
-					ngx_req_set_header(value1, remote_addr)
+	if #send_ip_to_backend_custom_headers > 0 then
+		for i=1,#send_ip_to_backend_custom_headers do --for each host in our table
+			--local v = custom_headers[i]
+			local v = send_ip_to_backend_custom_headers[i]
+			if string_match(URL, v[1]) then --if our host matches one in the table
+				for first=1,#v[2] do --for each arg in our table
+					local value1 = v[2][first][1]
+					if value1 ~= nil then
+						ngx_req_set_header(value1, remote_addr)
+					end
 				end
+				break --break out of the for each loop pointless to keep searching the rest since we matched our host
 			end
 		end
 	end
@@ -1543,24 +1542,26 @@ end
 Query String Remove arguments
 ]]
 local function query_string_remove_args()
-	local args = ngx_req_get_uri_args() --grab our query string args and put them into a table
-	local modified = nil
+	if #query_string_remove_args_table > 0 then
+		local args = ngx_req_get_uri_args() --grab our query string args and put them into a table
+		local modified = nil
 
-	for i=1,#query_string_remove_args_table do --for each host in our table
-		local v = query_string_remove_args_table[i]
-		if string_match(URL, v[1]) then --if our host matches one in the table
-			for i=1,#v[2] do --for each arg in our table
-				local value = v[2][i]
-				args[value] = nil --remove the arguement from the args table
-				modified = 1 --set args as modified
+		for i=1,#query_string_remove_args_table do --for each host in our table
+			local v = query_string_remove_args_table[i]
+			if string_match(URL, v[1]) then --if our host matches one in the table
+				for i=1,#v[2] do --for each arg in our table
+					local value = v[2][i]
+					args[value] = nil --remove the arguement from the args table
+					modified = 1 --set args as modified
+				end
+				break --break out of the for each loop pointless to keep searching the rest since we matched our host
 			end
-			break --break out of the for each loop pointless to keep searching the rest since we matched our host
 		end
-	end
-	if modified == 1 then --need to set our args as our new modified one
-		ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
-	else
-		return --carry on script functions
+		if modified == 1 then --need to set our args as our new modified one
+			ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
+		else
+			return --carry on script functions
+		end
 	end
 end
 query_string_remove_args()
@@ -1584,25 +1585,27 @@ end
 Query String Expected arguments Whitelist only
 ]]
 local function query_string_expected_args_only()
-	local args = ngx_req_get_uri_args() --grab our query string args and put them into a table
-	local modified = nil
+	if #query_string_expected_args_only_table > 0 then
+		local args = ngx_req_get_uri_args() --grab our query string args and put them into a table
+		local modified = nil
 
-	for i=1,#query_string_expected_args_only_table do --for each host in our table
-		local v = query_string_expected_args_only_table[i]
-		if string_match(URL, v[1]) then --if our host matches one in the table
-			for key, value in next, args do
-				if has_value(v[2], tostring(key)) == false then
-					args[key] = nil --remove the arguement from the args table
-					modified = 1 --set args as modified
+		for i=1,#query_string_expected_args_only_table do --for each host in our table
+			local v = query_string_expected_args_only_table[i]
+			if string_match(URL, v[1]) then --if our host matches one in the table
+				for key, value in next, args do
+					if has_value(v[2], tostring(key)) == false then
+						args[key] = nil --remove the arguement from the args table
+						modified = 1 --set args as modified
+					end
 				end
+				break --break out of the for each loop pointless to keep searching the rest since we matched our host
 			end
-			break --break out of the for each loop pointless to keep searching the rest since we matched our host
 		end
-	end
-	if modified == 1 then --need to set our args as our new modified one
-		ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
-	else
-		return --carry on script functions
+		if modified == 1 then --need to set our args as our new modified one
+			ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
+		else
+			return --carry on script functions
+		end
 	end
 end
 query_string_expected_args_only()
@@ -1614,26 +1617,28 @@ Query String Expected arguments Whitelist only
 Query String Sort
 ]]
 local function query_string_sort()
-	local allow_site = nil
+	if #query_string_sort_table > 0 then
+		local allow_site = nil
 
-	for i=1,#query_string_sort_table do --for each host in our table
-		local v = query_string_sort_table[i]
-		if string_match(URL, v[1]) then --if our host matches one in the table
-			if v[2] == 1 then --run query string sort
-				allow_site = 2 --run query string sort
+		for i=1,#query_string_sort_table do --for each host in our table
+			local v = query_string_sort_table[i]
+			if string_match(URL, v[1]) then --if our host matches one in the table
+				if v[2] == 1 then --run query string sort
+					allow_site = 2 --run query string sort
+				end
+				if v[2] == 0 then --bypass
+					allow_site = 1 --do not run query string sort
+				end
+				break --break out of the for each loop pointless to keep searching the rest since we matched our host
 			end
-			if v[2] == 0 then --bypass
-				allow_site = 1 --do not run query string sort
-			end
-			break --break out of the for each loop pointless to keep searching the rest since we matched our host
 		end
-	end
-	if allow_site == 2 then --sort our query string
-		local args = ngx_req_get_uri_args() --grab our query string args and put them into a table
-		table_sort(args) --sort our query string args table into order
-		ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
-	else --allow_site was 1
-		return --carry on script functions
+		if allow_site == 2 then --sort our query string
+			local args = ngx_req_get_uri_args() --grab our query string args and put them into a table
+			table_sort(args) --sort our query string args table into order
+			ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
+		else --allow_site was 1
+			return --carry on script functions
+		end
 	end
 end
 query_string_sort()
@@ -2467,14 +2472,16 @@ WAF_URI_Request()
 
 --function to check if ip address is whitelisted to bypass our auth
 local function check_ip_whitelist(ip_table)
-	for i=1,#ip_table do
-		local value = ip_table[i]
-		if value == ip_whitelist_remote_addr then --if our ip address matches with one in the whitelist
-			local output = ngx_exit(ngx_OK) --Go to content
-			return output
-		elseif ip_address_in_range(value, ip_whitelist_remote_addr) == true then
-			local output = ngx_exit(ngx_OK) --Go to content
-			return output
+	if #ip_table > 0 then
+		for i=1,#ip_table do
+			local value = ip_table[i]
+			if value == ip_whitelist_remote_addr then --if our ip address matches with one in the whitelist
+				local output = ngx_exit(ngx_OK) --Go to content
+				return output
+			elseif ip_address_in_range(value, ip_whitelist_remote_addr) == true then
+				local output = ngx_exit(ngx_OK) --Go to content
+				return output
+			end
 		end
 	end
 
@@ -2483,14 +2490,16 @@ end
 check_ip_whitelist(ip_whitelist) --run whitelist check function
 
 local function check_ip_blacklist(ip_table)
-	for i=1,#ip_table do
-		local value = ip_table[i]
-		if value == ip_blacklist_remote_addr then
-			local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
-			return output
-		elseif ip_address_in_range(value, ip_blacklist_remote_addr) == true then
-			local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
-			return output
+	if #ip_table > 0 then
+		for i=1,#ip_table do
+			local value = ip_table[i]
+			if value == ip_blacklist_remote_addr then
+				local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
+				return output
+			elseif ip_address_in_range(value, ip_blacklist_remote_addr) == true then
+				local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
+				return output
+			end
 		end
 	end
 
@@ -2499,22 +2508,24 @@ end
 check_ip_blacklist(ip_blacklist) --run blacklist check function
 
 local function check_user_agent_blacklist(user_agent_table)
-	for i=1,#user_agent_table do
-		local value = user_agent_table[i]
-		if value[2] == 1 then --case insensative
-			user_agent_blacklist_var = string_lower(user_agent_blacklist_var)
-			value[1] = string_lower(value[1])
-		end
-		if value[2] == 2 then --case sensative
-		end
-		if value[2] == 3 then --regex case sensative
-		end
-		if value[2] == 4 then --regex lower case insensative
-			user_agent_blacklist_var = string_lower(user_agent_blacklist_var)
-		end
-		if string_match(user_agent_blacklist_var, value[1])then
-			local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
-			return output
+	if #user_agent_table > 0 then
+		for i=1,#user_agent_table do
+			local value = user_agent_table[i]
+			if value[2] == 1 then --case insensative
+				user_agent_blacklist_var = string_lower(user_agent_blacklist_var)
+				value[1] = string_lower(value[1])
+			end
+			if value[2] == 2 then --case sensative
+			end
+			if value[2] == 3 then --regex case sensative
+			end
+			if value[2] == 4 then --regex lower case insensative
+				user_agent_blacklist_var = string_lower(user_agent_blacklist_var)
+			end
+			if string_match(user_agent_blacklist_var, value[1])then
+				local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
+				return output
+			end
 		end
 	end
 
@@ -2523,31 +2534,30 @@ end
 check_user_agent_blacklist(user_agent_blacklist_table) --run user agent blacklist check function
 
 local function check_user_agent_whitelist(user_agent_table)
-	for i=1,#user_agent_table do
-		local value = user_agent_table[i]
-		if value[2] == 1 then --case insensative
-			user_agent_whitelist_var = string_lower(user_agent_whitelist_var)
-			value[1] = string_lower(value[1])
-		end
-		if value[2] == 2 then --case sensative
-		end
-		if value[2] == 3 then --regex case sensative
-		end
-		if value[2] == 4 then --regex lower case insensative
-			user_agent_whitelist_var = string_lower(user_agent_whitelist_var)
-		end
-		if user_agent_whitelist_var and string_match(user_agent_whitelist_var, value[1]) then
-			local output = ngx_exit(ngx_OK) --Go to content
-			return output
+	if #user_agent_table > 0 then
+		for i=1,#user_agent_table do
+			local value = user_agent_table[i]
+			if value[2] == 1 then --case insensative
+				user_agent_whitelist_var = string_lower(user_agent_whitelist_var)
+				value[1] = string_lower(value[1])
+			end
+			if value[2] == 2 then --case sensative
+			end
+			if value[2] == 3 then --regex case sensative
+			end
+			if value[2] == 4 then --regex lower case insensative
+				user_agent_whitelist_var = string_lower(user_agent_whitelist_var)
+			end
+			if user_agent_whitelist_var and string_match(user_agent_whitelist_var, value[1]) then
+				local output = ngx_exit(ngx_OK) --Go to content
+				return output
+			end
 		end
 	end
 
 	return --no user agent was in whitelist
 end
 check_user_agent_whitelist(user_agent_whitelist_table) --run user agent whitelist check function
-
---to have better randomization upon encryption
---math_randomseed(os_time_saved)
 
 --function to encrypt strings with our secret key / password provided
 local function calculate_signature(str)
@@ -2562,27 +2572,21 @@ end
 --generate random strings on the fly
 --qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890
 local charset = {}
-local charset_table_length = 1
 for i = 48,  57 do
-charset[charset_table_length] = string_char(i)
-charset_table_length=charset_table_length+1
+charset[#charset+1] = string_char(i)
 end --0-9 numeric
 --[[
 for i = 65,  90 do
-charset[charset_table_length] = string_char(i)
-charset_table_length=charset_table_length+1
+charset[#charset+1] = string_char(i)
 end --A-Z uppercase
 ]]
 --[[
 for i = 97, 122 do
-charset[charset_table_length] = string_char(i)
-charset_table_length=charset_table_length+1
+charset[#charset+1] = string_char(i)
 end --a-z lowercase
 ]]
-charset[charset_table_length] = string_char(95) --insert number 95 underscore
-charset_table_length=charset_table_length+1
+charset[#charset+1] = string_char(95) --insert number 95 underscore
 local stringrandom_table = {} --create table to store our generated vars to avoid duplicates
-local stringrandom_table_new_length = 1
 local function stringrandom(length)
 	if length > 0 then
 		local output = stringrandom(length - 1) .. charset[math_random(1, #charset)]
@@ -2591,14 +2595,12 @@ local function stringrandom(length)
 			if stringrandom_table[i] == output then --if a value in our table matches our generated var
 				duplicate_found = 1 --mark as duplicate var
 				output = "_" .. output --append an underscore to the duplicate var
-				stringrandom_table[stringrandom_table_new_length] = output --insert to the table
-				stringrandom_table_new_length=stringrandom_table_new_length+1
+				stringrandom_table[#stringrandom_table+1] = output --insert to the table
 				break --break out of for each loop since we found a duplicate
 			end
 		end
 		if duplicate_found == 0 then --if no duplicate found
-			stringrandom_table[stringrandom_table_new_length] = output --insert the output to our table
-			stringrandom_table_new_length=stringrandom_table_new_length+1
+			stringrandom_table[#stringrandom_table+1] = output --insert the output to our table
 		end
 		return output
 	else
@@ -2749,18 +2751,14 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		local counter = 0 --keep track of how many times we pass through
 		local r = math_random(1, #base64_javascript) --randomize where to split string
 		local chunks = {} --create our chunks table for string storage
-		local chunks_table_length = 1
 		local chunks_order = {} --create our chunks table for string storage that stores the value only
-		local chunks_order_table_length = 1
 		local random_var = nil --create our random string variable to use
 
 		for i=1, #base64_javascript do
 			if counter <= #base64_javascript then
 				random_var = stringrandom(stringrandom_length) --create a random variable name to use
-				chunks_order[chunks_order_table_length] = "_" .. random_var .. "" --insert the value into our ordered table
-				chunks_order_table_length=chunks_order_table_length+1
-				chunks[chunks_table_length] = 'var _' .. random_var .. '="' .. string_sub(base64_javascript,counter,counter+r).. '";' --insert our value into our table we will scramble
-				chunks_table_length=chunks_table_length+1
+				chunks_order[#chunks_order+1] = "_" .. random_var .. "" --insert the value into our ordered table
+				chunks[#chunks+1] = 'var _' .. random_var .. '="' .. string_sub(base64_javascript,counter,counter+r).. '";' --insert our value into our table we will scramble
 				counter = counter+r+1
 			else
 				break
