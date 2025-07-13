@@ -309,6 +309,9 @@ web hosting
 And many more...
 ```
 
+# Crypto Currency
+This script works well for crypto currency sites due to the nature of wallet controls security and access of crypto based websites it verifys traffic can run javascript and is legitimate before allowing them access protecting sensitive content like wallet access every crypto website that has a swap or dex / cex centralised or decentralised exchange will find this a must have requiremnet for their peer-to-peer marketplace where transactions occur directly between crypto traders.
+
 # Tor network / Project .onion :
 You can also use this script to protect servers and sites on the Tor network preventing ddos on .onion links. It can help stop attacks on the deepweb / darkweb aswell as on the mainline internet for those who browse your site through the tor browser it makes sure they are legitimate users.
 
