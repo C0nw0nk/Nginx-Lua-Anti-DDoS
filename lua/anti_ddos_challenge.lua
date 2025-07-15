@@ -83,6 +83,13 @@ local ngx_log = ngx.log
 -- https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#nginx-log-level-constants
 local ngx_LOG_TYPE = ngx.STDERR
 local os_time_saved = os_time()-24*60*60
+local ngx_var_connection_requests = ngx.var.connection_requests or 0 --default timeout per connection in nginx is 60 seconds unless you have changed your timeout configs
+local ngx_var_request_length = ngx.var.request_length or 0
+local scheme = ngx.var.scheme --scheme is HTTP or HTTPS
+local host = ngx.var.host --host is website domain name
+local request_uri = ngx.var.request_uri --request uri is full URL link including query strings and arguements
+local URL = scheme .. "://" .. host .. request_uri
+local user_agent = ngx_var_http_user_agent --user agent of browser
 --[[
 End localization
 ]]
@@ -97,7 +104,60 @@ http { #inside http block
 }
 
 ]]
---local shared_memory = ngx.shared.antiddos --What ever memory space your server has set / defined for this to use
+local shared_memory = ngx.shared.antiddos or nil --What ever memory space your server has set / defined for this to use
+
+local anti_ddos_table = {
+	{
+		".*", --regex match any site / path
+		--limit keep alive connections per ip address until timeout
+		--the nginx config this is dependant on is keepalive_timeout 75s; https://nginx.org/en/docs/http/ngx_http_core_module.html#keepalive_timeout
+		10,
+		--status code to exit with when to many requests from same ip are made
+		--if you are under ddos and want to save bandwidth using ngx_HTTP_NO_CONTENT will save bandwidth.
+		ngx.HTTP_TOO_MANY_REQUESTS, --429 too many requests around 175 bytes per response
+		--ngx_HTTP_NO_CONTENT, -- 204 no content 0 bytes per response
+
+		--limit request size to this in bytes so 1000 bytes is 1kb
+		1000,
+		--status code to exit with when request size is smaller than allowed size
+		ngx.HTTP_BAD_REQUEST,
+		--enable or disable logging 1 to enable 0 to disable
+		1,
+		
+		--TODO Feature Auto enable / disable master switch of puzzle auth based of detection of ddos
+	},
+}
+
+local function anti_ddos()
+	if #anti_ddos_table > 0 then
+		for i=1,#anti_ddos_table do --for each host in our table
+			local v = anti_ddos_table[i]
+			if string_match(URL, v[1]) then --if our host matches one in the table
+				if v[2] >= 1 then --limit ip
+					if tonumber(ngx_var_connection_requests) >= v[2] then
+						if v[6] == 1 then
+							ngx_log(ngx_LOG_TYPE," Number of conns from IP " .. ngx_var_connection_requests )
+						end
+						ngx_exit(v[3])
+					end
+				end
+				if v[4] >= 1 then --limit request size
+					if tonumber(ngx_var_request_length) >= v[4] then --1000 bytes = 1kb
+						if v[6] == 1 then
+							ngx_log(ngx_LOG_TYPE," Request LENGTH in bytes " .. ngx_var_request_length )
+						end
+						ngx_exit(v[5])
+					end
+				end
+				if shared_memory ~= nil then --we can do so much more than the basic anti-ddos above
+				--todo access shared mem check ngx.time check request ip check limits if exceedes limits show exit status to stop attack.
+				end
+				break --break out of the for each loop pointless to keep searching the rest since we matched our host
+			end
+		end
+	end
+end
+anti_ddos()
 
 --[[
 This is a password that encrypts our puzzle and cookies unique to your sites and servers you should change this from the default.
@@ -1400,18 +1460,6 @@ j = enable PCRE JIT compilation
 o = compile-once mode (similar to Perl's /o modifier), to enable the worker-process-level compiled-regex cache
 ]]
 local ngx_re_options = "jo" --boost regex performance by caching
-
---[[
-Localized vars for use later
-]]
-local scheme = ngx.var.scheme --scheme is HTTP or HTTPS
-local host = ngx.var.host --host is website domain name
-local request_uri = ngx.var.request_uri --request uri is full URL link including query strings and arguements
-local URL = scheme .. "://" .. host .. request_uri
-local user_agent = ngx_var_http_user_agent --user agent of browser
---[[
-Localized vars for use later
-]]
 
 --[[
 Header Modifications
