@@ -1591,11 +1591,14 @@ local function anti_ddos()
 						if v[6] == 1 then
 							ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP attempt: " .. ip)
 						end
-						--return ngx_exit(rate_limit_exit_status)
+						ngx_req_set_header("Accept-Encoding", "") --disable gzip
+						
+						return ngx_exit(rate_limit_exit_status)
 					end
 
 					if check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, blocked_addr, ddos_counter, v[6]) then
-						--return ngx_exit(rate_limit_exit_status)
+						ngx_req_set_header("Accept-Encoding", "") --disable gzip
+						return ngx_exit(rate_limit_exit_status)
 					end
 
 					if check_slowhttp(content_limit, timeout) then
@@ -1607,6 +1610,7 @@ local function anti_ddos()
 						if not incr then
 							ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] TOTAL IN SHARED error: " .. err)
 						end
+						ngx_req_set_header("Accept-Encoding", "") --disable gzip
 						
 						return ngx_exit(slow_limit_exit_status)
 					end
@@ -1637,6 +1641,7 @@ local function anti_ddos()
 					local slow_limit_exit_status = v[13]
 					--no shared memory set but we can still check and block slowhttp cons without shared memory
 					if check_slowhttp(content_limit, timeout) then
+						ngx_req_set_header("Accept-Encoding", "") --disable gzip
 						if v[6] == 1 then
 							ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
 						end
