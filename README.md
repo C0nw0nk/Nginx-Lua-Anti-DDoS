@@ -20,6 +20,10 @@ These are some of the features I built into the script so far.
 
 ## Security
 
+Limit IP requests / Flooding
+
+Automatically turn on Under Attack mode if DDoS detected
+
 I am Under Attack Mode (DDoS Authentication HTML Page)
 
 IP Address Whitelist
@@ -97,6 +101,9 @@ Once installed into your `nginx/conf/` folder.
 Add this to your HTTP block or it can be in a server or location block depending where you want this script to run for individual locations the entire server or every single website on the server.
 
 ```
+lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone
+lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory zone
+lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone
 access_by_lua_file anti_ddos_challenge.lua;
 ```
 
@@ -107,6 +114,9 @@ This will run for all websites on the nginx server
 ```
 http {
 #nginx config settings etc
+lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone
+lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory zone
+lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone
 access_by_lua_file anti_ddos_challenge.lua;
 #more config settings and some server stuff
 }
@@ -117,6 +127,9 @@ This will make it run for this website only
 ```
 server {
 #nginx config settings etc
+lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone
+lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory zone
+lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone
 access_by_lua_file anti_ddos_challenge.lua;
 #more config settings and some server stuff
 }
@@ -127,6 +140,9 @@ This will run in this location block only
 ```
 location / {
 #nginx config settings etc
+lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone
+lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory zone
+lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone
 access_by_lua_file anti_ddos_challenge.lua;
 #more config settings and some server stuff
 }
