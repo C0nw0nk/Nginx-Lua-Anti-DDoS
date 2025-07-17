@@ -83,6 +83,14 @@ local ngx_log = ngx.log
 -- https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#nginx-log-level-constants
 local ngx_LOG_TYPE = ngx.STDERR
 local os_time_saved = os_time()-24*60*60
+local ngx_var_connection_requests = ngx.var.connection_requests or 0 --default timeout per connection in nginx is 60 seconds unless you have changed your timeout configs
+local ngx_var_request_length = ngx.var.request_length or 0
+local scheme = ngx.var.scheme --scheme is HTTP or HTTPS
+local host = ngx.var.host --host is website domain name
+local request_uri = ngx.var.request_uri --request uri is full URL link including query strings and arguements
+local URL = scheme .. "://" .. host .. request_uri
+local user_agent = ngx_var_http_user_agent --user agent of browser
+local currenttime = ngx_time() --Current time on server
 --[[
 End localization
 ]]
@@ -93,11 +101,69 @@ Shared memory cache
 If you use this make sure you add this to your nginx configuration
 
 http { #inside http block
-     lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone
+	lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone 10m should store 160,000 IP's increase the size to store more
+	lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory zone
+	lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone
 }
 
 ]]
---local shared_memory = ngx.shared.antiddos --What ever memory space your server has set / defined for this to use
+
+local anti_ddos_table = {
+	{
+		".*", --regex match any site / path
+
+		--limit keep alive connections per ip address until timeout
+		--the nginx config this is dependant on is keepalive_timeout 75s; https://nginx.org/en/docs/http/ngx_http_core_module.html#keepalive_timeout
+		0, --unlimited
+		--status code to exit with when to many requests from same ip are made
+		--if you are under ddos and want to save bandwidth using ngx.HTTP_CLOSE will save bandwidth.
+		ngx.HTTP_TOO_MANY_REQUESTS, --429 too many requests around 175 bytes per response
+		--ngx.HTTP_CLOSE, --444 connection reset 0 bytes per response
+
+		--limit max request size to this in bytes so 1000 bytes is 1kb
+		1000000,
+		--status code to exit with when request size is larger than allowed size
+		ngx.HTTP_BAD_REQUEST,
+
+		--enable or disable logging 1 to enable 0 to disable check your .log file to view logs
+		1,
+
+		--Rate limiting settings
+		5, --5 second window
+		60, --max 60 requests in 5s
+		600, --600 seconds = 10 minutes block time for ip
+		ngx.HTTP_CLOSE, --444 connection reset 0 bytes per response
+
+		--SlowHTTP / Slowloris settings
+		128, --Max Content-Length
+		10, --Request timeout in seconds
+		ngx.HTTP_CLOSE, --444 connection reset 0 bytes per response
+		
+		--[[shared memory zones
+		To use this feature put this in your nginx config
+		
+		lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone
+		lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory zone
+		lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone
+		
+		10m can store 160,000 ip addresses so 70m would be able to store around 1,000,000 yes 1 million ips :)
+		]]
+		ngx.shared.antiddos, --this zone monitors each unique ip and number of requests they stack up
+		ngx.shared.antiddos_blocked, --this zone is where ips are put that exceed the max limit
+		ngx.shared.ddos_counter, --this zone is for the total number of ips in the list that are currently blocked
+		
+		--Unique identifyer to use IP address works well but set this to Auto if you expect proxy traffic like from cloudflare
+		--ngx.var.binary_remote_addr, --if you use binary remote addr and the antiddos shared address is 10m in size you can store 160k ip addresses before you need to increase the memory dedicated
+		"auto", --auto is best but use binary above instead if you want
+		
+		--Automatic I am Under Attack Mode - authentication puzzle to automatically enable when ddos detected
+		--1 to enable 0 to disable
+		1,
+		
+		--total number of ips active in the block list to trigger I am Under Attack Mode and turn the auth puzzle on automatically
+		100, --if over 100 ip addresses are currently in the block list for flooding behaviour you are under attack
+	},
+}
 
 --[[
 This is a password that encrypts our puzzle and cookies unique to your sites and servers you should change this from the default.
@@ -313,6 +379,7 @@ You can also specify full domain names like "github.com" to protect specific dom
 2 = bypass auth checks
 ]]
 local master_switch_custom_hosts = {
+	--[[
 	{
 		1, --run auth checks
 		"localhost/ddos.*", --authenticate Tor websites
@@ -325,7 +392,6 @@ local master_switch_custom_hosts = {
 		1, --run auth checks
 		"github.com/.*", --authenticate github
 	},
-	--[[
 	{
 		1, --run auth checks
 		"localhost",
@@ -510,6 +576,7 @@ If we should show the client seeing the box what login they can use (Tor website
 1 = Display login details
 ]]
 local authorization_paths = {
+	--[[
 	{
 		1, --show auth box on this path
 		"localhost/ddos.*", --regex paths i recommend having the domain in there too
@@ -525,6 +592,7 @@ local authorization_paths = {
 		".com/admin.*", --regex paths i recommend having the domain in there too
 		0, --do NOT display username/password
 	},
+	]]
 	--[[
 	{ --Show on All sites and paths
 		1, --show auth box on this path
@@ -623,6 +691,7 @@ local WAF_query_string_Request_table = {
 		.php?=PHPE9568F35-D428-11d2-A769-00AA001ACF42
 		.php?=PHPE9568F36-D428-11d2-A769-00AA001ACF42
 	]]
+	--[[
 	{
 		"^.*$", --match any name
 		"^PHP.*$", --matching any value
@@ -635,9 +704,11 @@ local WAF_query_string_Request_table = {
 		"base64%_decode", --regex match name
 		"^.*$", --regex or exact match value
 	},
+	]]
 	--[[
 		File injection protection
 	]]
+	--[[
 	{
 		"[a-zA-Z0-9_]", --regex match name
 		"http%:%/%/", --regex or exact match value
@@ -646,9 +717,11 @@ local WAF_query_string_Request_table = {
 		"[a-zA-Z0-9_]", --regex match name
 		"https%:%/%/", --regex or exact match value
 	},
+	]]
 	--[[
 		SQLi SQL Injections
 	]]
+	--[[
 	{
 		"^.*$",
 		"union.*select.*%(",
@@ -661,6 +734,7 @@ local WAF_query_string_Request_table = {
 		"^.*$",
 		"union.*all.*select.*",
 	},
+	]]
 }
 
 --[[
@@ -712,10 +786,12 @@ local query_string_sort_table = {
 		".*", --regex match any site / path
 		1, --enable
 	},
+	--[[
 	{
 		"domain.com/.*", --regex match this domain
 		1, --enable
 	},
+	]]
 }
 
 --[[
@@ -724,7 +800,7 @@ Query String Expected arguments Whitelist only
 So this is useful for those who know what URL arguments their sites use and want to whitelist those ONLY so any other arguments provided in the URL never reach the backend or web application and are dropped from the URL.
 ]]
 local query_string_expected_args_only_table = {
---[[
+	--[[
 	{
 		".*", --any site
 		{ --query strings to allow ONLY all others apart from those you list here will be removed from the URL
@@ -739,8 +815,9 @@ local query_string_expected_args_only_table = {
 			"chickens",
 		},
 	},
-]]
+	]]
 	--for all sites specific static files that should never have query strings on the end of the URL (This will improve Caching and performance)
+	--[[
 	{
 		"%/.*%.js",
 		{}, --no args to accept so any provided in the url will be removed.
@@ -927,6 +1004,7 @@ local query_string_expected_args_only_table = {
 		"%/.*%.wav",
 		{}, --no args to accept so any provided in the url will be removed.
 	},
+	]]
 }
 
 --[[
@@ -937,6 +1015,7 @@ To remove Query strings that bypass the cache Intentionally Facebook and Google 
 Traffic to your site from facebook Posts / Shares the URL's will all contain this .com/index.html?fbclid=blah-blah-blah
 ]]
 local query_string_remove_args_table = {
+	--[[
 	{
 		".*", --all sites
 		{ --query strings to remove to improve Cache HIT Ratios and Stop attacks / Cache bypassing and Busting.
@@ -981,6 +1060,7 @@ local query_string_remove_args_table = {
 			"fbclid",
 		},
 	},
+	]]
 }
 
 --[[
@@ -1024,6 +1104,7 @@ local custom_headers = {
 			{"x-turbo-charged-by",nil,}, --remove x-turbo-charged-by LiteSpeed
 		},
 	},
+	--[[
 	{
 		"%/.*%.js",
 		{
@@ -1353,6 +1434,7 @@ local custom_headers = {
 			{"Pragma","public",},
 		},
 	},
+	]]
 }
 
 --[[
@@ -1390,6 +1472,184 @@ This is where things get very complex. ;)
 Begin Required Functions
 ]]
 
+--Anti DDoS function
+local function anti_ddos()
+	--Slowhttp / Slowloris attack detection
+	local function check_slowhttp(content_limit, timeout)
+		local req_headers = ngx_req_get_headers()
+
+		--Expect: 100-continue Content-Length
+		if req_headers["expect"] and string_lower(req_headers["expect"]) == "100-continue" then
+			local content_length = tonumber(req_headers["content-length"] or "0")
+			if content_length > 0 and content_length < content_limit then
+				return true
+			end
+		end
+
+		--Detect slow request time
+		local request_time = ngx.var.request_time
+		if request_time and tonumber(request_time) > timeout then
+			return true
+		end
+
+		--Detect Connection header manipulation
+		local connection = req_headers["connection"]
+		if connection and string_lower(connection) == "keep-alive" then
+			local keep_alive = req_headers["keep-alive"]
+			if keep_alive and string_match(keep_alive, "timeout=(%d+)") then
+				local timeout = tonumber(string_match(keep_alive, "timeout=(%d+)"))
+				if timeout and timeout > 300 then 
+					return true
+				end
+			end
+		end
+
+		return false
+	end
+
+	--Rate limit per user
+	local function check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, blocked_addr, ddos_counter, logging)
+		local key = "r" .. ip --set identifyer as r and ip for to not use up to much memory
+
+		local count, err = request_limit:incr(key, 1, 0, rate_limit_window)
+		if not count then
+			if logging == 1 then
+				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Rate limit error: " .. err)
+			end
+			return false
+		end
+
+		--Rate limit check
+		if count > rate_limit_requests then
+			--Block IP
+			blocked_addr:set(ip, currenttime, block_duration)
+
+			if logging == 1 then
+				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Rate limit exceeded, IP blocked: " .. ip .. " (" .. count .. " requests)")
+			end
+
+			local incr, err = ddos_counter:incr("blocked_ip", 1, 0, rate_limit_window)
+			if not incr then
+				if logging == 1 then
+					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] TOTAL IN SHARED error: " .. err)
+				end
+			end
+			
+			return true
+		end
+
+		return false
+	end
+
+	if #anti_ddos_table > 0 then
+		for i=1,#anti_ddos_table do --for each host/path in our table
+			local v = anti_ddos_table[i]
+			if string_match(URL, v[1]) then --if our host matches one in the table
+				if v[2] >= 1 then --limit keep alive ip
+					if tonumber(ngx_var_connection_requests) >= v[2] then
+						if v[6] == 1 then
+							ngx_log(ngx_LOG_TYPE,"[Anti-DDoS] Number of keepalive conns from IP " .. ngx_var_connection_requests )
+						end
+						ngx_exit(v[3])
+					end
+				end
+				if v[4] >= 1 then --limit request size
+					if tonumber(ngx_var_request_length) >= v[4] then --1000 bytes = 1kb
+						if v[6] == 1 then
+							ngx_log(ngx_LOG_TYPE,"[Anti-DDoS] Request LENGTH in bytes " .. ngx_var_request_length )
+						end
+						ngx_exit(v[5])
+					end
+				end
+				
+				local request_limit = v[14] or nil --What ever memory space your server has set / defined for this to use
+				local blocked_addr = v[15] or nil
+				local ddos_counter = v[16] or nil
+
+				if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
+					local rate_limit_window = v[7]
+					local rate_limit_requests = v[8]
+					local block_duration = v[9]
+					local rate_limit_exit_status = v[10]
+					local content_limit = v[11]
+					local timeout = v[12]
+					local slow_limit_exit_status = v[13]
+					local ip = v[17]
+
+					if ip == "auto" then
+						if ngx_var_http_cf_connecting_ip ~= nil then
+							ip = ngx_var_http_cf_connecting_ip
+						elseif ngx_var_http_x_forwarded_for ~= nil then
+							ip = ngx_var_http_x_forwarded_for
+						else
+							ip = ngx.var.binary_remote_addr
+						end
+					end
+
+					local blocked_time = blocked_addr:get(ip)
+					if blocked_time then
+						if v[6] == 1 then
+							ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP attempt: " .. ip)
+						end
+						--return ngx_exit(rate_limit_exit_status)
+					end
+
+					if check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, blocked_addr, ddos_counter, v[6]) then
+						--return ngx_exit(rate_limit_exit_status)
+					end
+
+					if check_slowhttp(content_limit, timeout) then
+						blocked_addr:set(ip, currenttime, block_duration)
+						if v[6] == 1 then
+							ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
+						end
+						local incr, err = ddos_counter:incr("blocked_ip", 1, 0, rate_limit_window)
+						if not incr then
+							ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] TOTAL IN SHARED error: " .. err)
+						end
+						
+						return ngx_exit(slow_limit_exit_status)
+					end
+
+					if v[18] == 1 then
+						local total_requests = ddos_counter:get("blocked_ip") or 0
+						if total_requests >= v[19] then --Automatically enable I am Under Attack Mode
+							if v[6] == 1 then
+								ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Total Flood requests: " .. total_requests)
+							end
+							--Automatic Detection of DDoS
+							--Disable GZIP to prevent GZIP memory bomb and CPU consumption attacks.
+							--local req_headers = ngx_req_get_headers() --get all request headers
+							--if req_headers["accept-encoding"] then
+								ngx_req_set_header("Accept-Encoding", "") --disable gzip
+							--end
+							--MASTER SWITCH ENGAGED
+							master_switch = 1 --enabled for all sites
+						else
+							master_switch = 2 --disabled
+						end
+					end
+					
+					
+				else
+					local content_limit = v[11]
+					local timeout = v[12]
+					local slow_limit_exit_status = v[13]
+					--no shared memory set but we can still check and block slowhttp cons without shared memory
+					if check_slowhttp(content_limit, timeout) then
+						if v[6] == 1 then
+							ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
+						end
+						return ngx_exit(slow_limit_exit_status)
+					end
+				end
+				break --break out of the for each loop pointless to keep searching the rest since we matched our host
+			end
+		end
+	end
+end
+anti_ddos()
+
 --[[
 Add to your nginx config http://nginx.org/en/docs/ngx_core_module.html#pcre_jit
 
@@ -1400,18 +1660,6 @@ j = enable PCRE JIT compilation
 o = compile-once mode (similar to Perl's /o modifier), to enable the worker-process-level compiled-regex cache
 ]]
 local ngx_re_options = "jo" --boost regex performance by caching
-
---[[
-Localized vars for use later
-]]
-local scheme = ngx.var.scheme --scheme is HTTP or HTTPS
-local host = ngx.var.host --host is website domain name
-local request_uri = ngx.var.request_uri --request uri is full URL link including query strings and arguements
-local URL = scheme .. "://" .. host .. request_uri
-local user_agent = ngx_var_http_user_agent --user agent of browser
---[[
-Localized vars for use later
-]]
 
 --[[
 Header Modifications
@@ -2784,8 +3032,6 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 	return output
 end
 --end encrypt_javascript function
-
-local currenttime = ngx_time() --Current time on server
 
 local currentdate = "" --make current date a empty var
 
