@@ -32,6 +32,7 @@ Configuration :
 --[[
 localize all standard Lua and ngx functions I use for better performance.
 ]]
+require "resty.core"
 local tonumber = tonumber
 local tostring = tostring
 local next = next
