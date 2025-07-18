@@ -86,7 +86,7 @@ If you fork or make any changes to improve this or fix problems please do make a
 
 https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/pulls
 
-Be sure to use the latest Nginx+Lua builds and libraries to avoid any issues.
+## Be sure to use the latest Nginx+Lua builds and libraries to avoid any issues.
 
 # Usage / Installation :
 
