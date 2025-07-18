@@ -86,6 +86,8 @@ If you fork or make any changes to improve this or fix problems please do make a
 
 https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/pulls
 
+Be sure to use the latest Nginx+Lua builds and libraries to avoid any issues.
+
 # Usage / Installation :
 
 Edit settings inside `anti_ddos_challenge.lua` to cater for your own unique needs or improve my work. (Please share your soloutions and additions)
@@ -104,6 +106,7 @@ Add this to your HTTP block or it can be in a server or location block depending
 lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone
 lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory zone
 lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone
+
 access_by_lua_file anti_ddos_challenge.lua;
 ```
 
@@ -113,23 +116,30 @@ This will run for all websites on the nginx server
 
 ```
 http {
-#nginx config settings etc
+
+#shared memory addresses in http block
 lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone
 lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory zone
 lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone
+
+#nginx config settings etc
 access_by_lua_file anti_ddos_challenge.lua;
 #more config settings and some server stuff
+
 }
 ```
 
 This will make it run for this website only
 
 ```
-server {
-#nginx config settings etc
+http { #shared memory addresses in http block
 lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone
 lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory zone
 lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone
+}
+
+server {
+#nginx config settings etc
 access_by_lua_file anti_ddos_challenge.lua;
 #more config settings and some server stuff
 }
@@ -138,11 +148,14 @@ access_by_lua_file anti_ddos_challenge.lua;
 This will run in this location block only
 
 ```
-location / {
-#nginx config settings etc
+http { #shared memory addresses in http block
 lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone
 lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory zone
 lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone
+}
+
+location / {
+#nginx config settings etc
 access_by_lua_file anti_ddos_challenge.lua;
 #more config settings and some server stuff
 }
