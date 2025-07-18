@@ -24,7 +24,6 @@ https://www.facebook.com/C0nw0nk
 
 ]]
 
-
 --[[
 Configuration :
 ]]
@@ -32,7 +31,6 @@ Configuration :
 --[[
 localize all standard Lua and ngx functions I use for better performance.
 ]]
-require "resty.core"
 local tonumber = tonumber
 local tostring = tostring
 local next = next
@@ -1475,6 +1473,10 @@ Begin Required Functions
 
 --Anti DDoS function
 local function anti_ddos()
+	local pcall = pcall
+	local require = require
+	local shdict = tostring(pcall(require, "resty.core.shdict"))
+
 	--Slowhttp / Slowloris attack detection
 	local function check_slowhttp(content_limit, timeout)
 		local req_headers = ngx_req_get_headers()
@@ -1512,13 +1514,28 @@ local function anti_ddos()
 	local function check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, blocked_addr, ddos_counter, logging)
 		local key = "r" .. ip --set identifyer as r and ip for to not use up to much memory
 
-		local count, err = request_limit:incr(key, 1, 0, rate_limit_window)
-		if not count then
-			if logging == 1 then
+		--ngx_log(ngx_LOG_TYPE, "Check if shdict functions exists " .. tostring(pcall(require, "resty.core.shdict")))
+		if not shdict then
+			local count, err = request_limit:incr(key, 1, 0, rate_limit_window)
+			if not count then
+				if logging == 1 then
 				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Rate limit error: " .. err)
-			end
+				end
 			return false
+			end
+		else
+
+			local count = request_limit:get(key) or nil
+			if count == nil then
+				local count_old = request_limit:set(key, 1, rate_limit_window)
+				return false
+			else
+				local count = request_limit:get(key)
+				local count_old = request_limit:set(key, count+1, rate_limit_window)
+			end
 		end
+
+		local count = request_limit:get(key)
 
 		--Rate limit check
 		if count > rate_limit_requests then
@@ -1529,13 +1546,25 @@ local function anti_ddos()
 				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Rate limit exceeded, IP blocked: " .. ip .. " (" .. count .. " requests)")
 			end
 
-			local incr, err = ddos_counter:incr("blocked_ip", 1, 0, rate_limit_window)
-			if not incr then
-				if logging == 1 then
-					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] TOTAL IN SHARED error: " .. err)
+			--ngx_log(ngx_LOG_TYPE, "Check if shdict functions exists " .. tostring(pcall(require, "resty.core.shdict")))
+			if not shdict then --backwards compatibility for lua
+				local incr, err = ddos_counter:incr("blocked_ip", 1, 0, rate_limit_window)
+				if not incr then
+					if logging == 1 then
+						ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] TOTAL IN SHARED error: " .. err)
+					end
+				end
+			else --older lua version
+			
+				local incr = ddos_counter:get("blocked_ip") or nil
+				if incr == nil then
+					local incr = ddos_counter:set("blocked_ip", 1, rate_limit_window)
+				else
+					local incr = ddos_counter:get("blocked_ip")
+					local incr = ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
 				end
 			end
-			
+
 			return true
 		end
 
@@ -1607,9 +1636,22 @@ local function anti_ddos()
 						if v[6] == 1 then
 							ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
 						end
-						local incr, err = ddos_counter:incr("blocked_ip", 1, 0, rate_limit_window)
-						if not incr then
-							ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] TOTAL IN SHARED error: " .. err)
+
+						--ngx_log(ngx_LOG_TYPE, "Check if shdict functions exists " .. tostring(pcall(require, "resty.core.shdict")))
+						if not shdict then --backwards compatibility for lua
+							local incr, err = ddos_counter:incr("blocked_ip", 1, 0, rate_limit_window)
+							if not incr then
+								ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] TOTAL IN SHARED error: " .. err)
+							end
+						else --older lua version
+
+							local incr = ddos_counter:get("blocked_ip") or nil
+							if incr == nil then
+								local incr = ddos_counter:set("blocked_ip", 1, rate_limit_window)
+							else
+								local incr = ddos_counter:get("blocked_ip")
+								local incr = ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
+							end
 						end
 						ngx_req_set_header("Accept-Encoding", "") --disable gzip
 						
