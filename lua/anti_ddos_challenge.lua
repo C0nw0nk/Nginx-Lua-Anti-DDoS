@@ -1708,17 +1708,16 @@ local function anti_ddos()
 
 					if #v[20] > 0 then --make sure the 20th var is a lua table and has values
 						for i=1,#v[20] do --for each in our table
-							local t = v[20][i]
-							if #t > 0 then --if subtable has values
-								local table_head_val = t[1] or nil
+							if #v[20][i] > 0 then --if subtable has values
+								local table_head_val = v[20][i][1] or nil
 								local req_headers = ngx_req_get_headers()
 								local header_value = req_headers[tostring(table_head_val)] or ""
-								if header_value and string_lower(header_value) == t[2] then
-									if t[4] > 0 then --add to ban list
+								if header_value and string_lower(header_value) == v[20][i][2] then
+									if v[20][i][4] > 0 then --add to ban list
 										blocked_addr:set(ip, currenttime, block_duration)
 									end
 									ngx_req_set_header("Accept-Encoding", "") --disable gzip
-									ngx_exit(t[3])
+									ngx_exit(v[20][i][3])
 								end
 							end
 						end
@@ -1730,6 +1729,7 @@ local function anti_ddos()
 								if v[21][i][3] > 0 then
 									blocked_addr:set(ip, currenttime, block_duration)
 								end
+								ngx_req_set_header("Accept-Encoding", "") --disable gzip
 								ngx_exit(v[21][i][2])
 							end
 						end
@@ -1766,6 +1766,7 @@ local function anti_ddos()
 					if #v[21] > 0 then
 						for i=1,#v[21] do
 							if string_lower(ngx.var.request_method) == string_lower(v[21][i][1]) then
+								ngx_req_set_header("Accept-Encoding", "") --disable gzip
 								ngx_exit(v[21][i][2])
 							end
 						end
