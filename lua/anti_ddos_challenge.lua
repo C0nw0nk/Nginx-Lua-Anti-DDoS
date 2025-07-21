@@ -1766,9 +1766,6 @@ local function anti_ddos()
 					if #v[21] > 0 then
 						for i=1,#v[21] do
 							if string_lower(ngx.var.request_method) == string_lower(v[21][i][1]) then
-								if v[21][i][3] > 0 then
-									blocked_addr:set(ip, currenttime, block_duration)
-								end
 								ngx_exit(v[21][i][2])
 							end
 						end
