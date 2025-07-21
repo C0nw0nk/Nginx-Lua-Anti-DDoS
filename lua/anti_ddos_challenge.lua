@@ -161,6 +161,19 @@ local anti_ddos_table = {
 
 		--total number of ips active in the block list to trigger I am Under Attack Mode and turn the auth puzzle on automatically
 		100, --if over 100 ip addresses are currently in the block list for flooding behaviour you are under attack
+
+		{ --headers to block i notice slowloris attacks send this header if your under attack and check your logs and see a header or something all attacker addresses have in common this can be useful to block that.
+			{ --slowhttp / slowloris sends this referer header with all requests
+				"referer", "http://code.google.com/p/slowhttptest/", --header to match
+				ngx.HTTP_CLOSE, --close their connection
+				1, --1 to add ip to ban list 0 to just send response above close the connection
+			}, --slowloris referer header block
+			{ --slowhttp / slowloris incase they set it as referrer spelt wrong Intentionally.
+				"referrer", "http://code.google.com/p/slowhttptest/", --header to match
+				ngx.HTTP_CLOSE, --close their connection
+				1, --1 to add ip to ban list 0 to just send response above close the connection
+			}, --slowloris referrer header block
+		},
 	},
 }
 
@@ -1677,6 +1690,24 @@ local function anti_ddos()
 						end
 					end
 
+					if #v[20] > 0 then --make sure the 20th var is a lua table and has values
+						for i=1,#v[20] do --for each in our table
+							local t = v[20][i]
+							if #t > 0 then --if subtable has values
+								local table_head_val = t[1] or nil
+								local req_headers = ngx_req_get_headers()
+								local header_value = req_headers[tostring(table_head_val)] or ""
+								if header_value and string_lower(header_value) == t[2] then
+									if t[4] > 0 then --add to ban list
+										blocked_addr:set(ip, currenttime, block_duration)
+									end
+									ngx_req_set_header("Accept-Encoding", "") --disable gzip
+									ngx_exit(t[3])
+								end
+							end
+						end
+					end
+
 				else
 					local content_limit = v[11]
 					local timeout = v[12]
@@ -1689,6 +1720,22 @@ local function anti_ddos()
 						end
 						return ngx_exit(slow_limit_exit_status)
 					end
+
+					if #v[20] > 0 then --make sure the 20th var is a lua table and has values
+						for i=1,#v[20] do --for each in our table
+							local t = v[20][i]
+							if #t > 0 then --if subtable has values
+								local table_head_val = t[1] or nil
+								local req_headers = ngx_req_get_headers()
+								local header_value = req_headers[tostring(table_head_val)] or ""
+								if header_value and string_lower(header_value) == t[2] then
+									ngx_req_set_header("Accept-Encoding", "") --disable gzip
+									ngx_exit(t[3])
+								end
+							end
+						end
+					end
+
 				end
 				break --break out of the for each loop pointless to keep searching the rest since we matched our host
 			end
