@@ -174,6 +174,22 @@ local anti_ddos_table = {
 				1, --1 to add ip to ban list 0 to just send response above close the connection
 			}, --slowloris referrer header block
 		},
+
+		{ --Any $request_method that you want to prohibit use this. Most sites legitimate expected request header is GET and POST thats it. Any other head types you can block.
+			--[[
+			{
+				"PATCH", --https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods#safe_idempotent_and_cacheable_request_methods
+				ngx.HTTP_CLOSE, --close their connection
+				1, --1 to add ip to ban list 0 to just send response above close the connection
+			},
+			{
+				"DELETE", --https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods#safe_idempotent_and_cacheable_request_methods
+				ngx.HTTP_CLOSE, --close their connection
+				1, --1 to add ip to ban list 0 to just send response above close the connection
+			},
+			]]
+		},
+
 	},
 }
 
@@ -1708,6 +1724,17 @@ local function anti_ddos()
 						end
 					end
 
+					if #v[21] > 0 then
+						for i=1,#v[21] do
+							if string_lower(ngx.var.request_method) == string_lower(v[21][i][1]) then
+								if v[21][i][3] > 0 then
+									blocked_addr:set(ip, currenttime, block_duration)
+								end
+								ngx_exit(v[21][i][2])
+							end
+						end
+					end
+
 				else
 					local content_limit = v[11]
 					local timeout = v[12]
@@ -1732,6 +1759,17 @@ local function anti_ddos()
 									ngx_req_set_header("Accept-Encoding", "") --disable gzip
 									ngx_exit(t[3])
 								end
+							end
+						end
+					end
+
+					if #v[21] > 0 then
+						for i=1,#v[21] do
+							if string_lower(ngx.var.request_method) == string_lower(v[21][i][1]) then
+								if v[21][i][3] > 0 then
+									blocked_addr:set(ip, currenttime, block_duration)
+								end
+								ngx_exit(v[21][i][2])
 							end
 						end
 					end
