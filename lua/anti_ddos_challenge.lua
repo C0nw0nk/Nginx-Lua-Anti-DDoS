@@ -1747,6 +1747,13 @@ local function anti_ddos()
 						ngx_req_set_header("Accept-Encoding", "") --disable gzip
 					end
 
+					if v[23] > 0 then --dsiable compression when banlist has more than certain number of ips automated protection
+						local total_requests = ddos_counter:get("blocked_ip") or 0
+						if total_requests >= v[19] then --Automatically enable I am Under Attack Mode
+							ngx_req_set_header("Accept-Encoding", "") --disable gzip
+						end
+					end
+
 				else
 					local content_limit = v[11]
 					local timeout = v[12]
