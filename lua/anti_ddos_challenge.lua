@@ -1538,7 +1538,11 @@ local function anti_ddos()
 			local keep_alive = req_headers["keep-alive"]
 			if keep_alive and string_match(keep_alive, "timeout=(%d+)") then
 				local timeout = tonumber(string_match(keep_alive, "timeout=(%d+)"))
-				if timeout and timeout > 300 then 
+				if timeout and timeout > 300 then --if they send header to try to keep connection alive for more than 5 mins
+					return true
+				end
+				local max_keepalive = tonumber(string_match(keep_alive, "max=(%d+)"))
+				if max_keepalive and max_keepalive > 999999 then --if they send header to set max connections to a ridiculous number
 					return true
 				end
 			end
