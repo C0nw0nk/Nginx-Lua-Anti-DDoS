@@ -201,6 +201,28 @@ local anti_ddos_table = {
 	},
 }
 
+-- Localization
+local collectgarbage = collectgarbage
+local math_pi = math.pi
+local math_sqrt = math.sqrt
+local math_randomseed = math.randomseed
+-- Random seed generator
+local function getRandomSeed()
+    local a = collectgarbage("count")
+    local b = os_time()
+    local c = tostring(a) .. tostring(b)
+    local d = (math_pi * b + math_sqrt(a + 1)) % 4294967296
+    c = c .. tostring(d)
+    local e = 0
+    for i = 1, #c do
+        local f = c:byte(i)
+        e = (e * 33 + f) % 4294967296
+    end
+    return math_floor(e)
+end
+-- Seed the randomness with our custom seed
+math_randomseed(getRandomSeed())
+
 --[[
 This is a password that encrypts our puzzle and cookies unique to your sites and servers you should change this from the default.
 ]]
