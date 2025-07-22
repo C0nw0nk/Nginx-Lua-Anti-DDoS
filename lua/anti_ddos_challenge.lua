@@ -100,9 +100,9 @@ Shared memory cache
 If you use this make sure you add this to your nginx configuration
 
 http { #inside http block
-	lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone 10m should store 160,000 IP's increase the size to store more
-	lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory zone
-	lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone
+	lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone to track requests per each unique user
+	lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory where blocked users are put
+	lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
 }
 
 ]]
@@ -141,9 +141,9 @@ local anti_ddos_table = {
 		--[[shared memory zones
 		To use this feature put this in your nginx config
 
-		lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone
-		lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory zone
-		lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone
+		lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone to track requests per each unique user
+		lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory where blocked users are put
+		lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
 
 		10m can store 160,000 ip addresses so 70m would be able to store around 1,000,000 yes 1 million ips :)
 		]]
@@ -161,6 +161,43 @@ local anti_ddos_table = {
 
 		--total number of ips active in the block list to trigger I am Under Attack Mode and turn the auth puzzle on automatically
 		100, --if over 100 ip addresses are currently in the block list for flooding behaviour you are under attack
+
+		{ --headers to block i notice slowloris attacks send this header if your under attack and check your logs and see a header or something all attacker addresses have in common this can be useful to block that.
+			{ --slowhttp / slowloris sends this referer header with all requests
+				"referer", "http://code.google.com/p/slowhttptest/", --header to match
+				ngx.HTTP_CLOSE, --close their connection
+				1, --1 to add ip to ban list 0 to just send response above close the connection
+			}, --slowloris referer header block
+			{ --slowhttp / slowloris incase they set it as referrer spelt wrong Intentionally.
+				"referrer", "http://code.google.com/p/slowhttptest/", --header to match
+				ngx.HTTP_CLOSE, --close their connection
+				1, --1 to add ip to ban list 0 to just send response above close the connection
+			}, --slowloris referrer header block
+		},
+
+		{ --Any $request_method that you want to prohibit use this. Most sites legitimate expected request header is GET and POST thats it. Any other header request types you can block.
+			--[[
+			{
+				"HEAD", --https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods#safe_idempotent_and_cacheable_request_methods
+				ngx.HTTP_CLOSE, --close their connection
+				1, --1 to add ip to ban list 0 to just send response above close the connection
+			},
+			{
+				"PATCH", --https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods#safe_idempotent_and_cacheable_request_methods
+				ngx.HTTP_CLOSE, --close their connection
+				1, --1 to add ip to ban list 0 to just send response above close the connection
+			},
+			{
+				"DELETE", --https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods#safe_idempotent_and_cacheable_request_methods
+				ngx.HTTP_CLOSE, --close their connection
+				1, --1 to add ip to ban list 0 to just send response above close the connection
+			},
+			]]
+		},
+
+		1, --0 disable compression 1 enable compression brotli,gzip etc for this domain / path if your under ddos attack the script will turn off gzip since nginx gzip will hog cpu so you dont have to worry about that.
+		1, --0 disable 1 enable - automatically disable compression for all users if ddos attack detected if more than number of IPs end up in the ban list the server will prevent cpu intensive tasks like compression to stay online.
+
 	},
 }
 
@@ -1501,7 +1538,11 @@ local function anti_ddos()
 			local keep_alive = req_headers["keep-alive"]
 			if keep_alive and string_match(keep_alive, "timeout=(%d+)") then
 				local timeout = tonumber(string_match(keep_alive, "timeout=(%d+)"))
-				if timeout and timeout > 300 then 
+				if timeout and timeout > 300 then --if they send header to try to keep connection alive for more than 5 mins
+					return true
+				end
+				local max_keepalive = tonumber(string_match(keep_alive, "max=(%d+)"))
+				if max_keepalive and max_keepalive > 999999 then --if they send header to set max connections to a ridiculous number
 					return true
 				end
 			end
@@ -1677,6 +1718,46 @@ local function anti_ddos()
 						end
 					end
 
+					if #v[20] > 0 then --make sure the 20th var is a lua table and has values
+						for i=1,#v[20] do --for each in our table
+							if #v[20][i] > 0 then --if subtable has values
+								local table_head_val = v[20][i][1] or nil
+								local req_headers = ngx_req_get_headers()
+								local header_value = req_headers[tostring(table_head_val)] or ""
+								if header_value and string_lower(header_value) == v[20][i][2] then
+									if v[20][i][4] > 0 then --add to ban list
+										blocked_addr:set(ip, currenttime, block_duration)
+									end
+									ngx_req_set_header("Accept-Encoding", "") --disable gzip
+									ngx_exit(v[20][i][3])
+								end
+							end
+						end
+					end
+
+					if #v[21] > 0 then
+						for i=1,#v[21] do
+							if string_lower(ngx.var.request_method) == string_lower(v[21][i][1]) then
+								if v[21][i][3] > 0 then
+									blocked_addr:set(ip, currenttime, block_duration)
+								end
+								ngx_req_set_header("Accept-Encoding", "") --disable gzip
+								ngx_exit(v[21][i][2])
+							end
+						end
+					end
+
+					if v[22] < 1 then --disable gzip option
+						ngx_req_set_header("Accept-Encoding", "") --disable gzip
+					end
+
+					if v[23] > 0 then --dsiable compression when banlist has more than certain number of ips automated protection
+						local total_requests = ddos_counter:get("blocked_ip") or 0
+						if total_requests >= v[19] then --Automatically enable I am Under Attack Mode
+							ngx_req_set_header("Accept-Encoding", "") --disable gzip
+						end
+					end
+
 				else
 					local content_limit = v[11]
 					local timeout = v[12]
@@ -1689,6 +1770,35 @@ local function anti_ddos()
 						end
 						return ngx_exit(slow_limit_exit_status)
 					end
+
+					if #v[20] > 0 then --make sure the 20th var is a lua table and has values
+						for i=1,#v[20] do --for each in our table
+							local t = v[20][i]
+							if #t > 0 then --if subtable has values
+								local table_head_val = t[1] or nil
+								local req_headers = ngx_req_get_headers()
+								local header_value = req_headers[tostring(table_head_val)] or ""
+								if header_value and string_lower(header_value) == t[2] then
+									ngx_req_set_header("Accept-Encoding", "") --disable gzip
+									ngx_exit(t[3])
+								end
+							end
+						end
+					end
+
+					if #v[21] > 0 then
+						for i=1,#v[21] do
+							if string_lower(ngx.var.request_method) == string_lower(v[21][i][1]) then
+								ngx_req_set_header("Accept-Encoding", "") --disable gzip
+								ngx_exit(v[21][i][2])
+							end
+						end
+					end
+
+					if v[22] < 1 then --disable gzip option
+						ngx_req_set_header("Accept-Encoding", "") --disable gzip
+					end
+
 				end
 				break --break out of the for each loop pointless to keep searching the rest since we matched our host
 			end
@@ -2789,10 +2899,10 @@ local function check_ip_blacklist(ip_table)
 		for i=1,#ip_table do
 			local value = ip_table[i]
 			if value == ip_blacklist_remote_addr then
-				local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
+				local output = ngx_exit(ngx.HTTP_CLOSE) --deny user access
 				return output
 			elseif ip_address_in_range(value, ip_blacklist_remote_addr) == true then
-				local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
+				local output = ngx_exit(ngx.HTTP_CLOSE) --deny user access
 				return output
 			end
 		end
