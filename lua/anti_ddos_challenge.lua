@@ -100,9 +100,9 @@ Shared memory cache
 If you use this make sure you add this to your nginx configuration
 
 http { #inside http block
-	lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone 10m should store 160,000 IP's increase the size to store more
-	lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory zone
-	lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone
+	lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone to track requests per each unique user
+	lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory where blocked users are put
+	lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
 }
 
 ]]
@@ -141,9 +141,9 @@ local anti_ddos_table = {
 		--[[shared memory zones
 		To use this feature put this in your nginx config
 
-		lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone
-		lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory zone
-		lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone
+		lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone to track requests per each unique user
+		lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory where blocked users are put
+		lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
 
 		10m can store 160,000 ip addresses so 70m would be able to store around 1,000,000 yes 1 million ips :)
 		]]
@@ -175,8 +175,13 @@ local anti_ddos_table = {
 			}, --slowloris referrer header block
 		},
 
-		{ --Any $request_method that you want to prohibit use this. Most sites legitimate expected request header is GET and POST thats it. Any other head types you can block.
+		{ --Any $request_method that you want to prohibit use this. Most sites legitimate expected request header is GET and POST thats it. Any other header request types you can block.
 			--[[
+			{
+				"HEAD", --https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods#safe_idempotent_and_cacheable_request_methods
+				ngx.HTTP_CLOSE, --close their connection
+				1, --1 to add ip to ban list 0 to just send response above close the connection
+			},
 			{
 				"PATCH", --https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods#safe_idempotent_and_cacheable_request_methods
 				ngx.HTTP_CLOSE, --close their connection
@@ -189,6 +194,9 @@ local anti_ddos_table = {
 			},
 			]]
 		},
+
+		1, --0 disable compression 1 enable compression brotli,gzip etc for this domain / path if your under ddos attack the script will turn off gzip since nginx gzip will hog cpu so you dont have to worry about that.
+		1, --0 disable 1 enable - automatically disable compression for all users if ddos attack detected if more than number of IPs end up in the ban list the server will prevent cpu intensive tasks like compression to stay online.
 
 	},
 }
@@ -1735,6 +1743,10 @@ local function anti_ddos()
 						end
 					end
 
+					if v[22] < 1 then --disable gzip option
+						ngx_req_set_header("Accept-Encoding", "") --disable gzip
+					end
+
 				else
 					local content_limit = v[11]
 					local timeout = v[12]
@@ -1770,6 +1782,10 @@ local function anti_ddos()
 								ngx_exit(v[21][i][2])
 							end
 						end
+					end
+
+					if v[22] < 1 then --disable gzip option
+						ngx_req_set_header("Accept-Encoding", "") --disable gzip
 					end
 
 				end
@@ -2872,10 +2888,10 @@ local function check_ip_blacklist(ip_table)
 		for i=1,#ip_table do
 			local value = ip_table[i]
 			if value == ip_blacklist_remote_addr then
-				local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
+				local output = ngx_exit(ngx.HTTP_CLOSE) --deny user access
 				return output
 			elseif ip_address_in_range(value, ip_blacklist_remote_addr) == true then
-				local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
+				local output = ngx_exit(ngx.HTTP_CLOSE) --deny user access
 				return output
 			end
 		end
