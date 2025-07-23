@@ -34,12 +34,16 @@ localize all standard Lua and ngx functions I use for better performance.
 local tonumber = tonumber
 local tostring = tostring
 local next = next
+local collectgarbage = collectgarbage
 local os_time = os.time
 local os_date = os.date
 local math_random = math.random
 local math_floor = math.floor
 local math_sin = math.sin
 local math_pow = math.pow
+local math_pi = math.pi
+local math_sqrt = math.sqrt
+local math_randomseed = math.randomseed
 local table_sort = table.sort
 local table_concat = table.concat
 local string_match = string.match
@@ -200,28 +204,6 @@ local anti_ddos_table = {
 
 	},
 }
-
--- Localization
-local collectgarbage = collectgarbage
-local math_pi = math.pi
-local math_sqrt = math.sqrt
-local math_randomseed = math.randomseed
--- Random seed generator
-local function getRandomSeed()
-    local a = collectgarbage("count")
-    local b = os_time()
-    local c = tostring(a) .. tostring(b)
-    local d = (math_pi * b + math_sqrt(a + 1)) % 4294967296
-    c = c .. tostring(d)
-    local e = 0
-    for i = 1, #c do
-        local f = c:byte(i)
-        e = (e * 33 + f) % 4294967296
-    end
-    return math_floor(e)
-end
--- Seed the randomness with our custom seed
-math_randomseed(getRandomSeed())
 
 --[[
 This is a password that encrypts our puzzle and cookies unique to your sites and servers you should change this from the default.
@@ -1829,6 +1811,22 @@ local function anti_ddos()
 end
 anti_ddos()
 
+-- Random seed generator
+local function getRandomSeed()
+	local a = collectgarbage("count")
+	local b = os_time()
+	local c = tostring(a) .. tostring(b)
+	local d = (math_pi * b + math_sqrt(a + 1)) % 4294967296
+	c = c .. tostring(d)
+	local e = 0
+	for i=1,#c do
+		local f = string_byte(c, i)
+		e = (e * 33 + f) % 4294967296
+	end
+	return math_floor(e)
+end
+
+--local function run_checks() --nested function
 --[[
 Add to your nginx config http://nginx.org/en/docs/ngx_core_module.html#pcre_jit
 
@@ -1866,42 +1864,6 @@ header_modification()
 --[[
 End Header Modifications
 ]]
-
---[[
-String XOR helper function
-]]
-local function xorChar(c, key)
-    return string_char(bit_bxor(string_byte(c), key))
-end
---[[
-End String XOR helper function
-]]
---[[
-Char Shift helper function
-]]
-local function shiftChar(c, amount)
-    return string_char((string_byte(c) + amount) % 256)
-end
---[[
-End Char Shift helper function
-]]
---[[
-Calculate answer Function
-]]--
-local function calculateAnswer(client_signature) 
-    local seed = math_floor(math_sin(tonumber(os_date("%Y%m%d", os_time_saved))) * 1000)
-    local key = seed % 256
-    local shiftAmount = math_floor((seed * math_sin(seed)) % 10) + 1
-
-    local result = ""
-    for i = 1, #client_signature do
-        result = result .. shiftChar(xorChar(string_sub(client_signature, i, i), (key + i - 1) % 256), shiftAmount)
-    end
-    return ngx_encode_base64(result)
-end
---[[
-End Calculate answer Function
-]]--
 
 --automatically figure out the IP address of the connecting Client
 if remote_addr == "auto" then
@@ -2743,6 +2705,7 @@ end
 End IP range function
 ]]
 
+local function WAF_Checks()
 --[[WAF Web Application Firewall POST Request arguments filter]]
 local function WAF_Post_Requests()
 	--if next(WAF_POST_Request_table) ~= nil then --Check Post filter table has rules inside it
@@ -2896,7 +2859,10 @@ local function WAF_URI_Request()
 end
 WAF_URI_Request()
 --[[End WAF Web Application Firewall URI Request arguments filter]]
+end
+WAF_Checks()
 
+local function check_ips()
 --function to check if ip address is whitelisted to bypass our auth
 local function check_ip_whitelist(ip_table)
 	if #ip_table > 0 then
@@ -2933,7 +2899,10 @@ local function check_ip_blacklist(ip_table)
 	return --no ip was in blacklist
 end
 check_ip_blacklist(ip_blacklist) --run blacklist check function
+end
+check_ips()
 
+local function check_user_agents()
 local function check_user_agent_blacklist(user_agent_table)
 	if #user_agent_table > 0 then
 		for i=1,#user_agent_table do
@@ -2985,6 +2954,47 @@ local function check_user_agent_whitelist(user_agent_table)
 	return --no user agent was in whitelist
 end
 check_user_agent_whitelist(user_agent_whitelist_table) --run user agent whitelist check function
+end
+check_user_agents()
+
+-- Seed the randomness with our custom seed
+math_randomseed(getRandomSeed())
+
+--[[
+String XOR helper function
+]]
+local function xorChar(c, key)
+    return string_char(bit_bxor(string_byte(c), key))
+end
+--[[
+End String XOR helper function
+]]
+--[[
+Char Shift helper function
+]]
+local function shiftChar(c, amount)
+    return string_char((string_byte(c) + amount) % 256)
+end
+--[[
+End Char Shift helper function
+]]
+--[[
+Calculate answer Function
+]]--
+local function calculateAnswer(client_signature) 
+    local seed = math_floor(math_sin(tonumber(os_date("%Y%m%d", os_time_saved))) * 1000)
+    local key = seed % 256
+    local shiftAmount = math_floor((seed * math_sin(seed)) % 10) + 1
+
+    local result = ""
+    for i = 1, #client_signature do
+        result = result .. shiftChar(xorChar(string_sub(client_signature, i, i), (key + i - 1) % 256), shiftAmount)
+    end
+    return ngx_encode_base64(result)
+end
+--[[
+End Calculate answer Function
+]]--
 
 --function to encrypt strings with our secret key / password provided
 local function calculate_signature(str)
@@ -3866,3 +3876,6 @@ ngx_header.content_type = "text/html; charset=" .. default_charset
 ngx_status = authentication_page_status_output
 ngx_say(anti_ddos_html_output)
 ngx_exit(ngx_HTTP_OK)
+
+--end
+--run_checks() --nest function to prevent function at line 1 has more than 200 local variables and function at line X has more than X upvalues just my way of putting locals inside functions to get around the 200 limit
