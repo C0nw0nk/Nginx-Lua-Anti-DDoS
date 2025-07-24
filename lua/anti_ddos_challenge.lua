@@ -1552,6 +1552,66 @@ local function anti_ddos()
 			end
 		end
 
+		--Detect Range header manipulation slowhttp / slowloris range attack
+		--[[ TODO: Finish this
+		This is useful because legitimate traffic will only send range headers for video or streamable / downloadable content.
+		So if a user is using a range header in a request for a HTML page or JS / CSS file we can block that action.
+		I can also intercept the type or range request they are using. For example legitimate range video streaming tend to only request the following.
+		`bytes=1179648-` This means from this point in the file to the end of file.
+		A non legitimate video streaming range request would do some complicated multi part request like this. Skipping segments.
+		curl -r 0-199,120-200 http://localhost/video.mp4 --output "C:\Videos" -H "User-Agent: testagent"
+		]]
+		--[[
+		local range = req_headers["range"]
+		if range then
+			if string_match(range, "bytes") then --Only bytes are currently allowed
+				ngx_log(ngx_LOG_TYPE, "Bytes exists " .. range )
+				--Filter by what we expect a range header to be provided with
+				if ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
+					if string_match(ngx_header["content-type"], "video") then --we expect a range header for video
+						ngx_log(ngx_LOG_TYPE, "Video range " )
+					else
+						ngx_log(ngx_LOG_TYPE, "Content-Type is " .. ngx_header["content-type"] )
+						if string_match(ngx_header["content-type"], "text") then --block if html, css, js resources that we do not want range requests to be used on. text/css text/html text/javascript
+							ngx_log(ngx_LOG_TYPE, "Range request not being used on video " )
+							return true
+						end
+						if string_match(ngx_header["content-type"], "image") then --block if html, css, js resources that we do not want range requests to be used on.
+							ngx_log(ngx_LOG_TYPE, "Range request not being used on video " )
+							return true
+						end
+						if string_match(ngx_header["content-type"], "application") then --block if html, css, js resources that we do not want range requests to be used on.
+							ngx_log(ngx_LOG_TYPE, "Range request not being used on video " )
+							return true
+						end
+					end
+				end
+				--Filter the bytes in the range request
+				local start_byte, end_byte = string_match(range, "bytes=(%d+)-(%d+)")
+				if start_byte then
+					ngx_log(ngx_LOG_TYPE, "Start Byte exists " .. start_byte )
+					if tonumber(start_byte) > 100 then
+					end
+				end
+				if end_byte then
+					ngx_log(ngx_LOG_TYPE, "End Byte exists " .. end_byte )
+					if tonumber(end_byte) < 900 then
+					end
+				end
+			else --not using bytes block request not following standards https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Range
+				return true
+			end
+		end
+		]]
+
+		--incase server does not send content length header bug make content length to provide to user
+		--if not ngx_header["content-length"] and ngx_header["content-range"] then
+			--local start_byte, end_byte = string_match(ngx_header["content-range"], "bytes (%d+)-(%d+)/%d+")
+			--if start_byte and end_byte then
+				--ngx_header["content-length"] = (end_byte - start_byte) + 1
+			--end
+		--end
+
 		return false
 	end
 
