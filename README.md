@@ -346,7 +346,10 @@ And many more...
 Protection for government gateways and websites. With foriegn agencies targeting critical infastructure this will help all government and critical civilian infastructure stay online.
 
 # Payment e-comerce content management
-If you use Joomla, Drupal, Wordpress, phpbb, mybb, vbulletin popular cms or forum software this will ensure maximum uptime and protection. 
+If you use Joomla, Drupal, Wordpress, phpbb, mybb, vbulletin popular cms or forum software this will ensure maximum uptime and protection.
+
+# Military MoD
+Military grade protection for infastructure. MoD military of defence / Armed forces websites. Protecting Police and Army core or law enforcement.
 
 # Crypto Currency
 This script works well for crypto currency sites due to the nature of wallet controls security and access of crypto based websites it verifys traffic can run javascript and is legitimate before allowing them access protecting sensitive content like wallet access every crypto website that has a swap or dex / cex centralised or decentralised exchange will find this a must have requiremnet for their peer-to-peer marketplace where transactions occur directly between crypto traders.
