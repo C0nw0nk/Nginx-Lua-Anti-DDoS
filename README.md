@@ -44,6 +44,8 @@ Protected area / Restricted access field username / password box to restrict acc
 
 Enable or disable logging of users who either fail or succeed solving the authentication puzzle. (Fail2Ban users can use this to ban bots AI tools and IP addresses from the log file)
 
+Range header filtering Most download / Video streaming sites and services use range headers this allows you to filter and block slowhttp / slowloris attack types
+
 ## WAF (Web Application Firewall)
 
 IPv4 and IPv6 blocking and whitelisting including subnet ranges.
@@ -105,9 +107,9 @@ Once installed into your `nginx/conf/` folder.
 Add this to your HTTP block or it can be in a server or location block depending where you want this script to run for individual locations the entire server or every single website on the server.
 
 ```
-lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone
-lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory zone
-lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone
+lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone to track requests per each unique user
+lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory where blocked users are put
+lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
 
 access_by_lua_file anti_ddos_challenge.lua;
 ```
@@ -120,9 +122,9 @@ This will run for all websites on the nginx server
 http {
 
 #shared memory addresses in http block
-lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone
-lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory zone
-lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone
+lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone to track requests per each unique user
+lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory where blocked users are put
+lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
 
 #nginx config settings etc
 access_by_lua_file anti_ddos_challenge.lua;
@@ -134,10 +136,11 @@ access_by_lua_file anti_ddos_challenge.lua;
 This will make it run for this website only
 
 ```
-http { #shared memory addresses in http block
-lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone
-lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory zone
-lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone
+http {
+#shared memory addresses in http block
+lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone to track requests per each unique user
+lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory where blocked users are put
+lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
 }
 
 server {
@@ -150,10 +153,11 @@ access_by_lua_file anti_ddos_challenge.lua;
 This will run in this location block only
 
 ```
-http { #shared memory addresses in http block
-lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone
-lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory zone
-lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone
+http {
+#shared memory addresses in http block
+lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone to track requests per each unique user
+lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory where blocked users are put
+lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
 }
 
 location / {
@@ -339,6 +343,15 @@ xenforo
 web hosting
 And many more...
 ```
+
+# Government
+Protection for government gateways and websites. With foriegn agencies targeting critical infastructure this will help all government and critical civilian infastructure stay online.
+
+# Payment e-comerce content management
+If you use Joomla, Drupal, Wordpress, phpbb, mybb, vbulletin popular cms or forum software this will ensure maximum uptime and protection.
+
+# Military MoD
+Military grade protection for infastructure. MoD military of defence / Armed forces websites. Protecting Police and Army core or law enforcement.
 
 # Crypto Currency
 This script works well for crypto currency sites due to the nature of wallet controls security and access of crypto based websites it verifys traffic can run javascript and is legitimate before allowing them access protecting sensitive content like wallet access every crypto website that has a swap or dex / cex centralised or decentralised exchange will find this a must have requiremnet for their peer-to-peer marketplace where transactions occur directly between crypto traders.
