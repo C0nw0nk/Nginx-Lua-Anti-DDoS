@@ -34,7 +34,7 @@ localize all standard Lua and ngx functions I use for better performance.
 local tonumber = tonumber
 local tostring = tostring
 local next = next
-local collectgarbage = collectgarbage
+local type = type
 local os_time = os.time
 local os_date = os.date
 local math_random = math.random
@@ -47,6 +47,7 @@ local math_randomseed = math.randomseed
 local table_sort = table.sort
 local table_concat = table.concat
 local string_match = string.match
+local string_gmatch = string.gmatch
 local string_lower = string.lower
 local string_find = string.find
 local string_sub = string.sub
@@ -90,9 +91,9 @@ local ngx_var_connection_requests = ngx.var.connection_requests or 0 --default t
 local ngx_var_request_length = ngx.var.request_length or 0
 local scheme = ngx.var.scheme --scheme is HTTP or HTTPS
 local host = ngx.var.host --host is website domain name
-local request_uri = ngx.var.request_uri --request uri is full URL link including query strings and arguements
+local request_uri = ngx.var.request_uri or "" --request uri is full URL link including query strings and arguements
 local URL = scheme .. "://" .. host .. request_uri
-local user_agent = ngx_var_http_user_agent --user agent of browser
+local user_agent = ngx_var_http_user_agent or "" --user agent of browser
 local currenttime = ngx_time() --Current time on server
 --[[
 End localization
@@ -140,7 +141,38 @@ local anti_ddos_table = {
 		--SlowHTTP / Slowloris settings
 		128, --Max Content-Length
 		10, --Request timeout in seconds
+		300, --connection header max timeout value Connection: Timeout=300,Max=1000
+		100000, --connections header max conns number
 		ngx.HTTP_CLOSE, --444 connection reset 0 bytes per response
+
+		--Range header filter
+		0, --0 blacklist 1 whitelist
+		{ --Range header protection SlowHTTP / Slowloris have a range header attack option this is useful to protect against that
+			--If you set to 0 for blacklist specify each type you want to prevent range headers on like this.
+			--{"text",}, --block range headers on html/css/js pages
+			--{"image",}, --block range headers on images
+			--{"application",}, --block range headers on applications
+			--{"multipart",}, --block range headers on multipart content
+
+			--[[
+			--You can also allow range headers on all content types and block multi segment ranges like this
+			{ --0 blacklist for ranges on any type block more than allowed number of segments
+				"", --empty for any type
+				10, --Limit occurances block requests with to many 0-5,5-10,10-15,15-30,30-35 multipart/byteranges set to empty string "", to allow any amount
+				"","",--0,100, --if requesting bytes between 0-100 too small block set to empty string "", to allow any amount
+			},
+			]]
+
+			--[[
+			{ --1 whitelist for video type range headers sent for other types not in the whitelist will be blocked
+				"video", --content type for range request set to empty string "", for any content type
+				10, --Limit occurances block requests with to many 0-5,5-10,10-15,15-30,30-35 multipart/byteranges set to empty string "", to allow any amount
+				0,100, --if requesting bytes between 0-100 too small block set to empty string "", to allow any amount --curl -H "Range: bytes=0-5,5-10,10-15,15-30,30-35" http://localhost/video.mp4 --output "C:\Videos" -H "User-Agent: testagent"
+				"bytes", --bytes or set to empty string "", to allow any unit type
+				"[a-zA-Z0-9-%,%=%s+]", --valid chars a-z lowercase A-Z uppercase 0-9 - hyphen , comma = equals and spaces
+			},
+			]]
+		},
 
 		--[[shared memory zones
 		To use this feature put this in your nginx config
@@ -192,7 +224,27 @@ local anti_ddos_table = {
 				1, --1 to add ip to ban list 0 to just send response above close the connection
 			},
 			{
+				"PUT", --https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods#safe_idempotent_and_cacheable_request_methods
+				ngx.HTTP_CLOSE, --close their connection
+				1, --1 to add ip to ban list 0 to just send response above close the connection
+			},
+			{
 				"DELETE", --https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods#safe_idempotent_and_cacheable_request_methods
+				ngx.HTTP_CLOSE, --close their connection
+				1, --1 to add ip to ban list 0 to just send response above close the connection
+			},
+			{
+				"CONNECT", --https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods#safe_idempotent_and_cacheable_request_methods
+				ngx.HTTP_CLOSE, --close their connection
+				1, --1 to add ip to ban list 0 to just send response above close the connection
+			},
+			{
+				"OPTIONS", --https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods#safe_idempotent_and_cacheable_request_methods
+				ngx.HTTP_CLOSE, --close their connection
+				1, --1 to add ip to ban list 0 to just send response above close the connection
+			},
+			{
+				"TRACE", --https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods#safe_idempotent_and_cacheable_request_methods
 				ngx.HTTP_CLOSE, --close their connection
 				1, --1 to add ip to ban list 0 to just send response above close the connection
 			},
@@ -482,7 +534,6 @@ If you want to block access to bad bots / specific user-agents you can use this.
 
 I added some examples of bad bots to block access to.
 ]]
-local user_agent_blacklist_var = ngx_var_http_user_agent or ""
 local user_agent_blacklist_table = {
 	{
 		"^$",
@@ -548,7 +599,6 @@ If you want to allow access to specific user-agents use this.
 
 I added some examples of user-agents you could whitelist mostly search engine crawlers.
 ]]
-local user_agent_whitelist_var = ngx_var_http_user_agent or ""
 local user_agent_whitelist_table = {
 --[[
 	{
@@ -1514,40 +1564,472 @@ Begin Required Functions
 
 --Anti DDoS function
 local function anti_ddos()
-	--local pcall = pcall
-	--local require = require
+	local pcall = pcall
+	local require = require
 	local shdict = true --tostring(pcall(require, "resty.core.shdict")) --check if resty core shdict function exists will be true or false
 
 	--Slowhttp / Slowloris attack detection
-	local function check_slowhttp(content_limit, timeout)
+	local function check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table, logging_value)
 		local req_headers = ngx_req_get_headers()
 
 		--Expect: 100-continue Content-Length
-		if req_headers["expect"] and string_lower(req_headers["expect"]) == "100-continue" then
-			local content_length = tonumber(req_headers["content-length"] or "0")
-			if content_length > 0 and content_length < content_limit then
-				return true
+		local expect = req_headers["expect"]
+		if expect then
+			if type(expect) ~= "table" then
+				if expect and string_lower(expect) == "100-continue" then
+					local content_length = req_headers["content-length"]
+					if content_length then
+						if type(content_length) ~= "table" then
+							local c_l = tonumber(content_length or "0")
+							if c_l > 0 and c_l < content_limit then
+								if logging_value == 1 then
+									ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Content-Length smaller than Limit.")
+								end
+								return true
+							end
+						else
+							for i=1, #content_length do
+								local c_l = tonumber(content_length[i] or "0")
+								if c_l > 0 and c_l < content_limit then
+									if logging_value == 1 then
+										ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Content-Length smaller than Limit.")
+									end
+									return true
+								end
+							end
+						end
+					end
+				end
+			else
+				for i=1, #expect do
+					if expect[i] and string_lower(expect[i]) == "100-continue" then
+						local content_length = req_headers["content-length"]
+						if content_length then
+							if type(content_length) ~= "table" then
+								local c_l = tonumber(content_length or "0")
+								if c_l > 0 and c_l < content_limit then
+									if logging_value == 1 then
+										ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Content-Length smaller than Limit.")
+									end
+									return true
+								end
+							else
+								for i=1, #content_length do
+									local c_l = tonumber(content_length[i] or "0")
+									if c_l > 0 and c_l < content_limit then
+										if logging_value == 1 then
+											ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Content-Length smaller than Limit.")
+										end
+										return true
+									end
+								end
+							end
+						end
+					end
+				end
 			end
 		end
 
 		--Detect slow request time
 		local request_time = ngx.var.request_time
 		if request_time and tonumber(request_time) > timeout then
+			if logging_value == 1 then
+				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Slow request time exceeded timeout.")
+			end
 			return true
 		end
 
 		--Detect Connection header manipulation
 		local connection = req_headers["connection"]
-		if connection and string_lower(connection) == "keep-alive" then
-			local keep_alive = req_headers["keep-alive"]
-			if keep_alive and string_match(keep_alive, "timeout=(%d+)") then
-				local timeout = tonumber(string_match(keep_alive, "timeout=(%d+)"))
-				if timeout and timeout > 300 then --if they send header to try to keep connection alive for more than 5 mins
-					return true
+		if connection then
+			if type(connection) ~= "table" then
+				if connection and string_lower(connection) == "keep-alive" then
+					local keep_alive = req_headers["keep-alive"]
+					if keep_alive then
+						if type(keep_alive) ~= "table" then
+							if keep_alive and string_match(keep_alive, "timeout%s*=%s*(%-?%d+)") then
+								local timeout = tonumber(string_match(keep_alive, "timeout%s*=%s*(%-?%d+)"))
+								if timeout and timeout > connection_header_timeout then --if they send header to try to keep connection alive for more than set time
+									if logging_value == 1 then
+										ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Keep-Alive Timeout header exceeded limit.")
+									end
+									return true
+								end
+							end
+							if keep_alive and string_match(keep_alive, "max%s*=%s*(%-?%d+)") then
+								local max_keepalive = tonumber(string_match(keep_alive, "max%s*=%s*(%-?%d+)"))
+								if max_keepalive and max_keepalive > connection_header_max_conns then --if they send header to set max connections to a ridiculous number
+									if logging_value == 1 then
+										ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Keep-Alive Max connections header exceeded limit.")
+									end
+									return true
+								end
+							end
+						else
+							for i=1, #keep_alive do
+								if keep_alive[i] and string_match(keep_alive[i], "timeout%s*=%s*(%-?%d+)") then
+									local timeout = tonumber(string_match(keep_alive[i], "timeout%s*=%s*(%-?%d+)"))
+									if timeout and timeout > connection_header_timeout then --if they send header to try to keep connection alive for more than set time
+										if logging_value == 1 then
+											ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Keep-Alive Timeout header exceeded limit.")
+										end
+										return true
+									end
+								end
+								if keep_alive[i] and string_match(keep_alive[i], "max%s*=%s*(%-?%d+)") then
+									local max_keepalive = tonumber(string_match(keep_alive[i], "max%s*=%s*(%-?%d+)"))
+									if max_keepalive and max_keepalive > connection_header_max_conns then --if they send header to set max connections to a ridiculous number
+										if logging_value == 1 then
+											ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Keep-Alive Max connections header exceeded limit.")
+										end
+										return true
+									end
+								end
+							end
+						end
+					end
 				end
-				local max_keepalive = tonumber(string_match(keep_alive, "max=(%d+)"))
-				if max_keepalive and max_keepalive > 999999 then --if they send header to set max connections to a ridiculous number
-					return true
+			else
+				for i=1, #connection do
+					if connection[i] and string_lower(connection[i]) == "keep-alive" then
+						local keep_alive = req_headers["keep-alive"]
+						if keep_alive then
+							if type(keep_alive) ~= "table" then
+								if keep_alive and string_match(keep_alive, "timeout%s*=%s*(%-?%d+)") then
+									local timeout = tonumber(string_match(keep_alive, "timeout%s*=%s*(%-?%d+)"))
+									if timeout and timeout > connection_header_timeout then --if they send header to try to keep connection alive for more than set time
+										if logging_value == 1 then
+											ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Keep-Alive Timeout header exceeded limit.")
+										end
+										return true
+									end
+								end
+								if keep_alive and string_match(keep_alive, "max%s*=%s*(%-?%d+)") then
+									local max_keepalive = tonumber(string_match(keep_alive, "max%s*=%s*(%-?%d+)"))
+									if max_keepalive and max_keepalive > connection_header_max_conns then --if they send header to set max connections to a ridiculous number
+										if logging_value == 1 then
+											ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Keep-Alive Max connections header exceeded limit.")
+										end
+										return true
+									end
+								end
+							else
+								for i=1, #keep_alive do
+									if keep_alive[i] and string_match(keep_alive[i], "timeout%s*=%s*(%-?%d+)") then
+										local timeout = tonumber(string_match(keep_alive[i], "timeout%s*=%s*(%-?%d+)"))
+										if timeout and timeout > connection_header_timeout then --if they send header to try to keep connection alive for more than set time
+											if logging_value == 1 then
+												ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Keep-Alive Timeout header exceeded limit.")
+											end
+											return true
+										end
+									end
+									if keep_alive[i] and string_match(keep_alive[i], "max%s*=%s*(%-?%d+)") then
+										local max_keepalive = tonumber(string_match(keep_alive[i], "max%s*=%s*(%-?%d+)"))
+										if max_keepalive and max_keepalive > connection_header_max_conns then --if they send header to set max connections to a ridiculous number
+											if logging_value == 1 then
+												ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Keep-Alive Max connections header exceeded limit.")
+											end
+											return true
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+
+		--Detect Range header manipulation slowhttp / slowloris range attack
+		--curl -H "Range: bytes=5-1,5-2,5-3,5-4,5-5,5-6,5-7,5-8,5-9,5-10,5-11,5-12" http://localhost/video.mp4 --output "C:\Videos" -H "User-Agent: testagent"
+		local range = req_headers["range"]
+		if range then
+			if type(range) ~= "table" then
+				--Filter by what we expect a range header to be provided with
+				if ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
+					if #range_table > 0 then
+						local whitelist_set = 0
+						local regex_g = "%s*(%-?%d+)%s*-%s*(%-?%d+)%s*[^,]+" --multi segment regex
+						local regex_m = "%s*(%-?%d+)%s*-%s*(%-?%d+)%s*" --single segment regex
+						local regex_s = "%s*(%-?%d+)%s*" --single start segment
+						local regex_c = "%s*(%-?%d+)%s*[^,]+" --single start segment comma seperated
+						local _, count = string_gsub(range, ","," , ") --fix commas
+						local _ = string_gsub(_, "%s+", "") --remove white space
+						if not string_match(_, ",$") then --if does not end in comma
+							_ = _ .. "," --insert comma
+						end
+						local _, count = string_gsub(_, ","," , ") --recount now that range is fixed
+						for i=1,#range_table do
+							if #range_table[i] > 0 then
+								for x=1,#range_table[i] do
+									if x == 1 then
+										if range_table[i][x] ~= "" then
+											if string_match(ngx_header["content-type"], range_table[i][x]) then
+												if range_whitelist_blacklist == 0 then --0 blacklist 1 whitelist
+													if logging_value == 1 then
+														ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Blacklist match " .. range_table[i][x] )
+													end
+													--range header prohibited block request
+													return true
+												else --whitelist mode
+													--range header provided only allowed on this resource
+													whitelist_set = 1
+												end
+											end
+										end
+									end
+									if x == 2 then --bytes= segment limiter to a max number
+										if range_table[i][x] ~= "" then
+											if count and tonumber(count) > 1 then
+												if tonumber(count) > range_table[i][x] then
+													if logging_value == 1 then
+														ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Max MultiPart range Occurances exceeded: " .. count )
+													end
+													return true
+												end
+											end
+										end
+									end
+									if x == 4 then
+										if range_table[i][x] ~= "" then
+											if count and tonumber(count) > 1 then
+												--for each segment
+												local rcount = 0
+												for start_byte, end_byte in string_gmatch(_, regex_g) do
+													rcount = rcount+1
+													if start_byte and tonumber(start_byte) > tonumber(range_table[i][3]) and tonumber(start_byte) < tonumber(range_table[i][4]) then
+														if logging_value == 1 then
+															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+														end
+														return true
+													end
+													if end_byte and tonumber(end_byte) > tonumber(range_table[i][3]) and tonumber(end_byte) < tonumber(range_table[i][4]) then
+														if logging_value == 1 then
+															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
+														end
+														return true
+													end
+												end
+												if rcount == 0 then
+													for start_byte in string_gmatch(_, regex_c) do
+														if start_byte and tonumber(start_byte) > tonumber(range_table[i][3]) and tonumber(start_byte) < tonumber(range_table[i][4]) then
+															if logging_value == 1 then
+																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+															end
+															return true
+														end
+													end
+												end
+											else
+												local start_byte, end_byte = string_match(_, regex_m)
+												if start_byte or end_byte then
+													if start_byte and tonumber(start_byte) > tonumber(range_table[i][3]) and tonumber(start_byte) < tonumber(range_table[i][4]) then
+														if logging_value == 1 then
+															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+														end
+														return true
+													end
+													if end_byte and tonumber(end_byte) > tonumber(range_table[i][3]) and tonumber(end_byte) < tonumber(range_table[i][4]) then
+														if logging_value == 1 then
+															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte )
+														end
+														return true
+													end
+												else
+													local start_byte = string_match(_, regex_s)
+													if start_byte then
+														if start_byte and tonumber(start_byte) > tonumber(range_table[i][3]) and tonumber(start_byte) < tonumber(range_table[i][4]) then
+															if logging_value == 1 then
+																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+															end
+															return true
+														end
+													end
+												end
+											end
+										end
+									end
+									if x == 5 then
+										if range_table[i][x] ~= "" then
+											if not string_match(_, range_table[i][5]) then --string match specified unit or block
+												if logging_value == 1 then
+													ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Not using acceptable Unit type " .. range_table[i][x])
+												end
+												--not using bytes block request not following standards https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Range
+												--curl -H "Range: bits=0-199, 120-200" http://localhost/video.mp4 --output "C:\Videos" -H "User-Agent: testagent"
+												return true
+											end
+										end
+									end
+									if x == 6 then --illegal chars
+										if range_table[i][x] ~= "" then
+											if string_gsub(_, range_table[i][x], "") ~= "" then
+												if logging_value == 1 then
+													ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range header contains illegal chars " .. _ )
+												end
+												return true
+											end
+										end
+									end
+								end
+							end
+						end
+						if range_whitelist_blacklist == 1 then
+							if whitelist_set == 1 then --no range provied found in whitelist block ?
+								--ngx_log(ngx_LOG_TYPE, " Whitelist Match " .. range_whitelist_blacklist )
+							else
+								if logging_value == 1 then
+									ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range provided not in Whitelist " .. range_whitelist_blacklist )
+								end
+								return true
+							end
+						end
+					end
+				end
+			else
+				for i=1, #range do
+					--Filter by what we expect a range header to be provided with
+					if ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
+						if #range_table > 0 then
+							local whitelist_set = 0
+							local regex_g = "%s*(%-?%d+)%s*-%s*(%-?%d+)%s*[^,]+" --multi segment regex
+							local regex_m = "%s*(%-?%d+)%s*-%s*(%-?%d+)%s*" --single segment regex
+							local regex_s = "%s*(%-?%d+)%s*" --single start segment
+							local regex_c = "%s*(%-?%d+)%s*[^,]+" --single start segment comma seperated
+							local _, count = string_gsub(range[i], ","," , ") --fix commas
+							local _ = string_gsub(_, "%s+", "") --remove white space
+							if not string_match(_, ",$") then --if does not end in comma
+								_ = _ .. "," --insert comma
+							end
+							local _, count = string_gsub(_, ","," , ") --recount now that range is fixed
+							for i=1,#range_table do
+								if #range_table[i] > 0 then
+									for x=1,#range_table[i] do
+										if x == 1 then
+											if range_table[i][x] ~= "" then
+												if string_match(ngx_header["content-type"], range_table[i][x]) then
+													if range_whitelist_blacklist == 0 then --0 blacklist 1 whitelist
+														if logging_value == 1 then
+															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Blacklist match " .. range_table[i][x] )
+														end
+														--range header prohibited block request
+														return true
+													else --whitelist mode
+														--range header provided only allowed on this resource
+														whitelist_set = 1
+													end
+												end
+											end
+										end
+										if x == 2 then --bytes= segment limiter to a max number
+											if range_table[i][x] ~= "" then
+												if count and tonumber(count) > 1 then
+													if tonumber(count) > range_table[i][x] then
+														if logging_value == 1 then
+															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Max MultiPart range Occurances exceeded: " .. count )
+														end
+														return true
+													end
+												end
+											end
+										end
+										if x == 4 then
+											if range_table[i][x] ~= "" then
+												if count and tonumber(count) > 1 then
+													--for each segment
+													local rcount = 0
+													for start_byte, end_byte in string_gmatch(_, regex_g) do
+														rcount = rcount+1
+														if start_byte and tonumber(start_byte) > tonumber(range_table[i][3]) and tonumber(start_byte) < tonumber(range_table[i][4]) then
+															if logging_value == 1 then
+																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+															end
+															return true
+														end
+														if end_byte and tonumber(end_byte) > tonumber(range_table[i][3]) and tonumber(end_byte) < tonumber(range_table[i][4]) then
+															if logging_value == 1 then
+																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
+															end
+															return true
+														end
+													end
+													if rcount == 0 then
+														for start_byte in string_gmatch(_, regex_c) do
+															if start_byte and tonumber(start_byte) > tonumber(range_table[i][3]) and tonumber(start_byte) < tonumber(range_table[i][4]) then
+																if logging_value == 1 then
+																	ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+																end
+																return true
+															end
+														end
+													end
+												else
+													local start_byte, end_byte = string_match(_, regex_m)
+													if start_byte or end_byte then
+														if start_byte and tonumber(start_byte) > tonumber(range_table[i][3]) and tonumber(start_byte) < tonumber(range_table[i][4]) then
+															if logging_value == 1 then
+																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+															end
+															return true
+														end
+														if end_byte and tonumber(end_byte) > tonumber(range_table[i][3]) and tonumber(end_byte) < tonumber(range_table[i][4]) then
+															if logging_value == 1 then
+																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte )
+															end
+															return true
+														end
+													else
+														local start_byte = string_match(_, regex_s)
+														if start_byte then
+															if start_byte and tonumber(start_byte) > tonumber(range_table[i][3]) and tonumber(start_byte) < tonumber(range_table[i][4]) then
+																if logging_value == 1 then
+																	ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+																end
+																return true
+															end
+														end
+													end
+												end
+											end
+										end
+										if x == 5 then
+											if range_table[i][x] ~= "" then
+												if not string_match(_, range_table[i][5]) then --string match specified unit or block
+													if logging_value == 1 then
+														ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Not using acceptable Unit type " .. range_table[i][x])
+													end
+													--not using bytes block request not following standards https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Range
+													--curl -H "Range: bits=0-199, 120-200" http://localhost/video.mp4 --output "C:\Videos" -H "User-Agent: testagent"
+													return true
+												end
+											end
+										end
+										if x == 6 then --illegal chars
+											if range_table[i][x] ~= "" then
+												if string_gsub(_, range_table[i][x], "") ~= "" then
+													if logging_value == 1 then
+														ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range header contains illegal chars " .. _ )
+													end
+													return true
+												end
+											end
+										end
+									end
+								end
+							end
+							if range_whitelist_blacklist == 1 then
+								if whitelist_set == 1 then --no range provied found in whitelist block ?
+									--ngx_log(ngx_LOG_TYPE, " Whitelist Match " .. range_whitelist_blacklist )
+								else
+									if logging_value == 1 then
+										ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range provided not in Whitelist " .. range_whitelist_blacklist )
+									end
+									return true
+								end
+							end
+						end
+					end
 				end
 			end
 		end
@@ -1560,7 +2042,6 @@ local function anti_ddos()
 		local key = "r" .. ip --set identifyer as r and ip for to not use up to much memory
 		local count, err = "" --create locals to use
 
-		--ngx_log(ngx_LOG_TYPE, "Check if shdict functions exists " .. tostring(pcall(require, "resty.core.shdict")))
 		if not shdict then --backwards compatibility for lua
 			count, err = request_limit:incr(key, 1, 0, rate_limit_window)
 			if not count then
@@ -1591,7 +2072,6 @@ local function anti_ddos()
 				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Rate limit exceeded, IP blocked: " .. ip .. " (" .. count .. " requests)")
 			end
 
-			--ngx_log(ngx_LOG_TYPE, "Check if shdict functions exists " .. tostring(pcall(require, "resty.core.shdict")))
 			if not shdict then --backwards compatibility for lua
 				local incr, err = ddos_counter:incr("blocked_ip", 1, 0, rate_limit_window)
 				if not incr then
@@ -1637,9 +2117,9 @@ local function anti_ddos()
 					end
 				end
 
-				local request_limit = v[14] or nil --What ever memory space your server has set / defined for this to use
-				local blocked_addr = v[15] or nil
-				local ddos_counter = v[16] or nil
+				local request_limit = v[18] or nil --What ever memory space your server has set / defined for this to use
+				local blocked_addr = v[19] or nil
+				local ddos_counter = v[20] or nil
 
 				if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
 					local rate_limit_window = v[7]
@@ -1648,8 +2128,12 @@ local function anti_ddos()
 					local rate_limit_exit_status = v[10]
 					local content_limit = v[11]
 					local timeout = v[12]
-					local slow_limit_exit_status = v[13]
-					local ip = v[17]
+					local connection_header_timeout = v[13]
+					local connection_header_max_conns = v[14]
+					local slow_limit_exit_status = v[15]
+					local range_whitelist_blacklist = v[16]
+					local range_table = v[17]
+					local ip = v[21]
 
 					if ip == "auto" then
 						if ngx_var_http_cf_connecting_ip ~= nil then
@@ -1676,13 +2160,12 @@ local function anti_ddos()
 						return ngx_exit(rate_limit_exit_status)
 					end
 
-					if check_slowhttp(content_limit, timeout) then
+					if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table, v[6]) then
 						blocked_addr:set(ip, currenttime, block_duration)
 						if v[6] == 1 then
 							ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
 						end
 
-						--ngx_log(ngx_LOG_TYPE, "Check if shdict functions exists " .. tostring(pcall(require, "resty.core.shdict")))
 						if not shdict then --backwards compatibility for lua
 							local incr, err = ddos_counter:incr("blocked_ip", 1, 0, rate_limit_window)
 							if not incr then
@@ -1703,18 +2186,15 @@ local function anti_ddos()
 						return ngx_exit(slow_limit_exit_status)
 					end
 
-					if v[18] == 1 then
+					if v[22] == 1 then
 						local total_requests = ddos_counter:get("blocked_ip") or 0
-						if total_requests >= v[19] then --Automatically enable I am Under Attack Mode
+						if total_requests >= v[23] then --Automatically enable I am Under Attack Mode
 							if v[6] == 1 then
 								ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Total Flood requests: " .. total_requests)
 							end
 							--Automatic Detection of DDoS
 							--Disable GZIP to prevent GZIP memory bomb and CPU consumption attacks.
-							--local req_headers = ngx_req_get_headers() --get all request headers
-							--if req_headers["accept-encoding"] then
-								ngx_req_set_header("Accept-Encoding", "") --disable gzip
-							--end
+							ngx_req_set_header("Accept-Encoding", "") --disable gzip
 							--MASTER SWITCH ENGAGED
 							master_switch = 1 --enabled for all sites
 						else
@@ -1722,42 +2202,56 @@ local function anti_ddos()
 						end
 					end
 
-					if #v[20] > 0 then --make sure the 20th var is a lua table and has values
-						for i=1,#v[20] do --for each in our table
-							if #v[20][i] > 0 then --if subtable has values
-								local table_head_val = v[20][i][1] or nil
+					if #v[24] > 0 then --make sure the 24th var is a lua table and has values
+						for i=1,#v[24] do --for each in our table
+							if #v[24][i] > 0 then --if subtable has values
+								local table_head_val = v[24][i][1] or nil
 								local req_headers = ngx_req_get_headers()
 								local header_value = req_headers[tostring(table_head_val)] or ""
-								if header_value and string_lower(header_value) == v[20][i][2] then
-									if v[20][i][4] > 0 then --add to ban list
-										blocked_addr:set(ip, currenttime, block_duration)
+								if header_value then
+									if type(header_value) ~= "table" then
+										if string_lower(header_value) == v[24][i][2] then
+											if v[24][i][4] > 0 then --add to ban list
+												blocked_addr:set(ip, currenttime, block_duration)
+											end
+											ngx_req_set_header("Accept-Encoding", "") --disable gzip
+											ngx_exit(v[24][i][3])
+										end
+									else
+										for i=1, #header_value do
+											if string_lower(header_value[i]) == v[24][i][2] then
+												if v[24][i][4] > 0 then --add to ban list
+													blocked_addr:set(ip, currenttime, block_duration)
+												end
+												ngx_req_set_header("Accept-Encoding", "") --disable gzip
+												ngx_exit(v[24][i][3])
+											end
+										end
 									end
-									ngx_req_set_header("Accept-Encoding", "") --disable gzip
-									ngx_exit(v[20][i][3])
 								end
 							end
 						end
 					end
 
-					if #v[21] > 0 then
-						for i=1,#v[21] do
-							if string_lower(ngx.var.request_method) == string_lower(v[21][i][1]) then
-								if v[21][i][3] > 0 then
+					if #v[25] > 0 then
+						for i=1,#v[25] do
+							if string_lower(ngx.var.request_method) == string_lower(v[25][i][1]) then
+								if v[25][i][3] > 0 then
 									blocked_addr:set(ip, currenttime, block_duration)
 								end
 								ngx_req_set_header("Accept-Encoding", "") --disable gzip
-								ngx_exit(v[21][i][2])
+								ngx_exit(v[25][i][2])
 							end
 						end
 					end
 
-					if v[22] < 1 then --disable gzip option
+					if v[26] < 1 then --disable gzip option
 						ngx_req_set_header("Accept-Encoding", "") --disable gzip
 					end
 
-					if v[23] > 0 then --dsiable compression when banlist has more than certain number of ips automated protection
+					if v[27] > 0 then --dsiable compression when banlist has more than certain number of ips automated protection
 						local total_requests = ddos_counter:get("blocked_ip") or 0
-						if total_requests >= v[19] then --Automatically enable I am Under Attack Mode
+						if total_requests >= v[23] then --Automatically enable I am Under Attack Mode
 							ngx_req_set_header("Accept-Encoding", "") --disable gzip
 						end
 					end
@@ -1765,9 +2259,13 @@ local function anti_ddos()
 				else
 					local content_limit = v[11]
 					local timeout = v[12]
-					local slow_limit_exit_status = v[13]
+					local connection_header_timeout = v[13]
+					local connection_header_max_conns = v[14]
+					local slow_limit_exit_status = v[15]
+					local range_whitelist_blacklist = v[16]
+					local range_table = v[17]
 					--no shared memory set but we can still check and block slowhttp cons without shared memory
-					if check_slowhttp(content_limit, timeout) then
+					if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table) then
 						ngx_req_set_header("Accept-Encoding", "") --disable gzip
 						if v[6] == 1 then
 							ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
@@ -1775,31 +2273,42 @@ local function anti_ddos()
 						return ngx_exit(slow_limit_exit_status)
 					end
 
-					if #v[20] > 0 then --make sure the 20th var is a lua table and has values
-						for i=1,#v[20] do --for each in our table
-							local t = v[20][i]
+					if #v[24] > 0 then --make sure the 24th var is a lua table and has values
+						for i=1,#v[24] do --for each in our table
+							local t = v[24][i]
 							if #t > 0 then --if subtable has values
 								local table_head_val = t[1] or nil
 								local req_headers = ngx_req_get_headers()
 								local header_value = req_headers[tostring(table_head_val)] or ""
-								if header_value and string_lower(header_value) == t[2] then
-									ngx_req_set_header("Accept-Encoding", "") --disable gzip
-									ngx_exit(t[3])
+								if header_value then
+									if type(header_value) ~= "table" then
+										if string_lower(header_value) == t[2] then
+											ngx_req_set_header("Accept-Encoding", "") --disable gzip
+											ngx_exit(t[3])
+										end
+									else
+										for i=1, #header_value do
+											if string_lower(header_value[i]) == t[2] then
+												ngx_req_set_header("Accept-Encoding", "") --disable gzip
+												ngx_exit(t[3])
+											end
+										end
+									end
 								end
 							end
 						end
 					end
 
-					if #v[21] > 0 then
-						for i=1,#v[21] do
-							if string_lower(ngx.var.request_method) == string_lower(v[21][i][1]) then
+					if #v[25] > 0 then
+						for i=1,#v[25] do
+							if string_lower(ngx.var.request_method) == string_lower(v[25][i][1]) then
 								ngx_req_set_header("Accept-Encoding", "") --disable gzip
-								ngx_exit(v[21][i][2])
+								ngx_exit(v[25][i][2])
 							end
 						end
 					end
 
-					if v[22] < 1 then --disable gzip option
+					if v[26] < 1 then --disable gzip option
 						ngx_req_set_header("Accept-Encoding", "") --disable gzip
 					end
 
@@ -1813,6 +2322,7 @@ anti_ddos()
 
 -- Random seed generator
 local function getRandomSeed()
+	local collectgarbage = collectgarbage
 	local a = collectgarbage("count")
 	local b = os_time()
 	local c = tostring(a) .. tostring(b)
@@ -2905,22 +3415,49 @@ check_ips()
 local function check_user_agents()
 local function check_user_agent_blacklist(user_agent_table)
 	if #user_agent_table > 0 then
-		for i=1,#user_agent_table do
-			local value = user_agent_table[i]
-			if value[2] == 1 then --case insensative
-				user_agent_blacklist_var = string_lower(user_agent_blacklist_var)
-				value[1] = string_lower(value[1])
-			end
-			if value[2] == 2 then --case sensative
-			end
-			if value[2] == 3 then --regex case sensative
-			end
-			if value[2] == 4 then --regex lower case insensative
-				user_agent_blacklist_var = string_lower(user_agent_blacklist_var)
-			end
-			if string_match(user_agent_blacklist_var, value[1])then
-				local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
-				return output
+		local req_headers = ngx_req_get_headers()
+		local user_agent_blacklist_var = req_headers["user-agent"] or ""
+		if user_agent_blacklist_var then
+			if type(user_agent_blacklist_var) ~= "table" then
+				for i=1,#user_agent_table do
+					local value = user_agent_table[i]
+					if value[2] == 1 then --case insensative
+						user_agent_blacklist_var = string_lower(user_agent_blacklist_var)
+						value[1] = string_lower(value[1])
+					end
+					if value[2] == 2 then --case sensative
+					end
+					if value[2] == 3 then --regex case sensative
+					end
+					if value[2] == 4 then --regex lower case insensative
+						user_agent_blacklist_var = string_lower(user_agent_blacklist_var)
+					end
+					if string_match(user_agent_blacklist_var, value[1])then
+						local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
+						return output
+					end
+				end
+			else
+				for x=1, #user_agent_blacklist_var do
+					for i=1,#user_agent_table do
+						local value = user_agent_table[i]
+						if value[2] == 1 then --case insensative
+							user_agent_blacklist_var[x] = string_lower(user_agent_blacklist_var[x])
+							value[1] = string_lower(value[1])
+						end
+						if value[2] == 2 then --case sensative
+						end
+						if value[2] == 3 then --regex case sensative
+						end
+						if value[2] == 4 then --regex lower case insensative
+							user_agent_blacklist_var[x] = string_lower(user_agent_blacklist_var[x])
+						end
+						if string_match(user_agent_blacklist_var[x], value[1])then
+							local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
+							return output
+						end
+					end
+				end
 			end
 		end
 	end
@@ -2931,22 +3468,49 @@ check_user_agent_blacklist(user_agent_blacklist_table) --run user agent blacklis
 
 local function check_user_agent_whitelist(user_agent_table)
 	if #user_agent_table > 0 then
-		for i=1,#user_agent_table do
-			local value = user_agent_table[i]
-			if value[2] == 1 then --case insensative
-				user_agent_whitelist_var = string_lower(user_agent_whitelist_var)
-				value[1] = string_lower(value[1])
-			end
-			if value[2] == 2 then --case sensative
-			end
-			if value[2] == 3 then --regex case sensative
-			end
-			if value[2] == 4 then --regex lower case insensative
-				user_agent_whitelist_var = string_lower(user_agent_whitelist_var)
-			end
-			if user_agent_whitelist_var and string_match(user_agent_whitelist_var, value[1]) then
-				local output = ngx_exit(ngx_OK) --Go to content
-				return output
+		local req_headers = ngx_req_get_headers()
+		local user_agent_whitelist_var = req_headers["user-agent"] or ""
+		if user_agent_whitelist_var then
+			if type(user_agent_whitelist_var) ~= "table" then
+				for i=1,#user_agent_table do
+					local value = user_agent_table[i]
+					if value[2] == 1 then --case insensative
+						user_agent_whitelist_var = string_lower(user_agent_whitelist_var)
+						value[1] = string_lower(value[1])
+					end
+					if value[2] == 2 then --case sensative
+					end
+					if value[2] == 3 then --regex case sensative
+					end
+					if value[2] == 4 then --regex lower case insensative
+						user_agent_whitelist_var = string_lower(user_agent_whitelist_var)
+					end
+					if string_match(user_agent_whitelist_var, value[1])then
+						local output = ngx_exit(ngx_OK) --Go to content
+						return output
+					end
+				end
+			else
+				for x=1, #user_agent_whitelist_var do
+					for i=1,#user_agent_table do
+						local value = user_agent_table[i]
+						if value[2] == 1 then --case insensative
+							user_agent_whitelist_var[x] = string_lower(user_agent_whitelist_var[x])
+							value[1] = string_lower(value[1])
+						end
+						if value[2] == 2 then --case sensative
+						end
+						if value[2] == 3 then --regex case sensative
+						end
+						if value[2] == 4 then --regex lower case insensative
+							user_agent_whitelist_var[x] = string_lower(user_agent_whitelist_var[x])
+						end
+						if string_match(user_agent_whitelist_var[x], value[1])then
+							local output = ngx_exit(ngx_OK) --Go to content
+							return output
+						end
+					end
+				end
 			end
 		end
 	end
