@@ -8,9 +8,6 @@ on:
       - 'CHANGELOG'
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   prep_sources:
     name: Set Version, Tag, and Generate Changelogs
@@ -33,6 +30,38 @@ jobs:
 
       - name: Generate changelog
         run: bash .github/scripts/generate-changelog.sh
+
+      - name: Commit updated changelogs
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+
+          # Track if changelog files existed before
+          FILE_MISSING=false
+          if [ ! -f debian/changelog ]; then
+            echo "debian/changelog did not exist before — will force commit."
+            FILE_MISSING=true
+          fi
+
+          if ! grep -q "%changelog" rpm/anti_ddos_challenge.spec; then
+            echo "No %changelog section in spec before — will force commit."
+            FILE_MISSING=true
+          fi
+
+          git add rpm/anti_ddos_challenge.spec debian/changelog
+
+          if $FILE_MISSING; then
+            echo "Forcing commit because this is the first creation of changelog files."
+            git commit -m "ci: add initial changelogs for ${{ steps.get_version.outputs.script_version }}"
+            git push || echo "Push failed - probably no permission"
+          else
+            if git diff --cached --quiet; then
+              echo "No changelog changes to commit"
+            else
+              git commit -m "ci: update changelogs for ${{ steps.get_version.outputs.script_version }}"
+              git push || echo "Push failed - probably no permission"
+            fi
+          fi
 
       - name: Upload prepped spec and debian/changelog
         uses: actions/upload-artifact@v4
@@ -135,7 +164,7 @@ jobs:
             **🚀 NGINX Lua Anti DDoS Script Build Succeeded!** ✅
 
             **🌟 Version:** `${{ needs.prep_sources.outputs.script_version }}`
-            
+
             **🔎 Includes:** RPM & DEB builds
           files: |
             pkgs_download/**/*.rpm

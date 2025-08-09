@@ -33,7 +33,8 @@ CHANGE_ENTRIES=$(echo "$CHANGE_BLOCK" | awk '!/^Date:/ {print}')
 DATE_RPM=$(date -d "$CHANGE_DATE" +"%a %b %d %Y")
 {
   echo "* $DATE_RPM $MAINTAINER_NAME <$MAINTAINER_EMAIL> - $SCRIPT_VERSION-1"
-  echo "$CHANGE_ENTRIES" | sed 's/^/- /'
+  # Only add dash if missing
+  echo "$CHANGE_ENTRIES" | sed '/^-/!s/^/- /'
 } > changelog.newentry
 
 # 5️⃣ Inject into SPEC while keeping old entries
