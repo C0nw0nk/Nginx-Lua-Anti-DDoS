@@ -1,0 +1,143 @@
+name: Build and Publish RPM/DEB Packages
+
+on:
+  push:
+    paths:
+      - '**.spec'
+      - 'lua/anti_ddos_challenge.lua'
+      - 'CHANGELOG'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prep_sources:
+    name: Set Version, Tag, and Generate Changelogs
+    runs-on: ubuntu-latest
+    outputs:
+      script_version: ${{ steps.get_version.outputs.script_version }}
+      tag: ${{ steps.get_version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract script version and tag
+        id: get_version
+        run: |
+          SCRIPT_VERSION=$(sed -n 's/^Script Version: //p' lua/anti_ddos_challenge.lua)
+          echo "script_version=$SCRIPT_VERSION" >> $GITHUB_OUTPUT
+          SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
+          DATE=$(date +'%Y%m%d')
+          TAG="$DATE_$SHORT_SHA"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        run: bash .github/scripts/generate-changelog.sh
+
+      - name: Upload prepped spec and debian/changelog
+        uses: actions/upload-artifact@v4
+        with:
+          name: prepped-sources
+          path: |
+            rpm/anti_ddos_challenge.spec
+            debian/changelog
+
+  build_rhel:
+    name: Build RPM (AlmaLinux/RHEL)
+    runs-on: ubuntu-latest
+    container:
+      image: almalinux:10
+    needs: [prep_sources]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download prepped spec/changelog
+        uses: actions/download-artifact@v4
+        with:
+          name: prepped-sources
+          path: .
+
+      - name: Install dependencies and prepare sources
+        run: bash .github/scripts/prepare-rhel.sh
+
+      - name: Build SRPM
+        run: |
+          rpmbuild -bs \
+            --define "script_ver ${{ needs.prep_sources.outputs.script_version }}" \
+            --define "release_tag ${{ needs.prep_sources.outputs.tag }}" \
+            ~/rpmbuild/SPECS/anti_ddos_challenge.spec
+
+      - name: Build RPM
+        run: |
+          rpmbuild -bb \
+            --define "script_ver ${{ needs.prep_sources.outputs.script_version }}" \
+            --define "release_tag ${{ needs.prep_sources.outputs.tag }}" \
+            ~/rpmbuild/SPECS/anti_ddos_challenge.spec
+
+      - name: Upload built RPMs as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: nginx-lua-anti-ddos-rpm
+          path: |
+            ~/rpmbuild/RPMS/**/*.rpm
+            ~/rpmbuild/SRPMS/**/*.src.rpm
+
+  build_deb:
+    name: Build DEB (Debian/Ubuntu)
+    runs-on: ubuntu-latest
+    needs: [prep_sources]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download prepped spec/changelog
+        uses: actions/download-artifact@v4
+        with:
+          name: prepped-sources
+          path: .
+
+      - name: Install build dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential debhelper dh-make
+
+      - name: Build Debian package
+        run: |
+          dpkg-buildpackage -us -uc -b
+          mkdir -p deb_packages
+          mv ../*.deb deb_packages/
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: nginx-lua-anti-ddos-deb
+          path: deb_packages/*.deb
+
+  publish:
+    name: Publish Release (GitHub)
+    runs-on: ubuntu-latest
+    needs: [prep_sources, build_rhel, build_deb]
+    steps:
+      - name: Download RPM artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: nginx-lua-anti-ddos-rpm
+          path: pkgs_download
+
+      - name: Download DEB artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: nginx-lua-anti-ddos-deb
+          path: pkgs_download
+
+      - name: Publish to releases
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prep_sources.outputs.script_version }}-${{ needs.prep_sources.outputs.tag }}
+          body: |
+            **🚀 NGINX Lua Anti DDoS Script Build Succeeded!** ✅
+
+            **🌟 Version:** `${{ needs.prep_sources.outputs.script_version }}`
+            
+            **🔎 Includes:** RPM & DEB builds
+          files: |
+            pkgs_download/**/*.rpm
+            pkgs_download/**/*.src.rpm
+            pkgs_download/**/*.deb
