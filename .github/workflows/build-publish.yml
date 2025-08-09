@@ -139,5 +139,4 @@ jobs:
             **🔎 Includes:** RPM & DEB builds
           files: |
             pkgs_download/**/*.rpm
-            pkgs_download/**/*.src.rpm
             pkgs_download/**/*.deb
