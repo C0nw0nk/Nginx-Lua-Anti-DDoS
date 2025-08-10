@@ -1,0 +1,10 @@
+#!/bin/sh
+set -e
+
+if [ -f /etc/nginx/anti_ddos_challenge.lua.dpkg-dist ]; then
+  echo "Warning: /etc/nginx/anti_ddos_challenge.lua already exists and differs from the packaged version."
+  echo "A new version has been installed as /etc/nginx/anti_ddos_challenge.lua.dpkg-dist"
+  echo "Please review and merge changes if appropriate."
+fi
+
+exit 0

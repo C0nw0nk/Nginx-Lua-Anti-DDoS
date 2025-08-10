@@ -1,0 +1,3 @@
+lua/anti_ddos_challenge.lua etc/nginx/anti_ddos_challenge.lua
+LICENSE usr/share/doc/nginx-lua-anti-ddos-challenge/LICENSE
+README.md usr/share/doc/nginx-lua-anti-ddos-challenge/README.md
