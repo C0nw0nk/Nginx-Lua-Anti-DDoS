@@ -124,7 +124,9 @@ local anti_ddos_table = {
 		ngx.HTTP_TOO_MANY_REQUESTS, --429 too many requests around 175 bytes per response
 		--ngx.HTTP_CLOSE, --444 connection reset 0 bytes per response
 
-		--limit max request size to this in bytes so 1000 bytes is 1kb
+		--Limit minimum request size to this in bytes requests smaller than this size will be blocked.
+		20, --0 for no minimum limit size in bytes including request headers
+		--limit max request size to this in bytes so 1000 bytes is 1kb you can do 1e+9 = 1GB Gigabyte for large sizes
 		1000000, --0 is unlimited or will fall back to the nginx config value client_max_body_size 1m; https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size
 		--status code to exit with when request size is larger than allowed size
 		ngx.HTTP_BAD_REQUEST,
@@ -139,9 +141,9 @@ local anti_ddos_table = {
 		ngx.HTTP_CLOSE, --444 connection reset 0 bytes per response
 
 		--SlowHTTP / Slowloris settings
-		128, --Max Content-Length
-		10, --Request timeout in seconds
-		300, --connection header max timeout value Connection: Timeout=300,Max=1000
+		128, --Minimum Content-Length in bytes between 0 and this value requests smaller than this will be blocked Expect: 100-continue
+		10, --Request timeout in seconds requests that take longer than this will be blocked
+		300, --connections header max timeout value Connection: Timeout=300,Max=1000
 		100000, --connections header max conns number
 		ngx.HTTP_CLOSE, --444 connection reset 0 bytes per response
 
@@ -160,6 +162,24 @@ local anti_ddos_table = {
 				"", --empty for any type
 				10, --Limit occurances block requests with to many 0-5,5-10,10-15,15-30,30-35 multipart/byteranges set to empty string "", to allow any amount
 				"","",--0,100, --if requesting bytes between 0-100 too small block set to empty string "", to allow any amount
+				"", --"bytes", --bytes or set to empty string "", to allow any unit type
+				"", --"[a-zA-Z0-9-%,%=%s+]", --valid chars a-z lowercase A-Z uppercase 0-9 - hyphen , comma = equals and spaces
+				"",--100, --less than 100 bytes set to empty string "" to skip check
+				4e+9, --more than 4GB Gigabyte in bytes set to empty string "" to skip check
+				{ --9th as table to do more advanced range header filtering
+					{ --1st occurance
+						"","",--0,100, --between min - max set to empty string "" to skip min - max check
+						90, --less than 90 bytes set to empty string "" to skip check
+						"",--20, --more than set to empty string "" to skip check
+					},
+					"", --skip 2 set to empty string "" to skip occruance
+					{ --3rd occurance
+						"","", --set to empty string "" to skip min - max check
+						"",--90, --less than 90 bytes set to empty string "" to skip check
+						20, --more than 20 bytes set to empty string "" to skip check
+					},
+					"", --skip 4 set to empty string "" to skip occruance
+				},
 			},
 			]]
 
@@ -170,6 +190,8 @@ local anti_ddos_table = {
 				0,100, --if requesting bytes between 0-100 too small block set to empty string "", to allow any amount --curl -H "Range: bytes=0-5,5-10,10-15,15-30,30-35" http://localhost/video.mp4 --output "C:\Videos" -H "User-Agent: testagent"
 				"bytes", --bytes or set to empty string "", to allow any unit type
 				"[a-zA-Z0-9-%,%=%s+]", --valid chars a-z lowercase A-Z uppercase 0-9 - hyphen , comma = equals and spaces
+				--100, --less than 100 bytes set to empty string "" to skip check
+				--2e+10, --more than 20GB Gigabyte in bytes set to empty string "" to skip check
 			},
 			]]
 		},
@@ -381,16 +403,20 @@ local encrypt_javascript_output = 0
 
 --[[
 IP Address Whitelist
-Any IP Addresses specified here will be whitelisted to grant direct access to your site bypassing our firewall checks
+Any IP Addresses specified here will be whitelisted to grant direct access to your site bypassing our browser Authentication checks
 you can specify IP's like search engine crawler ip addresses here most search engines are smart enough they do not need to be specified,
 Major search engines can execute javascript such as Google, Yandex, Bing, Baidu and such so they can solve the auth page puzzle and index your site same as how companies like Cloudflare, Succuri, BitMitigate etc work and your site is still indexed.
 Supports IPv4 and IPv6 addresses aswell as subnet ranges
 To find all IP ranges of an ASN use : https://www.enjen.net/asn-blocklist/index.php?asn=16509&type=iplist
 ]]
 local ip_whitelist_remote_addr = "auto" --Automatically get the Clients IP address
+--local ip_whitelist_remote_addr = ngx_var_remote_addr
+local ip_whitelist_block_mode = 0 --0 whitelist acts as a bypass to puzzle auth checks 1 is to enforce only allowing whitelisted addresses access other addresses will be blocked.
 local ip_whitelist = {
 --"127.0.0.1", --localhost
 --"192.168.0.1", --localhost
+--Cloudflare IP's https://www.cloudflare.com/en-gb/ips/ set block mode to 1 and local ip_whitelist_remote_addr = ngx_var_remote_addr to block all ips other than cloudflare from direct access to your server/sites.
+--"173.245.48.0/20","103.21.244.0/22","103.22.200.0/22","103.31.4.0/22","141.101.64.0/18","108.162.192.0/18","190.93.240.0/20","188.114.96.0/20","197.234.240.0/22","198.41.128.0/17","162.158.0.0/15","104.16.0.0/13","104.24.0.0/14","172.64.0.0/13","131.0.72.0/22","2400:cb00::/32","2606:4700::/32","2803:f800::/32","2405:b500::/32","2405:8100::/32","2a06:98c0::/29","2c0f:f248::/32",
 }
 
 --[[
@@ -521,7 +547,7 @@ Javascript variables generated by the script to be static in length or Dynamic s
 local dynamic_javascript_vars_length = 2 --dynamic default
 local dynamic_javascript_vars_length_static = 10 --how many chars in length should static be
 -- IMPORTANT: Should probably increase this min value to exclude repeating variable names which can break some obfuscations (tested it once), up to the developer.
-local dynamic_javascript_vars_length_start = 1 --for dynamic randomize min value to max this is min value 
+local dynamic_javascript_vars_length_start = 3 --for dynamic randomize min value to max this is min value 
 local dynamic_javascript_vars_length_end = 10 --for dynamic randomize min value to max this is max value
 
 --[[
@@ -1852,7 +1878,7 @@ local function anti_ddos()
 									end
 									if x == 5 then
 										if range_table[i][x] ~= "" then
-											if not string_match(_, range_table[i][5]) then --string match specified unit or block
+											if not string_match(_, range_table[i][x]) then --string match specified unit or block
 												if logging_value == 1 then
 													ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Not using acceptable Unit type " .. range_table[i][x])
 												end
@@ -1872,6 +1898,307 @@ local function anti_ddos()
 											end
 										end
 									end
+									if x == 7 then
+										if range_table[i][x] ~= "" then
+											if count and tonumber(count) > 1 then
+												--for each segment
+												local rcount = 0
+												for start_byte, end_byte in string_gmatch(_, regex_g) do
+													rcount = rcount+1
+													if start_byte and tonumber(start_byte) < tonumber(range_table[i][x]) then
+														if logging_value == 1 then
+															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+														end
+														return true
+													end
+													if end_byte and tonumber(end_byte) < tonumber(range_table[i][x]) then
+														if logging_value == 1 then
+															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
+														end
+														return true
+													end
+												end
+												if rcount == 0 then
+													for start_byte in string_gmatch(_, regex_c) do
+														if start_byte and tonumber(start_byte) < tonumber(range_table[i][x]) then
+															if logging_value == 1 then
+																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+															end
+															return true
+														end
+													end
+												end
+											else
+												local start_byte, end_byte = string_match(_, regex_m)
+												if start_byte or end_byte then
+													if start_byte and tonumber(start_byte) < tonumber(range_table[i][x]) then
+														if logging_value == 1 then
+															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte )
+														end
+														return true
+													end
+													if end_byte and tonumber(end_byte) < tonumber(range_table[i][x]) then
+														if logging_value == 1 then
+															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte )
+														end
+														return true
+													end
+												else
+													local start_byte = string_match(_, regex_s)
+													if start_byte then
+														if start_byte and tonumber(start_byte) < tonumber(range_table[i][x]) then
+															if logging_value == 1 then
+																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte )
+															end
+															return true
+														end
+													end
+												end
+											end
+										end
+									end --end 7
+									if x == 8 then
+										if range_table[i][x] ~= "" then
+											if count and tonumber(count) > 1 then
+												--for each segment
+												local rcount = 0
+												for start_byte, end_byte in string_gmatch(_, regex_g) do
+													rcount = rcount+1
+													if start_byte and tonumber(start_byte) > tonumber(range_table[i][x]) then
+														if logging_value == 1 then
+															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+														end
+														return true
+													end
+													if end_byte and tonumber(end_byte) > tonumber(range_table[i][x]) then
+														if logging_value == 1 then
+															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
+														end
+														return true
+													end
+												end
+												if rcount == 0 then
+													for start_byte in string_gmatch(_, regex_c) do
+														if start_byte and tonumber(start_byte) > tonumber(range_table[i][x]) then
+															if logging_value == 1 then
+																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+															end
+															return true
+														end
+													end
+												end
+											else
+												local start_byte, end_byte = string_match(_, regex_m)
+												if start_byte or end_byte then
+													if start_byte and tonumber(start_byte) > tonumber(range_table[i][x]) then
+														if logging_value == 1 then
+															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte )
+														end
+														return true
+													end
+													if end_byte and tonumber(end_byte) > tonumber(range_table[i][x]) then
+														if logging_value == 1 then
+															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte )
+														end
+														return true
+													end
+												else
+													local start_byte = string_match(_, regex_s)
+													if start_byte then
+														if start_byte and tonumber(start_byte) > tonumber(range_table[i][x]) then
+															if logging_value == 1 then
+																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte )
+															end
+															return true
+														end
+													end
+												end
+											end
+										end
+									end --end 8
+									if x == 9 then --table for specific occurance of multi byte range
+										if range_table[i][x] ~= "" then
+											if #range_table[i][x] > 0 then
+												if count and tonumber(count) > 1 then
+													--for each segment
+													local rcount = 0
+													for start_byte, end_byte in string_gmatch(_, regex_g) do
+														rcount = rcount+1
+														for z=1, #range_table[i][x] do
+															if z == rcount then
+																if range_table[i][x][z] ~= "" then
+																	if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
+																		if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][1]) and tonumber(start_byte) < tonumber(range_table[i][x][z][2]) then
+																			if logging_value == 1 then
+																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+																			end
+																			return true
+																		end
+																		if end_byte and tonumber(end_byte) > tonumber(range_table[i][x][z][1]) and tonumber(end_byte) < tonumber(range_table[i][x][z][2]) then
+																			if logging_value == 1 then
+																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
+																			end
+																			return true
+																		end
+																	end
+																	if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
+																		if start_byte and tonumber(start_byte) < tonumber(range_table[i][x][z][3]) then
+																			if logging_value == 1 then
+																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+																			end
+																			return true
+																		end
+																		if end_byte and tonumber(end_byte) < tonumber(range_table[i][x][z][3]) then
+																			if logging_value == 1 then
+																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
+																			end
+																			return true
+																		end
+																	end
+																	if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
+																		if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][4]) then
+																			if logging_value == 1 then
+																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+																			end
+																			return true
+																		end
+																		if end_byte and tonumber(end_byte) > tonumber(range_table[i][x][z][4]) then
+																			if logging_value == 1 then
+																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
+																			end
+																			return true
+																		end
+																	end
+																end
+															end
+														end
+													end
+													if rcount == 0 then
+														local rcount = 0
+														for start_byte in string_gmatch(_, regex_c) do
+															rcount = rcount+1
+															for z=1, #range_table[i][x] do
+																if z == rcount then
+																	if range_table[i][x][z] ~= "" then
+																		if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
+																			if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][1]) and tonumber(start_byte) < tonumber(range_table[i][x][z][2]) then
+																				if logging_value == 1 then
+																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+																				end
+																				return true
+																			end
+																		end
+																		if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
+																			if start_byte and tonumber(start_byte) < tonumber(range_table[i][x][z][3]) then
+																				if logging_value == 1 then
+																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+																				end
+																				return true
+																			end
+																		end
+																		if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
+																			if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][4]) then
+																				if logging_value == 1 then
+																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+																				end
+																				return true
+																			end
+																		end
+																	end
+																end
+															end
+														end
+													end
+												else
+													local start_byte, end_byte = string_match(_, regex_m)
+													if start_byte or end_byte then
+														for z=1, #range_table[i][x] do
+															if z == 1 then
+																if range_table[i][x][z] ~= "" then
+																	if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
+																		if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][1]) and tonumber(start_byte) < tonumber(range_table[i][x][z][2]) then
+																			if logging_value == 1 then
+																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+																			end
+																			return true
+																		end
+																		if end_byte and tonumber(end_byte) > tonumber(range_table[i][x][z][1]) and tonumber(end_byte) < tonumber(range_table[i][x][z][2]) then
+																			if logging_value == 1 then
+																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte )
+																			end
+																			return true
+																		end
+																	end
+																	if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
+																		if start_byte and tonumber(start_byte) < tonumber(range_table[i][x][z][3]) then
+																			if logging_value == 1 then
+																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
+																			end
+																			return true
+																		end
+																		if end_byte and tonumber(end_byte) < tonumber(range_table[i][x][z][3]) then
+																			if logging_value == 1 then
+																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. z)
+																			end
+																			return true
+																		end
+																	end
+																	if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
+																		if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][4]) then
+																			if logging_value == 1 then
+																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. z)
+																			end
+																			return true
+																		end
+																		if end_byte and tonumber(end_byte) > tonumber(range_table[i][x][z][4]) then
+																			if logging_value == 1 then
+																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. z)
+																			end
+																			return true
+																		end
+																	end
+																end
+																break
+															end
+														end
+													else
+														local start_byte = string_match(_, regex_s)
+														for z=1, #range_table[i][x] do
+															if z == 1 then
+																if range_table[i][x][z] ~= "" then
+																	if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
+																		if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][1]) and tonumber(start_byte) < tonumber(range_table[i][x][z][2]) then
+																			if logging_value == 1 then
+																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+																			end
+																			return true
+																		end
+																	end
+																	if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
+																		if start_byte and tonumber(start_byte) < tonumber(range_table[i][x][z][3]) then
+																			if logging_value == 1 then
+																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
+																			end
+																			return true
+																		end
+																	end
+																	if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
+																		if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][4]) then
+																			if logging_value == 1 then
+																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. z)
+																			end
+																			return true
+																		end
+																	end
+																end
+																break
+															end
+														end
+													end
+												end
+											end
+										end
+									end --end 7
 								end
 							end
 						end
@@ -1992,10 +2319,10 @@ local function anti_ddos()
 													end
 												end
 											end
-										end
+										end --end 4
 										if x == 5 then
 											if range_table[i][x] ~= "" then
-												if not string_match(_, range_table[i][5]) then --string match specified unit or block
+												if not string_match(_, range_table[i][x]) then --string match specified unit or block
 													if logging_value == 1 then
 														ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Not using acceptable Unit type " .. range_table[i][x])
 													end
@@ -2015,6 +2342,307 @@ local function anti_ddos()
 												end
 											end
 										end
+										if x == 7 then
+											if range_table[i][x] ~= "" then
+												if count and tonumber(count) > 1 then
+													--for each segment
+													local rcount = 0
+													for start_byte, end_byte in string_gmatch(_, regex_g) do
+														rcount = rcount+1
+														if start_byte and tonumber(start_byte) < tonumber(range_table[i][x]) then
+															if logging_value == 1 then
+																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+															end
+															return true
+														end
+														if end_byte and tonumber(end_byte) < tonumber(range_table[i][x]) then
+															if logging_value == 1 then
+																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
+															end
+															return true
+														end
+													end
+													if rcount == 0 then
+														for start_byte in string_gmatch(_, regex_c) do
+															if start_byte and tonumber(start_byte) < tonumber(range_table[i][x]) then
+																if logging_value == 1 then
+																	ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+																end
+																return true
+															end
+														end
+													end
+												else
+													local start_byte, end_byte = string_match(_, regex_m)
+													if start_byte or end_byte then
+														if start_byte and tonumber(start_byte) < tonumber(range_table[i][x]) then
+															if logging_value == 1 then
+																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte )
+															end
+															return true
+														end
+														if end_byte and tonumber(end_byte) < tonumber(range_table[i][x]) then
+															if logging_value == 1 then
+																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte )
+															end
+															return true
+														end
+													else
+														local start_byte = string_match(_, regex_s)
+														if start_byte then
+															if start_byte and tonumber(start_byte) < tonumber(range_table[i][x]) then
+																if logging_value == 1 then
+																	ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte )
+																end
+																return true
+															end
+														end
+													end
+												end
+											end
+										end --end 7
+										if x == 8 then
+											if range_table[i][x] ~= "" then
+												if count and tonumber(count) > 1 then
+													--for each segment
+													local rcount = 0
+													for start_byte, end_byte in string_gmatch(_, regex_g) do
+														rcount = rcount+1
+														if start_byte and tonumber(start_byte) > tonumber(range_table[i][x]) then
+															if logging_value == 1 then
+																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+															end
+															return true
+														end
+														if end_byte and tonumber(end_byte) > tonumber(range_table[i][x]) then
+															if logging_value == 1 then
+																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
+															end
+															return true
+														end
+													end
+													if rcount == 0 then
+														for start_byte in string_gmatch(_, regex_c) do
+															if start_byte and tonumber(start_byte) > tonumber(range_table[i][x]) then
+																if logging_value == 1 then
+																	ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+																end
+																return true
+															end
+														end
+													end
+												else
+													local start_byte, end_byte = string_match(_, regex_m)
+													if start_byte or end_byte then
+														if start_byte and tonumber(start_byte) > tonumber(range_table[i][x]) then
+															if logging_value == 1 then
+																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte )
+															end
+															return true
+														end
+														if end_byte and tonumber(end_byte) > tonumber(range_table[i][x]) then
+															if logging_value == 1 then
+																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte )
+															end
+															return true
+														end
+													else
+														local start_byte = string_match(_, regex_s)
+														if start_byte then
+															if start_byte and tonumber(start_byte) > tonumber(range_table[i][x]) then
+																if logging_value == 1 then
+																	ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte )
+																end
+																return true
+															end
+														end
+													end
+												end
+											end
+										end --end 8
+										if x == 9 then --table for specific occurance of multi byte range
+											if range_table[i][x] ~= "" then
+												if #range_table[i][x] > 0 then
+													if count and tonumber(count) > 1 then
+														--for each segment
+														local rcount = 0
+														for start_byte, end_byte in string_gmatch(_, regex_g) do
+															rcount = rcount+1
+															for z=1, #range_table[i][x] do
+																if z == rcount then
+																	if range_table[i][x][z] ~= "" then
+																		if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
+																			if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][1]) and tonumber(start_byte) < tonumber(range_table[i][x][z][2]) then
+																				if logging_value == 1 then
+																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+																				end
+																				return true
+																			end
+																			if end_byte and tonumber(end_byte) > tonumber(range_table[i][x][z][1]) and tonumber(end_byte) < tonumber(range_table[i][x][z][2]) then
+																				if logging_value == 1 then
+																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
+																				end
+																				return true
+																			end
+																		end
+																		if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
+																			if start_byte and tonumber(start_byte) < tonumber(range_table[i][x][z][3]) then
+																				if logging_value == 1 then
+																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+																				end
+																				return true
+																			end
+																			if end_byte and tonumber(end_byte) < tonumber(range_table[i][x][z][3]) then
+																				if logging_value == 1 then
+																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
+																				end
+																				return true
+																			end
+																		end
+																		if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
+																			if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][4]) then
+																				if logging_value == 1 then
+																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+																				end
+																				return true
+																			end
+																			if end_byte and tonumber(end_byte) > tonumber(range_table[i][x][z][4]) then
+																				if logging_value == 1 then
+																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
+																				end
+																				return true
+																			end
+																		end
+																	end
+																end
+															end
+														end
+														if rcount == 0 then
+															local rcount = 0
+															for start_byte in string_gmatch(_, regex_c) do
+																rcount = rcount+1
+																for z=1, #range_table[i][x] do
+																	if z == rcount then
+																		if range_table[i][x][z] ~= "" then
+																			if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
+																				if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][1]) and tonumber(start_byte) < tonumber(range_table[i][x][z][2]) then
+																					if logging_value == 1 then
+																						ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+																					end
+																					return true
+																				end
+																			end
+																			if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
+																				if start_byte and tonumber(start_byte) < tonumber(range_table[i][x][z][3]) then
+																					if logging_value == 1 then
+																						ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+																					end
+																					return true
+																				end
+																			end
+																			if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
+																				if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][4]) then
+																					if logging_value == 1 then
+																						ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+																					end
+																					return true
+																				end
+																			end
+																		end
+																	end
+																end
+															end
+														end
+													else
+														local start_byte, end_byte = string_match(_, regex_m)
+														if start_byte or end_byte then
+															for z=1, #range_table[i][x] do
+																if z == 1 then
+																	if range_table[i][x][z] ~= "" then
+																		if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
+																			if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][1]) and tonumber(start_byte) < tonumber(range_table[i][x][z][2]) then
+																				if logging_value == 1 then
+																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+																				end
+																				return true
+																			end
+																			if end_byte and tonumber(end_byte) > tonumber(range_table[i][x][z][1]) and tonumber(end_byte) < tonumber(range_table[i][x][z][2]) then
+																				if logging_value == 1 then
+																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte )
+																				end
+																				return true
+																			end
+																		end
+																		if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
+																			if start_byte and tonumber(start_byte) < tonumber(range_table[i][x][z][3]) then
+																				if logging_value == 1 then
+																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
+																				end
+																				return true
+																			end
+																			if end_byte and tonumber(end_byte) < tonumber(range_table[i][x][z][3]) then
+																				if logging_value == 1 then
+																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. z)
+																				end
+																				return true
+																			end
+																		end
+																		if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
+																			if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][4]) then
+																				if logging_value == 1 then
+																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. z)
+																				end
+																				return true
+																			end
+																			if end_byte and tonumber(end_byte) > tonumber(range_table[i][x][z][4]) then
+																				if logging_value == 1 then
+																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. z)
+																				end
+																				return true
+																			end
+																		end
+																	end
+																	break
+																end
+															end
+														else
+															local start_byte = string_match(_, regex_s)
+															for z=1, #range_table[i][x] do
+																if z == 1 then
+																	if range_table[i][x][z] ~= "" then
+																		if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
+																			if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][1]) and tonumber(start_byte) < tonumber(range_table[i][x][z][2]) then
+																				if logging_value == 1 then
+																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+																				end
+																				return true
+																			end
+																		end
+																		if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
+																			if start_byte and tonumber(start_byte) < tonumber(range_table[i][x][z][3]) then
+																				if logging_value == 1 then
+																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
+																				end
+																				return true
+																			end
+																		end
+																		if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
+																			if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][4]) then
+																				if logging_value == 1 then
+																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. z)
+																				end
+																				return true
+																			end
+																		end
+																	end
+																	break
+																end
+															end
+														end
+													end
+												end
+											end
+										end --end 7
 									end
 								end
 							end
@@ -2102,38 +2730,46 @@ local function anti_ddos()
 			if string_match(URL, v[1]) then --if our host matches one in the table
 				if v[2] >= 1 then --limit keep alive ip
 					if tonumber(ngx_var_connection_requests) >= v[2] then
-						if v[6] == 1 then
-							ngx_log(ngx_LOG_TYPE,"[Anti-DDoS] Number of keepalive conns from IP " .. ngx_var_connection_requests )
+						if v[7] == 1 then
+							ngx_log(ngx_LOG_TYPE,"[Anti-DDoS] Exceeded Number of keepalive conns from IP " .. ngx_var_connection_requests )
 						end
 						ngx_exit(v[3])
 					end
 				end
-				if v[4] >= 1 then --limit request size
-					if tonumber(ngx_var_request_length) >= v[4] then --1000 bytes = 1kb
-						if v[6] == 1 then
-							ngx_log(ngx_LOG_TYPE,"[Anti-DDoS] Request LENGTH in bytes " .. ngx_var_request_length )
+				if v[4] >= 1 then --limit request size smaller than
+					if tonumber(ngx_var_request_length) <= v[4] then --1000 bytes = 1kb
+						if v[7] == 1 then
+							ngx_log(ngx_LOG_TYPE,"[Anti-DDoS] Request Smaller than allowed LENGTH in bytes " .. ngx_var_request_length )
 						end
-						ngx_exit(v[5])
+						ngx_exit(v[6])
+					end
+				end
+				if v[5] >= 1 then --limit request size greater than
+					if tonumber(ngx_var_request_length) >= v[5] then --1000 bytes = 1kb
+						if v[7] == 1 then
+							ngx_log(ngx_LOG_TYPE,"[Anti-DDoS] Request Larger than allowed LENGTH in bytes " .. ngx_var_request_length )
+						end
+						ngx_exit(v[6])
 					end
 				end
 
-				local request_limit = v[18] or nil --What ever memory space your server has set / defined for this to use
-				local blocked_addr = v[19] or nil
-				local ddos_counter = v[20] or nil
+				local request_limit = v[19] or nil --What ever memory space your server has set / defined for this to use
+				local blocked_addr = v[20] or nil
+				local ddos_counter = v[21] or nil
 
 				if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
-					local rate_limit_window = v[7]
-					local rate_limit_requests = v[8]
-					local block_duration = v[9]
-					local rate_limit_exit_status = v[10]
-					local content_limit = v[11]
-					local timeout = v[12]
-					local connection_header_timeout = v[13]
-					local connection_header_max_conns = v[14]
-					local slow_limit_exit_status = v[15]
-					local range_whitelist_blacklist = v[16]
-					local range_table = v[17]
-					local ip = v[21]
+					local rate_limit_window = v[8]
+					local rate_limit_requests = v[9]
+					local block_duration = v[10]
+					local rate_limit_exit_status = v[11]
+					local content_limit = v[12]
+					local timeout = v[13]
+					local connection_header_timeout = v[14]
+					local connection_header_max_conns = v[15]
+					local slow_limit_exit_status = v[16]
+					local range_whitelist_blacklist = v[17]
+					local range_table = v[18]
+					local ip = v[22]
 
 					if ip == "auto" then
 						if ngx_var_http_cf_connecting_ip ~= nil then
@@ -2147,7 +2783,7 @@ local function anti_ddos()
 
 					local blocked_time = blocked_addr:get(ip)
 					if blocked_time then
-						if v[6] == 1 then
+						if v[7] == 1 then
 							ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP attempt: " .. ip)
 						end
 						ngx_req_set_header("Accept-Encoding", "") --disable gzip
@@ -2155,14 +2791,14 @@ local function anti_ddos()
 						return ngx_exit(rate_limit_exit_status)
 					end
 
-					if check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, blocked_addr, ddos_counter, v[6]) then
+					if check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, blocked_addr, ddos_counter, v[7]) then
 						ngx_req_set_header("Accept-Encoding", "") --disable gzip
 						return ngx_exit(rate_limit_exit_status)
 					end
 
-					if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table, v[6]) then
+					if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table, v[7]) then
 						blocked_addr:set(ip, currenttime, block_duration)
-						if v[6] == 1 then
+						if v[7] == 1 then
 							ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
 						end
 
@@ -2186,10 +2822,10 @@ local function anti_ddos()
 						return ngx_exit(slow_limit_exit_status)
 					end
 
-					if v[22] == 1 then
+					if v[23] == 1 then
 						local total_requests = ddos_counter:get("blocked_ip") or 0
-						if total_requests >= v[23] then --Automatically enable I am Under Attack Mode
-							if v[6] == 1 then
+						if total_requests >= v[24] then --Automatically enable I am Under Attack Mode
+							if v[7] == 1 then
 								ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Total Flood requests: " .. total_requests)
 							end
 							--Automatic Detection of DDoS
@@ -2202,29 +2838,29 @@ local function anti_ddos()
 						end
 					end
 
-					if #v[24] > 0 then --make sure the 24th var is a lua table and has values
-						for i=1,#v[24] do --for each in our table
-							if #v[24][i] > 0 then --if subtable has values
-								local table_head_val = v[24][i][1] or nil
+					if #v[25] > 0 then --make sure the 24th var is a lua table and has values
+						for i=1,#v[25] do --for each in our table
+							if #v[25][i] > 0 then --if subtable has values
+								local table_head_val = v[25][i][1] or nil
 								local req_headers = ngx_req_get_headers()
 								local header_value = req_headers[tostring(table_head_val)] or ""
 								if header_value then
 									if type(header_value) ~= "table" then
-										if string_lower(header_value) == v[24][i][2] then
-											if v[24][i][4] > 0 then --add to ban list
+										if string_match(string_lower(header_value), string_lower(v[25][i][2])) then
+											if v[25][i][4] > 0 then --add to ban list
 												blocked_addr:set(ip, currenttime, block_duration)
 											end
 											ngx_req_set_header("Accept-Encoding", "") --disable gzip
-											ngx_exit(v[24][i][3])
+											ngx_exit(v[25][i][3])
 										end
 									else
 										for i=1, #header_value do
-											if string_lower(header_value[i]) == v[24][i][2] then
-												if v[24][i][4] > 0 then --add to ban list
+											if string_match(string_lower(header_value[i]), string_lower(v[25][i][2])) then
+												if v[25][i][4] > 0 then --add to ban list
 													blocked_addr:set(ip, currenttime, block_duration)
 												end
 												ngx_req_set_header("Accept-Encoding", "") --disable gzip
-												ngx_exit(v[24][i][3])
+												ngx_exit(v[25][i][3])
 											end
 										end
 									end
@@ -2233,62 +2869,62 @@ local function anti_ddos()
 						end
 					end
 
-					if #v[25] > 0 then
-						for i=1,#v[25] do
-							if string_lower(ngx.var.request_method) == string_lower(v[25][i][1]) then
-								if v[25][i][3] > 0 then
+					if #v[26] > 0 then
+						for i=1,#v[26] do
+							if string_lower(ngx.var.request_method) == string_lower(v[26][i][1]) then
+								if v[26][i][3] > 0 then
 									blocked_addr:set(ip, currenttime, block_duration)
 								end
 								ngx_req_set_header("Accept-Encoding", "") --disable gzip
-								ngx_exit(v[25][i][2])
+								ngx_exit(v[26][i][2])
 							end
 						end
 					end
 
-					if v[26] < 1 then --disable gzip option
+					if v[27] < 1 then --disable gzip option
 						ngx_req_set_header("Accept-Encoding", "") --disable gzip
 					end
 
-					if v[27] > 0 then --dsiable compression when banlist has more than certain number of ips automated protection
+					if v[28] > 0 then --dsiable compression when banlist has more than certain number of ips automated protection
 						local total_requests = ddos_counter:get("blocked_ip") or 0
-						if total_requests >= v[23] then --Automatically enable I am Under Attack Mode
+						if total_requests >= v[24] then --Automatically enable I am Under Attack Mode
 							ngx_req_set_header("Accept-Encoding", "") --disable gzip
 						end
 					end
 
 				else
-					local content_limit = v[11]
-					local timeout = v[12]
-					local connection_header_timeout = v[13]
-					local connection_header_max_conns = v[14]
-					local slow_limit_exit_status = v[15]
-					local range_whitelist_blacklist = v[16]
-					local range_table = v[17]
+					local content_limit = v[12]
+					local timeout = v[13]
+					local connection_header_timeout = v[14]
+					local connection_header_max_conns = v[15]
+					local slow_limit_exit_status = v[16]
+					local range_whitelist_blacklist = v[17]
+					local range_table = v[18]
 					--no shared memory set but we can still check and block slowhttp cons without shared memory
 					if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table) then
 						ngx_req_set_header("Accept-Encoding", "") --disable gzip
-						if v[6] == 1 then
+						if v[7] == 1 then
 							ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
 						end
 						return ngx_exit(slow_limit_exit_status)
 					end
 
-					if #v[24] > 0 then --make sure the 24th var is a lua table and has values
-						for i=1,#v[24] do --for each in our table
-							local t = v[24][i]
+					if #v[25] > 0 then --make sure the 24th var is a lua table and has values
+						for i=1,#v[25] do --for each in our table
+							local t = v[25][i]
 							if #t > 0 then --if subtable has values
 								local table_head_val = t[1] or nil
 								local req_headers = ngx_req_get_headers()
 								local header_value = req_headers[tostring(table_head_val)] or ""
 								if header_value then
 									if type(header_value) ~= "table" then
-										if string_lower(header_value) == t[2] then
+										if string_match(string_lower(header_value), string_lower(t[2])) then
 											ngx_req_set_header("Accept-Encoding", "") --disable gzip
 											ngx_exit(t[3])
 										end
 									else
 										for i=1, #header_value do
-											if string_lower(header_value[i]) == t[2] then
+											if string_match(string_lower(header_value[i]), string_lower(t[2])) then
 												ngx_req_set_header("Accept-Encoding", "") --disable gzip
 												ngx_exit(t[3])
 											end
@@ -2299,16 +2935,16 @@ local function anti_ddos()
 						end
 					end
 
-					if #v[25] > 0 then
-						for i=1,#v[25] do
-							if string_lower(ngx.var.request_method) == string_lower(v[25][i][1]) then
+					if #v[26] > 0 then
+						for i=1,#v[26] do
+							if string_lower(ngx.var.request_method) == string_lower(v[26][i][1]) then
 								ngx_req_set_header("Accept-Encoding", "") --disable gzip
-								ngx_exit(v[25][i][2])
+								ngx_exit(v[26][i][2])
 							end
 						end
 					end
 
-					if v[26] < 1 then --disable gzip option
+					if v[27] < 1 then --disable gzip option
 						ngx_req_set_header("Accept-Encoding", "") --disable gzip
 					end
 
@@ -3385,6 +4021,9 @@ local function check_ip_whitelist(ip_table)
 				local output = ngx_exit(ngx_OK) --Go to content
 				return output
 			end
+		end
+		if ip_whitelist_block_mode == 1 then --ip address not matched the above
+			return ngx_exit(ngx.HTTP_CLOSE) --deny user access
 		end
 	end
 
