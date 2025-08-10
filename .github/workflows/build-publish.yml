@@ -23,10 +23,8 @@ jobs:
         run: |
           SCRIPT_VERSION=$(sed -n 's/^Script Version: //p' lua/anti_ddos_challenge.lua)
           echo "script_version=$SCRIPT_VERSION" >> $GITHUB_OUTPUT
-          SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
-          DATE=$(date +'%Y%m%d')
-          TAG="$DATE_$SHORT_SHA"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+          echo "tag=$TIMESTAMP" >> $GITHUB_OUTPUT
 
       - name: Generate changelog
         run: bash .github/scripts/generate-changelog.sh
