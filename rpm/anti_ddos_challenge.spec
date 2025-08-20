@@ -66,6 +66,12 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Wed Aug 20 2025 C0nw0nk <C0nw0nk@github> - 1.1-1
+- Added Feature Content-Type Caching using ngx.location.capture
+- This is the same as `proxy_cache` or `fastcgi_cache` in nginx just more features and better.
+- Added Feature HTML modification / Modify you can capture and modify pages outputs with this includding adding javascript to pages etc.
+- Added Feature option for users who have other scripts on their nginx server to be able to run those after this. `ngx_exit` trigger.
+- Fixed the shdict check i left it as a string `tostring` and a true or false check was not working properly.
 * Sat Aug 09 2025 C0nw0nk <C0nw0nk@github> - 1.0-1
 - Initial packaging (RPM and DEB) for anti_ddos_challenge.lua created and maintained by C0nw0nk (https://github.com/C0nw0nk)
 * Sat Aug 09 2025 C0nw0nk <C0nw0nk@github> - 1.0-1
