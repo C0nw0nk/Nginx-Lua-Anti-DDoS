@@ -1,6 +1,6 @@
-
 --[[
 Introduction and details :
+Script Version: 1.0
 
 Copyright Conor McKnight
 
