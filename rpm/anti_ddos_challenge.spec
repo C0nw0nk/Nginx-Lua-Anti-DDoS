@@ -68,3 +68,5 @@ fi
 %changelog
 * Sat Aug 09 2025 C0nw0nk <C0nw0nk@github> - 1.0-1
 - Initial packaging (RPM and DEB) for anti_ddos_challenge.lua created and maintained by C0nw0nk (https://github.com/C0nw0nk)
+* Sat Aug 09 2025 C0nw0nk <C0nw0nk@github> - 1.0-1
+- Initial packaging (RPM and DEB) for anti_ddos_challenge.lua created and maintained by C0nw0nk (https://github.com/C0nw0nk)
