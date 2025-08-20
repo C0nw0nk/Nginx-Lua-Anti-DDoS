@@ -8,3 +8,8 @@ nginx-lua-anti-ddos-challenge (1.0-1) stable; urgency=medium
 
  -- C0nw0nk <C0nw0nk@github>  Sat, 09 Aug 2025 00:00:00 +0000
 
+nginx-lua-anti-ddos-challenge (1.0-1) stable; urgency=medium
+  - Initial packaging (RPM and DEB) for anti_ddos_challenge.lua created and maintained by C0nw0nk (https://github.com/C0nw0nk)
+
+ -- C0nw0nk <C0nw0nk@github>  Sat, 09 Aug 2025 00:00:00 +0000
+
