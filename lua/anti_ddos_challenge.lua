@@ -4686,7 +4686,7 @@ local function grant_access()
 	--our start date cookie
 	local cookie_name_start_date_name = "cookie_" .. cookie_name_start_date
 	local cookie_name_start_date_value = ngx_var[cookie_name_start_date_name] or "0" --Added a 0, since a missing 'cookie_name_start_date_name' value in ngx_var resulted in 502
-	local cookie_name_start_date_value_unix = tonumber(cookie_name_start_date_value)
+	local cookie_name_start_date_value_unix = tonumber(cookie_name_start_date_value) or 0 --Header which was not empty but had a string in it would break this conversion.
 	--our end date cookie
 	local cookie_name_end_date_name = "cookie_" .. cookie_name_end_date
 	local cookie_name_end_date_value = ngx_var[cookie_name_end_date_name] or "0" --Just to make sure it doesnt fail somewhere
