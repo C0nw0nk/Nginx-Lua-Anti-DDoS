@@ -1,4 +1,4 @@
-Version:1.1
+Version: 1.1
 Date: 2025-08-20
 - Added Feature Content-Type Caching using ngx.location.capture
 - This is the same as `proxy_cache` or `fastcgi_cache` in nginx just more features and better.
