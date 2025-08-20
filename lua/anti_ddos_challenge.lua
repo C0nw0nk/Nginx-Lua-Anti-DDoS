@@ -1,6 +1,7 @@
+
 --[[
 Introduction and details :
-Script Version: 1.0
+Script Version: 1.1
 
 Copyright Conor McKnight
 
@@ -57,6 +58,7 @@ local string_gsub = string.gsub
 local string_format = string.format
 local string_byte = string.byte
 local bit_bxor = bit.bxor
+local ngx = ngx
 local ngx_re_gsub = ngx.re.gsub
 local ngx_hmac_sha1 = ngx.hmac_sha1
 local ngx_encode_base64 = ngx.encode_base64
@@ -79,19 +81,19 @@ local ngx_HTTP_FORBIDDEN = ngx.HTTP_FORBIDDEN
 local ngx_HTTP_UNAUTHORIZED = ngx.HTTP_UNAUTHORIZED
 local ngx_HTTP_NO_CONTENT = ngx.HTTP_NO_CONTENT
 local ngx_OK = ngx.OK
-local ngx_var_http_cf_connecting_ip = ngx.var.http_cf_connecting_ip
-local ngx_var_http_x_forwarded_for = ngx.var.http_x_forwarded_for
-local ngx_var_remote_addr = ngx.var.remote_addr
-local ngx_var_http_user_agent = ngx.var.http_user_agent
+local ngx_var_http_cf_connecting_ip = ngx_var.http_cf_connecting_ip
+local ngx_var_http_x_forwarded_for = ngx_var.http_x_forwarded_for
+local ngx_var_remote_addr = ngx_var.remote_addr
+local ngx_var_http_user_agent = ngx_var.http_user_agent
 local ngx_log = ngx.log
 -- https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#nginx-log-level-constants
 local ngx_LOG_TYPE = ngx.STDERR
 local os_time_saved = os_time()-24*60*60
-local ngx_var_connection_requests = ngx.var.connection_requests or 0 --default timeout per connection in nginx is 60 seconds unless you have changed your timeout configs
-local ngx_var_request_length = ngx.var.request_length or 0
-local scheme = ngx.var.scheme --scheme is HTTP or HTTPS
-local host = ngx.var.host --host is website domain name
-local request_uri = ngx.var.request_uri or "" --request uri is full URL link including query strings and arguements
+local ngx_var_connection_requests = ngx_var.connection_requests or 0 --default timeout per connection in nginx is 60 seconds unless you have changed your timeout configs
+local ngx_var_request_length = ngx_var.request_length or 0
+local scheme = ngx_var.scheme --scheme is HTTP or HTTPS
+local host = ngx_var.host --host is website domain name
+local request_uri = ngx_var.request_uri or "/" --request uri is full URL link including query strings and arguements
 local URL = scheme .. "://" .. host .. request_uri
 local user_agent = ngx_var_http_user_agent or "" --user agent of browser
 local currenttime = ngx_time() --Current time on server
@@ -210,7 +212,7 @@ local anti_ddos_table = {
 		ngx.shared.ddos_counter, --this zone is for the total number of ips in the list that are currently blocked
 
 		--Unique identifyer to use IP address works well but set this to Auto if you expect proxy traffic like from cloudflare
-		--ngx.var.binary_remote_addr, --if you use binary remote addr and the antiddos shared address is 10m in size you can store 160k ip addresses before you need to increase the memory dedicated
+		--ngx_var.binary_remote_addr, --if you use binary remote addr and the antiddos shared address is 10m in size you can store 160k ip addresses before you need to increase the memory dedicated
 		"auto", --auto is best but use binary above instead if you want
 
 		--Automatic I am Under Attack Mode - authentication puzzle to automatically enable when ddos detected
@@ -277,6 +279,108 @@ local anti_ddos_table = {
 		1, --0 disable 1 enable - automatically disable compression for all users if ddos attack detected if more than number of IPs end up in the ban list the server will prevent cpu intensive tasks like compression to stay online.
 
 	},
+}
+
+--[[
+This is the equivilant of proxy_cache or fastcgi_cache Just better.
+lua_shared_dict html_cache 10m; #HTML pages cache
+lua_shared_dict mp4_cache 300m; #video mp4 cache
+
+as a example with php you can do this and STATIC pages ARE cached and DYNAMIC content for logged in users will NOT be cached.
+<?php
+
+//Just change the code for your CMS / APP Joomla / Drupal etc have plenty of examples.
+if($user->guest = 1){
+//User in not logged in is a guest
+$cookie_name = "logged_in";
+$cookie_value = "0";
+setcookie($cookie_name, $cookie_value, time() + (86400 * 30), "/"); // 86400 = 1 day
+}
+else
+{
+//User is logged in
+$cookie_name = "logged_in";
+$cookie_value = "1";
+setcookie($cookie_name, $cookie_value, time() + (86400 * 30), "/"); // 86400 = 1 day
+}
+?>
+]]
+local content_cache = {
+	--[[
+	{
+		".*", --regex match any site / path
+		"text/html", --content-type valid types are text/css text/javascript
+		--lua_shared_dict html_cache 10m; #HTML pages cache
+		ngx.shared.html_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict html_cache 10m; #HTML pages cache
+		60, --ttl for cache or ""
+		1, --enable logging 1 to enable 0 to disable
+		{200,206,}, --response status codes to cache
+		{"GET",}, --request method to cache
+		{ --bypass cache on cookie
+			{
+				"logged_in", --cookie name
+				"1", --cookie value
+				0, --0 guest user cache only 1 both guest and logged in user cache useful if logged_in cookie is present then cache key will include cookies
+			},
+			--{"name1","value1",},
+		}, --bypass cache on cookie
+		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
+		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
+		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
+		request_uri, --url to use you can do "/index.html", as an example request_uri is best.
+		false, --true to use lua resty.http library if exist if you set this to true you can change request_uri above to "https://www.google.com/", as an example.
+		{ --Content Modifier Modification/Minification / Minify HTML output
+			--Usage :
+			--Regex, Replacement
+			--Text, Replacement
+			--You can use this to alter contents of the page output.
+			--Example :
+			--{"replace me", " with me! ",},
+			--{"</head>", "<script type='text/javascript' src='../jquery.min.js'></script></head>",} --inject javascript into html page
+			--{"<!--[^>]-->", "",}, --remove nulled out html example !! I DO NOT RECOMMEND REMOVING COMMENTS, THIS COULD BREAK YOUR ENTIRE WEBSITE FOR OLD BROWSERS, BE AWARE
+			--{"(//[^.*]*.\n)", "",}, -- Example: this //will remove //comments (result: this remove)
+			--{"(/%*[^*]*%*/)", "",}, -- Example: this /*will*/ remove /*comments*/ (result: this remove)
+			--{"<style>(.*)%/%*(.*)%*%/(.*)</style>", "<style>%1%3</style>",},
+			--{"<script>(.*)%/%*(.*)%*%/(.*)</script>", "<script>%1%3</script>",},
+			--{"%s%s+", "",}, --remove blank characters from html
+			--{"[ \t]+$", "",}, --remove break lines (execution order of regex matters keep this last)
+			--{"<!%-%-[^%[]-->", "",},
+			--{"%s%s+", " ",},
+			--{"\n\n*", " ",},
+			--{"\n*$", ""},
+		},
+		"", --1e+6, --Maximum content size to cache in bytes 1e+6 = 1MB content larger than this wont be cached empty string "" to skip
+		"", --Minimum content size to cache in bytes content smaller than this wont be cached empty string "" to skip
+		{"content-type","content-range","content-length","etag","last-modified","set-cookie",}, --headers
+	},
+	{
+		".*", --regex match any site / path
+		"video/mp4", --content-type valid types are text/css text/javascript
+		--lua_shared_dict html_cache 10m; #HTML pages cache
+		ngx.shared.mp4_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict mp4_cache 10m; #video mp4 cache
+		60, --ttl for cache or ""
+		1, --enable logging 1 to enable 0 to disable
+		{200,206,}, --response status codes to cache
+		{"GET",}, --request method to cache
+		{ --bypass cache on cookie
+			{
+				"logged_in", --cookie name
+				"1", --cookie value
+				0, --0 guest user cache only 1 both guest and logged in user cache useful if logged_in cookie is present then cache key will include cookies
+			},
+			--{"name1","value1",},
+		}, --bypass cache on cookie
+		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
+		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
+		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
+		request_uri, --url to use you can do "/index.html", as an example request_uri is best.
+		false, --true to use lua resty.http library if exist if you set this to true you can change request_uri above to "https://www.google.com/", as an example.
+		"", --content modified not needed for this format
+		4e+7, --Maximum content size to cache in bytes 1e+6 = 1MB, 1e+7 = 10MB, 1e+8 = 100MB, 1e+9 = 1GB content larger than this wont be cached empty string "" to skip
+		200000, --200kb --Minimum content size to cache in bytes content smaller than this wont be cached empty string "" to skip
+		{"content-type","content-range","content-length","etag","last-modified","set-cookie",}, --headers
+	},
+	]]
 }
 
 --[[
@@ -1572,6 +1676,13 @@ local log_on_granted_text_start = "[Grant] IP : "
 local log_on_granted_text_end = " - Solved the puzzle"
 
 --[[
+useful for developers who do not want to trigger a exit status and do more things in other scripts.
+true = ngx_exit(ngx_OK) --Go to content
+false = nothing the script will run down to the end of the file and nginx will continue normally going to the next script on the server
+]]
+local exit_status = true --true or false
+
+--[[
 End Configuration
 
 
@@ -1592,7 +1703,7 @@ Begin Required Functions
 local function anti_ddos()
 	local pcall = pcall
 	local require = require
-	local shdict = tostring(pcall(require, "resty.core.shdict")) --check if resty core shdict function exists will be true or false
+	local shdict = pcall(require, "resty.core.shdict") --check if resty core shdict function exists will be true or false
 
 	--Slowhttp / Slowloris attack detection
 	local function check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table, logging_value)
@@ -1657,7 +1768,7 @@ local function anti_ddos()
 		end
 
 		--Detect slow request time
-		local request_time = ngx.var.request_time
+		local request_time = ngx_var.request_time
 		if request_time and tonumber(request_time) > timeout then
 			if logging_value == 1 then
 				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Slow request time exceeded timeout.")
@@ -2670,7 +2781,7 @@ local function anti_ddos()
 		local key = "r" .. ip --set identifyer as r and ip for to not use up to much memory
 		local count, err = "" --create locals to use
 
-		if not shdict then --backwards compatibility for lua
+		if shdict then --backwards compatibility for lua
 			count, err = request_limit:incr(key, 1, 0, rate_limit_window)
 			if not count then
 				if logging == 1 then
@@ -2700,7 +2811,7 @@ local function anti_ddos()
 				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Rate limit exceeded, IP blocked: " .. ip .. " (" .. count .. " requests)")
 			end
 
-			if not shdict then --backwards compatibility for lua
+			if shdict then --backwards compatibility for lua
 				local incr, err = ddos_counter:incr("blocked_ip", 1, 0, rate_limit_window)
 				if not incr then
 					if logging == 1 then
@@ -2777,7 +2888,7 @@ local function anti_ddos()
 						elseif ngx_var_http_x_forwarded_for ~= nil then
 							ip = ngx_var_http_x_forwarded_for
 						else
-							ip = ngx.var.binary_remote_addr
+							ip = ngx_var.binary_remote_addr
 						end
 					end
 
@@ -2802,7 +2913,7 @@ local function anti_ddos()
 							ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
 						end
 
-						if not shdict then --backwards compatibility for lua
+						if shdict then --backwards compatibility for lua
 							local incr, err = ddos_counter:incr("blocked_ip", 1, 0, rate_limit_window)
 							if not incr then
 								ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] TOTAL IN SHARED error: " .. err)
@@ -2871,7 +2982,7 @@ local function anti_ddos()
 
 					if #v[26] > 0 then
 						for i=1,#v[26] do
-							if string_lower(ngx.var.request_method) == string_lower(v[26][i][1]) then
+							if string_lower(ngx_var.request_method) == string_lower(v[26][i][1]) then
 								if v[26][i][3] > 0 then
 									blocked_addr:set(ip, currenttime, block_duration)
 								end
@@ -2937,7 +3048,7 @@ local function anti_ddos()
 
 					if #v[26] > 0 then
 						for i=1,#v[26] do
-							if string_lower(ngx.var.request_method) == string_lower(v[26][i][1]) then
+							if string_lower(ngx_var.request_method) == string_lower(v[26][i][1]) then
 								ngx_req_set_header("Accept-Encoding", "") --disable gzip
 								ngx_exit(v[26][i][2])
 							end
@@ -2972,7 +3083,21 @@ local function getRandomSeed()
 	return math_floor(e)
 end
 
---local function run_checks() --nested function
+local function run_checks() --nested function
+
+	local master_exit_var = 0
+	local function master_exit()
+		master_exit_var = 1
+		--return ngx_exit(ngx_OK) --Go to content
+		return ""
+	end
+	--master_exit()
+	--[[
+	if master_exit_var == 1 then
+		return
+	end
+	]]
+
 --[[
 Add to your nginx config http://nginx.org/en/docs/ngx_core_module.html#pcre_jit
 
@@ -3093,7 +3218,7 @@ local function query_string_remove_args()
 			end
 		end
 		if modified == 1 then --need to set our args as our new modified one
-			ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
+			ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check ngx_var.args
 		else
 			return --carry on script functions
 		end
@@ -3137,7 +3262,7 @@ local function query_string_expected_args_only()
 			end
 		end
 		if modified == 1 then --need to set our args as our new modified one
-			ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
+			ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check ngx_var.args
 		else
 			return --carry on script functions
 		end
@@ -3170,7 +3295,7 @@ local function query_string_sort()
 		if allow_site == 2 then --sort our query string
 			local args = ngx_req_get_uri_args() --grab our query string args and put them into a table
 			table_sort(args) --sort our query string args table into order
-			ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
+			ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check ngx_var.args
 		else --allow_site was 1
 			return --carry on script functions
 		end
@@ -3884,8 +4009,7 @@ local function WAF_Post_Requests()
 						arguement2 = 1
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-						local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
-						return output
+						return ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
 					end
 				end
 			end
@@ -3925,8 +4049,7 @@ local function WAF_Header_Requests()
 						arguement2 = 1
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-						local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
-						return output
+						return ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
 					end
 				end
 			end
@@ -3966,8 +4089,7 @@ local function WAF_query_string_Request()
 						arguement2 = 1
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-						local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
-						return output
+						return ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
 					end
 				end
 			end
@@ -3983,7 +4105,7 @@ local function WAF_URI_Request()
 	if #WAF_URI_Request_table > 0 then --Check Post filter table has rules inside it
 
 		--[[
-		Because ngx.var.uri is a bit stupid I strip the query string of the request uri.
+		Because ngx_var.uri is a bit stupid I strip the query string of the request uri.
 		The reason for this it is subject to normalisation
 		Consecutive / characters are replace by a single / 
 		and URL encoded characters are decoded 
@@ -3996,8 +4118,7 @@ local function WAF_URI_Request()
 			local v = WAF_URI_Request_table[i]
 			if string_match(URL, v[1]) then --if our host matches one in the table
 				if string_match(args, v[2]) then
-					local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
-					return output
+					return ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
 				end
 			end
 		end
@@ -4009,79 +4130,63 @@ end
 WAF_Checks()
 
 local function check_ips()
---function to check if ip address is whitelisted to bypass our auth
-local function check_ip_whitelist(ip_table)
-	if #ip_table > 0 then
-		for i=1,#ip_table do
-			local value = ip_table[i]
-			if value == ip_whitelist_remote_addr then --if our ip address matches with one in the whitelist
-				local output = ngx_exit(ngx_OK) --Go to content
-				return output
-			elseif ip_address_in_range(value, ip_whitelist_remote_addr) == true then
-				local output = ngx_exit(ngx_OK) --Go to content
-				return output
+	--function to check if ip address is whitelisted to bypass our auth
+	local function check_ip_whitelist(ip_table)
+		if #ip_table > 0 then
+			for i=1,#ip_table do
+				local value = ip_table[i]
+				if value == ip_whitelist_remote_addr then --if our ip address matches with one in the whitelist
+					return master_exit() --Go to content
+				elseif ip_address_in_range(value, ip_whitelist_remote_addr) == true then
+					return master_exit() --Go to content
+				end
+			end
+			if ip_whitelist_block_mode == 1 then --ip address not matched the above
+				return ngx_exit(ngx.HTTP_CLOSE) --deny user access
 			end
 		end
-		if ip_whitelist_block_mode == 1 then --ip address not matched the above
-			return ngx_exit(ngx.HTTP_CLOSE) --deny user access
-		end
+
+		return --no ip was in the whitelist
+	end
+	check_ip_whitelist(ip_whitelist) --run whitelist check function
+
+	if master_exit_var == 1 then
+		return --exit from check_ips() function
 	end
 
-	return --no ip was in the whitelist
-end
-check_ip_whitelist(ip_whitelist) --run whitelist check function
-
-local function check_ip_blacklist(ip_table)
-	if #ip_table > 0 then
-		for i=1,#ip_table do
-			local value = ip_table[i]
-			if value == ip_blacklist_remote_addr then
-				local output = ngx_exit(ngx.HTTP_CLOSE) --deny user access
-				return output
-			elseif ip_address_in_range(value, ip_blacklist_remote_addr) == true then
-				local output = ngx_exit(ngx.HTTP_CLOSE) --deny user access
-				return output
+	local function check_ip_blacklist(ip_table)
+		if #ip_table > 0 then
+			for i=1,#ip_table do
+				local value = ip_table[i]
+				if value == ip_blacklist_remote_addr then
+					return ngx_exit(ngx.HTTP_CLOSE) --deny user access
+				elseif ip_address_in_range(value, ip_blacklist_remote_addr) == true then
+					return ngx_exit(ngx.HTTP_CLOSE) --deny user access
+				end
 			end
 		end
-	end
 
-	return --no ip was in blacklist
-end
-check_ip_blacklist(ip_blacklist) --run blacklist check function
+		return --no ip was in blacklist
+	end
+	check_ip_blacklist(ip_blacklist) --run blacklist check function
 end
 check_ips()
 
+if master_exit_var == 1 then
+return --exit from run_checks() function
+end
+
 local function check_user_agents()
-local function check_user_agent_blacklist(user_agent_table)
-	if #user_agent_table > 0 then
-		local req_headers = ngx_req_get_headers()
-		local user_agent_blacklist_var = req_headers["user-agent"] or ""
-		if user_agent_blacklist_var then
-			if type(user_agent_blacklist_var) ~= "table" then
-				for i=1,#user_agent_table do
-					local value = user_agent_table[i]
-					if value[2] == 1 then --case insensative
-						user_agent_blacklist_var = string_lower(user_agent_blacklist_var)
-						value[1] = string_lower(value[1])
-					end
-					if value[2] == 2 then --case sensative
-					end
-					if value[2] == 3 then --regex case sensative
-					end
-					if value[2] == 4 then --regex lower case insensative
-						user_agent_blacklist_var = string_lower(user_agent_blacklist_var)
-					end
-					if string_match(user_agent_blacklist_var, value[1])then
-						local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
-						return output
-					end
-				end
-			else
-				for x=1, #user_agent_blacklist_var do
+	local function check_user_agent_blacklist(user_agent_table)
+		if #user_agent_table > 0 then
+			local req_headers = ngx_req_get_headers()
+			local user_agent_blacklist_var = req_headers["user-agent"] or ""
+			if user_agent_blacklist_var then
+				if type(user_agent_blacklist_var) ~= "table" then
 					for i=1,#user_agent_table do
 						local value = user_agent_table[i]
 						if value[2] == 1 then --case insensative
-							user_agent_blacklist_var[x] = string_lower(user_agent_blacklist_var[x])
+							user_agent_blacklist_var = string_lower(user_agent_blacklist_var)
 							value[1] = string_lower(value[1])
 						end
 						if value[2] == 2 then --case sensative
@@ -4089,52 +4194,50 @@ local function check_user_agent_blacklist(user_agent_table)
 						if value[2] == 3 then --regex case sensative
 						end
 						if value[2] == 4 then --regex lower case insensative
-							user_agent_blacklist_var[x] = string_lower(user_agent_blacklist_var[x])
+							user_agent_blacklist_var = string_lower(user_agent_blacklist_var)
 						end
-						if string_match(user_agent_blacklist_var[x], value[1])then
-							local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
-							return output
+						if string_match(user_agent_blacklist_var, value[1])then
+							return ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
+						end
+					end
+				else
+					for x=1, #user_agent_blacklist_var do
+						for i=1,#user_agent_table do
+							local value = user_agent_table[i]
+							if value[2] == 1 then --case insensative
+								user_agent_blacklist_var[x] = string_lower(user_agent_blacklist_var[x])
+								value[1] = string_lower(value[1])
+							end
+							if value[2] == 2 then --case sensative
+							end
+							if value[2] == 3 then --regex case sensative
+							end
+							if value[2] == 4 then --regex lower case insensative
+								user_agent_blacklist_var[x] = string_lower(user_agent_blacklist_var[x])
+							end
+							if string_match(user_agent_blacklist_var[x], value[1])then
+								return ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
+							end
 						end
 					end
 				end
 			end
 		end
+
+		return --no user agent was in blacklist
 	end
+	check_user_agent_blacklist(user_agent_blacklist_table) --run user agent blacklist check function
 
-	return --no user agent was in blacklist
-end
-check_user_agent_blacklist(user_agent_blacklist_table) --run user agent blacklist check function
-
-local function check_user_agent_whitelist(user_agent_table)
-	if #user_agent_table > 0 then
-		local req_headers = ngx_req_get_headers()
-		local user_agent_whitelist_var = req_headers["user-agent"] or ""
-		if user_agent_whitelist_var then
-			if type(user_agent_whitelist_var) ~= "table" then
-				for i=1,#user_agent_table do
-					local value = user_agent_table[i]
-					if value[2] == 1 then --case insensative
-						user_agent_whitelist_var = string_lower(user_agent_whitelist_var)
-						value[1] = string_lower(value[1])
-					end
-					if value[2] == 2 then --case sensative
-					end
-					if value[2] == 3 then --regex case sensative
-					end
-					if value[2] == 4 then --regex lower case insensative
-						user_agent_whitelist_var = string_lower(user_agent_whitelist_var)
-					end
-					if string_match(user_agent_whitelist_var, value[1])then
-						local output = ngx_exit(ngx_OK) --Go to content
-						return output
-					end
-				end
-			else
-				for x=1, #user_agent_whitelist_var do
+	local function check_user_agent_whitelist(user_agent_table)
+		if #user_agent_table > 0 then
+			local req_headers = ngx_req_get_headers()
+			local user_agent_whitelist_var = req_headers["user-agent"] or ""
+			if user_agent_whitelist_var then
+				if type(user_agent_whitelist_var) ~= "table" then
 					for i=1,#user_agent_table do
 						local value = user_agent_table[i]
 						if value[2] == 1 then --case insensative
-							user_agent_whitelist_var[x] = string_lower(user_agent_whitelist_var[x])
+							user_agent_whitelist_var = string_lower(user_agent_whitelist_var)
 							value[1] = string_lower(value[1])
 						end
 						if value[2] == 2 then --case sensative
@@ -4142,23 +4245,47 @@ local function check_user_agent_whitelist(user_agent_table)
 						if value[2] == 3 then --regex case sensative
 						end
 						if value[2] == 4 then --regex lower case insensative
-							user_agent_whitelist_var[x] = string_lower(user_agent_whitelist_var[x])
+							user_agent_whitelist_var = string_lower(user_agent_whitelist_var)
 						end
-						if string_match(user_agent_whitelist_var[x], value[1])then
-							local output = ngx_exit(ngx_OK) --Go to content
-							return output
+						if string_match(user_agent_whitelist_var, value[1])then
+							return master_exit() --Go to content
+						end
+					end
+				else
+					for x=1, #user_agent_whitelist_var do
+						for i=1,#user_agent_table do
+							local value = user_agent_table[i]
+							if value[2] == 1 then --case insensative
+								user_agent_whitelist_var[x] = string_lower(user_agent_whitelist_var[x])
+								value[1] = string_lower(value[1])
+							end
+							if value[2] == 2 then --case sensative
+							end
+							if value[2] == 3 then --regex case sensative
+							end
+							if value[2] == 4 then --regex lower case insensative
+								user_agent_whitelist_var[x] = string_lower(user_agent_whitelist_var[x])
+							end
+							if string_match(user_agent_whitelist_var[x], value[1])then
+								return master_exit() --Go to content
+							end
 						end
 					end
 				end
 			end
 		end
-	end
 
-	return --no user agent was in whitelist
-end
-check_user_agent_whitelist(user_agent_whitelist_table) --run user agent whitelist check function
+		return --no user agent was in whitelist
+	end
+	check_user_agent_whitelist(user_agent_whitelist_table) --run user agent whitelist check function
+	if master_exit_var == 1 then
+		return --exit from check_user_agents() function
+	end
 end
 check_user_agents()
+if master_exit_var == 1 then
+return --exit from run_checks() function
+end
 
 -- Seed the randomness with our custom seed
 math_randomseed(getRandomSeed())
@@ -4479,8 +4606,7 @@ end
 
 --block tor function to block traffic from tor users
 local function blocktor()
-	local output = ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
-	return output
+	return ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
 end
 
 --check the connecting client to see if they have our required matching tor cookie name in their request
@@ -4538,7 +4664,7 @@ local function check_authorization(authorization, authorization_dynamic)
 		local cookie_value = ngx_var[cookie_name] or ""
 		expected_cookie_value = calculate_signature(remote_addr .. "authenticate" .. currentdate) --encrypt our expected cookie value
 		if cookie_value == expected_cookie_value then --cookie value client gave us matches what we expect it to be
-			ngx_exit(ngx_OK) --Go to content
+			master_exit() --Go to content
 		end
 	end
 
@@ -4608,7 +4734,7 @@ local function check_authorization(authorization, authorization_dynamic)
 	end
 
 	if allow_access == 1 then
-		ngx_exit(ngx_OK) --Go to content
+		master_exit() --Go to content
 	else
 		ngx_status = ngx_HTTP_UNAUTHORIZED --send client unathorized header
 		if authorization_display_user_details == 0 then
@@ -4623,6 +4749,9 @@ check_authorization(authorization, authorization_dynamic)
 --[[
 Authorization / Restricted Access Area Box
 ]]
+if master_exit_var == 1 then
+return --exit from run_checks() function
+end
 
 --[[
 master switch
@@ -4630,8 +4759,7 @@ master switch
 --master switch check
 local function check_master_switch()
 	if master_switch == 2 then --script disabled
-		local output = ngx_exit(ngx_OK) --Go to content
-		return output
+		return master_exit() --Go to content
 	end
 	if master_switch == 3 then --custom host selection
 		local allow_site = nil
@@ -4648,8 +4776,7 @@ local function check_master_switch()
 			end
 		end
 		if allow_site == 1 then --checks passed site allowed grant direct access
-			local output = ngx_exit(ngx_OK) --Go to content
-			return output
+			return master_exit() --Go to content
 		else --allow_site was 2 to disallow direct access we matched a host to protect
 			return --carry on script functions to display auth page
 		end
@@ -4659,6 +4786,9 @@ check_master_switch()
 --[[
 master switch
 ]]
+if master_exit_var == 1 then
+return --exit from run_checks() function
+end
 
 local answer = calculate_signature(remote_addr) --create our encrypted unique identification for the user visiting the website.
 local JsPuzzleAnswer = calculateAnswer(answer) -- Localize the answer to be used further
@@ -4686,7 +4816,7 @@ local function grant_access()
 	--our start date cookie
 	local cookie_name_start_date_name = "cookie_" .. cookie_name_start_date
 	local cookie_name_start_date_value = ngx_var[cookie_name_start_date_name] or "0" --Added a 0, since a missing 'cookie_name_start_date_name' value in ngx_var resulted in 502
-	local cookie_name_start_date_value_unix = tonumber(cookie_name_start_date_value) or 0 --Header which was not empty but had a string in it would break this conversion.
+	local cookie_name_start_date_value_unix = tonumber(cookie_name_start_date_value) or 0
 	--our end date cookie
 	local cookie_name_end_date_name = "cookie_" .. cookie_name_end_date
 	local cookie_name_end_date_value = ngx_var[cookie_name_end_date_name] or "0" --Just to make sure it doesnt fail somewhere
@@ -4766,8 +4896,7 @@ local function grant_access()
 		ngx_log(ngx_LOG_TYPE,  log_on_granted_text_start .. remote_addr .. log_on_granted_text_end)
 	end
 
-	local output = ngx_exit(ngx_OK) --Go to content
-	return output
+	return master_exit() --Go to content
 end
 --grant_access()
 
@@ -4776,6 +4905,10 @@ End Required Functions
 ]]
 
 grant_access() --perform checks to see if user can access the site or if they will see our denial of service status below
+
+if master_exit_var == 1 then
+return --exit from run_checks() function
+end
 
 if log_users_on_puzzle == 1 then
 	ngx_log(ngx_LOG_TYPE,  log_on_puzzle_text_start .. remote_addr .. log_on_puzzle_text_end)
@@ -5080,5 +5213,657 @@ ngx_status = authentication_page_status_output
 ngx_say(anti_ddos_html_output)
 ngx_exit(ngx_HTTP_OK)
 
---end
---run_checks() --nest function to prevent function at line 1 has more than 200 local variables and function at line X has more than X upvalues just my way of putting locals inside functions to get around the 200 limit
+end
+run_checks() --nest function to prevent function at line 1 has more than 200 local variables and function at line X has more than X upvalues just my way of putting locals inside functions to get around the 200 limit
+
+if content_cache == nil or #content_cache == 0 then
+	if exit_status then
+		ngx_exit(ngx_OK) --Go to content
+	end
+end
+
+if content_cache ~= nil and #content_cache > 0 then
+
+local function minification(content_type_list)
+	for i=1,#content_type_list do
+		if string_match(URL, content_type_list[i][1]) then --if our host matches one in the table
+			if content_type_list[i][10] == 1 then
+				ngx_header["X-Cache-Status"] = "MISS"
+			end
+
+			local request_method_match = 0
+			local cookie_match = 0
+			local request_uri_match = 0
+			if content_type_list[i][7] ~= "" then
+				for a=1, #content_type_list[i][7] do
+					if ngx_var.request_method == content_type_list[i][7][a] then
+						request_method_match = 1
+						break
+					end
+				end
+				if request_method_match == 0 then
+					if content_type_list[i][5] == 1 then
+						ngx_log(ngx_LOG_TYPE, "request method not matched")
+					end
+					--goto end_for_loop
+				end
+			end
+			if content_type_list[i][8] ~= "" then
+				local guest_or_logged_in = 0
+				for a=1, #content_type_list[i][8] do
+					local cookie_name = content_type_list[i][8][a][1]
+					local cookie_value = content_type_list[i][8][a][2]
+					guest_or_logged_in = content_type_list[i][8][a][3]
+					local cookie_exist = ngx_var["cookie_" .. cookie_name] or ""
+					if cookie_exist then
+						if string_match(cookie_exist, cookie_value ) then
+							cookie_match = 1
+							break
+						end
+					end
+				end
+				if cookie_match == 1 then
+					if content_type_list[i][5] == 1 then
+						ngx_log(ngx_LOG_TYPE, "cookie matched so bypass")
+					end
+					if guest_or_logged_in == 0 then --if guest user cache only then bypass cache for logged in users
+						--goto end_for_loop
+					end
+				end
+			end
+			if content_type_list[i][9] ~= "" then
+				for a=1, #content_type_list[i][9] do
+					if string_match(request_uri, content_type_list[i][9][a] ) then
+						request_uri_match = 1
+						break
+					end
+				end
+				if request_uri_match == 1 then
+					if content_type_list[i][5] == 1 then
+						ngx_log(ngx_LOG_TYPE, "request uri matched so bypass")
+					end
+					--goto end_for_loop
+				end
+			end
+
+			if request_method_match == 1 and cookie_match == 0 and request_uri_match == 0 then
+
+				--I use this to override the status output
+				local function response_status_match(resstatus)
+					--ngx_log(ngx_LOG_TYPE, " res status is " .. tostring(resstatus) )
+					if resstatus == 100 then
+						return ngx.HTTP_CONTINUE --(100)
+					end
+					if resstatus == 101 then
+						return ngx.HTTP_SWITCHING_PROTOCOLS --(101)
+					end
+					if resstatus == 200 then
+						return ngx.HTTP_OK --(200)
+					end
+					if resstatus == 201 then
+						return ngx.HTTP_CREATED --(201)
+					end
+					if resstatus == 202 then
+						return ngx.HTTP_ACCEPTED --(202)
+					end
+					if resstatus == 204 then
+						return ngx.HTTP_NO_CONTENT --(204)
+					end
+					if resstatus == 206 then
+						return ngx.HTTP_PARTIAL_CONTENT --(206)
+					end
+					if resstatus == 300 then
+						return ngx.HTTP_SPECIAL_RESPONSE --(300)
+					end
+					if resstatus == 301 then
+						return ngx.HTTP_MOVED_PERMANENTLY --(301)
+					end
+					if resstatus == 302 then
+						return ngx.HTTP_MOVED_TEMPORARILY --(302)
+					end
+					if resstatus == 303 then
+						return ngx.HTTP_SEE_OTHER --(303)
+					end
+					if resstatus == 304 then
+						return ngx.HTTP_NOT_MODIFIED --(304)
+					end
+					if resstatus == 307 then
+						return ngx.HTTP_TEMPORARY_REDIRECT --(307)
+					end
+					if resstatus == 308 then
+						return ngx.HTTP_PERMANENT_REDIRECT --(308)
+					end
+					if resstatus == 400 then
+						return ngx.HTTP_BAD_REQUEST --(400)
+					end
+					if resstatus == 401 then
+						return ngx.HTTP_UNAUTHORIZED --(401)
+					end
+					if resstatus == 402 then
+						return ngx.HTTP_PAYMENT_REQUIRED --(402)
+					end
+					if resstatus == 403 then
+						return ngx.HTTP_FORBIDDEN --(403)
+					end
+					if resstatus == 404 then
+						return ngx.OK --override lua error attempt to set status 404 via ngx.exit after sending out the response status 200
+						--return ngx.HTTP_NOT_FOUND --(404)
+					end
+					if resstatus == 405 then
+						return ngx.HTTP_NOT_ALLOWED --(405)
+					end
+					if resstatus == 406 then
+						return ngx.HTTP_NOT_ACCEPTABLE --(406)
+					end
+					if resstatus == 408 then
+						return ngx.HTTP_REQUEST_TIMEOUT --(408)
+					end
+					if resstatus == 409 then
+						return ngx.HTTP_CONFLICT --(409)
+					end
+					if resstatus == 410 then
+						return ngx.HTTP_GONE --(410)
+					end
+					if resstatus == 426 then
+						return ngx.HTTP_UPGRADE_REQUIRED --(426)
+					end
+					if resstatus == 429 then
+						return ngx.HTTP_TOO_MANY_REQUESTS --(429)
+					end
+					if resstatus == 444 then
+						return ngx.HTTP_CLOSE --(444)
+					end
+					if resstatus == 451 then
+						return ngx.HTTP_ILLEGAL --(451)
+					end
+					if resstatus == 500 then
+						return ngx.HTTP_INTERNAL_SERVER_ERROR --(500)
+					end
+					if resstatus == 501 then
+						return ngx.HTTP_NOT_IMPLEMENTED --(501)
+					end
+					if resstatus == 501 then
+						return ngx.HTTP_METHOD_NOT_IMPLEMENTED --(501)
+					end
+					if resstatus == 502 then
+						return ngx.HTTP_BAD_GATEWAY --(502)
+					end
+					if resstatus == 503 then
+						return ngx.HTTP_SERVICE_UNAVAILABLE --(503)
+					end
+					if resstatus == 504 then
+						return ngx.HTTP_GATEWAY_TIMEOUT --(504)
+					end
+					if resstatus == 505 then
+						return ngx.HTTP_VERSION_NOT_SUPPORTED --(505)
+					end
+					if resstatus == 507 then
+						return ngx.HTTP_INSUFFICIENT_STORAGE --(507)
+					end
+					--If none of above just pass the numeric status back
+					return resstatus
+				end
+
+				local map = {
+					GET = ngx.HTTP_GET,
+					HEAD = ngx.HTTP_HEAD,
+					PUT = ngx.HTTP_PUT,
+					POST = ngx.HTTP_POST,
+					DELETE = ngx.HTTP_DELETE,
+					OPTIONS = ngx.HTTP_OPTIONS,
+					MKCOL= ngx.HTTP_MKCOL,
+					COPY = ngx.HTTP_COPY,
+					MOVE = ngx.HTTP_MOVE,
+					PROPFIND = ngx.HTTP_PROPFIND,
+					PROPPATCH = ngx.HTTP_PROPPATCH,
+					LOCK = ngx.HTTP_LOCK,
+					UNLOCK = ngx.HTTP_UNLOCK,
+					PATCH = ngx.HTTP_PATCH,
+					TRACE = ngx.HTTP_TRACE,
+					--CONNECT = ngx.HTTP_CONNECT, --does not exist but put here never know in the future
+				}
+				ngx.req.read_body()
+				local request_body = ngx.req.get_body_data()
+				local request_body_file = ""
+				if not request_body then
+					local file = ngx.req.get_body_file()
+					if file then
+						request_body_file = file
+					end
+				end
+				if request_body_file ~= "" then
+					local fh, err = io.open(request_body_file, "rb")
+					if err then
+						ngx_status = ngx.HTTP_INTERNAL_SERVER_ERROR
+						ngx_log(ngx_LOG_TYPE, "error reading request_body_file:", err)
+						return
+						--goto end_for_loop
+					end
+					request_body = fh:read("*all")
+					fh:close()
+				end
+				local req_headers = ngx_req_get_headers() --get all request headers
+
+				local cached = content_type_list[i][3] or ""
+				if cached ~= "" then
+					local ttl = content_type_list[i][4] or ""
+					local cookie_string = ""
+					if cookie_match == 1 then
+						local cookies = req_headers["cookie"] or "" --for dynamic pages
+						if type(cookies) ~= "table" then
+							--ngx_log(ngx_LOG_TYPE, " cookies are string ")
+							cookie_string = cookies
+						else
+							--ngx_log(ngx_LOG_TYPE, " cookies are table ")
+							for t=1, #cookies do
+								cookie_string = cookie_string .. cookies[t]
+							end
+						end
+					end
+					--ngx_log(ngx_LOG_TYPE, " cookies are " .. cookie_string)
+					local key = scheme .. "://" .. host .. content_type_list[i][12] .. cookie_string
+
+					local content_type_cache = cached:get("content-type"..key) or nil
+
+					if content_type_cache == nil then
+						if #content_type_list[i][6] > 0 then
+
+							local pcall = pcall
+							local require = require
+							local restyhttp = pcall(require, "resty.http") --check if resty http library exists will be true or false
+							if restyhttp and content_type_list[i][13] then
+								local httpc = require("resty.http").new()
+								local res = httpc:request_uri(content_type_list[i][12], {
+									method = map[ngx_var.request_method],
+									body = request_body, --ngx_var.request_body,
+									headers = req_headers,
+								})
+								if res then
+									for z=1, #content_type_list[i][6] do
+										if #res.body > 0 and res.status == content_type_list[i][6][z] then
+											local output_minified = res.body
+
+											local content_type_header_match = 0
+											if res.headers ~= nil and type(res.headers) == "table" then
+												for headerName, header in next, res.headers do
+													--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
+													if string_lower(tostring(headerName)) == "content-type" then
+														if string_match(header, content_type_list[i][2]) == nil then
+															--goto end_for_loop
+															content_type_header_match = 1
+														end
+													end
+												end
+											end
+
+											if content_type_header_match == 0 then
+
+												local file_size_bigger = 0
+												if content_type_list[i][15] ~= "" and #output_minified > content_type_list[i][15] then
+													if content_type_list[i][5] == 1 then
+														ngx_log(ngx_LOG_TYPE, " File size bigger than maximum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][15] )
+													end
+													--goto end_for_loop
+													file_size_bigger = 1
+												end
+
+												local file_size_smaller = 0
+												if content_type_list[i][16] ~= "" and #output_minified < content_type_list[i][16] then
+													if content_type_list[i][5] == 1 then
+														ngx_log(ngx_LOG_TYPE, " File size smaller than minimum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][16] )
+													end
+													--goto end_for_loop
+													file_size_smaller = 1
+												end
+
+												if file_size_bigger == 0 and file_size_smaller == 0 then
+
+													if content_type_list[i][14] ~= "" and #content_type_list[i][14] > 0 then
+														for x=1,#content_type_list[i][14] do
+															output_minified = string_gsub(output_minified, content_type_list[i][14][x][1], content_type_list[i][14][x][2])
+														end --end foreach regex check
+													end
+
+													if content_type_list[i][5] == 1 then
+														ngx_log(ngx_LOG_TYPE, " Page not yet cached or ttl has expired so putting into cache " )
+													end
+													ngx_header.content_type = content_type_list[i][2]
+													if content_type_list[i][10] == 1 then
+														ngx_header["X-Cache-Status"] = "UPDATING"
+													end
+													if content_type_list[i][11] == 1 and cookie_match == 0 then
+														ngx_header["Set-Cookie"] = nil
+													end
+													cached:set(key, output_minified, ttl)
+													cached:set("s"..key, res.status, ttl)
+													if res.headers ~= nil and type(res.headers) == "table" then
+														for headerName, header in next, res.headers do
+															local header_original = headerName --so we do not make the header all lower case on insert
+															if content_type_list[i][17] ~= "" or #content_type_list[i][17] > 0 then
+																for a=1, #content_type_list[i][17] do
+																	if string_lower(tostring(header_original)) == string_lower(content_type_list[i][17][a]) then
+																		cached:set(string_lower(tostring(header_original))..key, header, ttl)
+																	end
+																end
+															end
+															--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
+															ngx_header[headerName] = header
+														end
+													end
+													ngx_header["Content-Length"] = #output_minified
+													--ngx_status = res.status
+													ngx_status = response_status_match(res.status)
+													ngx_say(output_minified)
+													ngx_exit(response_status_match(content_type_list[i][6][z]))
+													--ngx_exit(content_type_list[i][6][z])
+													break
+												end --file size bigger and smaller
+											end
+										end
+									end
+								end --end if res
+
+							else
+
+								local res = ngx.location.capture(content_type_list[i][12], {
+								method = map[ngx_var.request_method],
+								body = request_body, --ngx_var.request_body,
+								args = "",
+								headers = req_headers,
+								})
+								if res then
+									for z=1, #content_type_list[i][6] do
+										if #res.body > 0 and res.status == content_type_list[i][6][z] then
+											local output_minified = res.body
+
+											local content_type_header_match = 0
+											if res.header ~= nil and type(res.header) == "table" then
+												for headerName, header in next, res.header do
+													--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
+													if string_lower(tostring(headerName)) == "content-type" then
+														if string_match(header, content_type_list[i][2]) == nil then
+															--goto end_for_loop
+															content_type_header_match = 1
+														end
+													end
+												end
+											end
+
+											if content_type_header_match == 0 then
+
+												local file_size_bigger = 0
+												if content_type_list[i][15] ~= "" and #output_minified > content_type_list[i][15] then
+													if content_type_list[i][5] == 1 then
+														ngx_log(ngx_LOG_TYPE, " File size bigger than maximum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][15] )
+													end
+													--goto end_for_loop
+													file_size_bigger = 1
+												end
+
+												local file_size_smaller = 0
+												if content_type_list[i][16] ~= "" and #output_minified < content_type_list[i][16] then
+													if content_type_list[i][5] == 1 then
+														ngx_log(ngx_LOG_TYPE, " File size smaller than minimum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][16] )
+													end
+													--goto end_for_loop
+													file_size_smaller = 1
+												end
+
+												if file_size_bigger == 0 and file_size_smaller == 0 then
+
+													if content_type_list[i][14] ~= "" and #content_type_list[i][14] > 0 then
+														for x=1,#content_type_list[i][14] do
+															output_minified = string_gsub(output_minified, content_type_list[i][14][x][1], content_type_list[i][14][x][2])
+														end --end foreach regex check
+													end
+
+													if content_type_list[i][5] == 1 then
+														ngx_log(ngx_LOG_TYPE, " Page not yet cached or ttl has expired so putting into cache " )
+													end
+													ngx_header.content_type = content_type_list[i][2]
+													if content_type_list[i][10] == 1 then
+														ngx_header["X-Cache-Status"] = "UPDATING"
+													end
+													if content_type_list[i][11] == 1 and cookie_match == 0 then
+														ngx_header["Set-Cookie"] = nil
+													end
+													cached:set(key, output_minified, ttl)
+													cached:set("s"..key, res.status, ttl)
+													if res.header ~= nil and type(res.header) == "table" then
+														for headerName, header in next, res.header do
+															local header_original = headerName --so we do not make the header all lower case on insert
+															if content_type_list[i][17] ~= "" or #content_type_list[i][17] > 0 then
+																for a=1, #content_type_list[i][17] do
+																	if string_lower(tostring(header_original)) == string_lower(content_type_list[i][17][a]) then
+																		cached:set(string_lower(tostring(header_original))..key, header, ttl)
+																	end
+																end
+															end
+															--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
+															ngx_header[headerName] = header
+														end
+													end
+													ngx_header["Content-Length"] = #output_minified
+													--ngx_status = res.status
+													ngx_status = response_status_match(res.status)
+													ngx_say(output_minified)
+													ngx_exit(response_status_match(content_type_list[i][6][z]))
+													--ngx_exit(content_type_list[i][6][z])
+													break
+												end --file size bigger and smaller
+											end
+										end
+									end
+								end --end if res
+							end
+						end
+
+					else --if content_type_cache == nil then
+
+						if content_type_cache and string_match(content_type_cache, content_type_list[i][2]) then
+
+							if content_type_list[i][5] == 1 then
+								ngx_log(ngx_LOG_TYPE, " Served from cache " )
+							end
+
+							local output_minified = cached:get(key)
+							local res_status = cached:get("s"..key)
+
+							ngx_header.content_type = content_type_list[i][2]
+							if content_type_list[i][10] == 1 then
+								ngx_header["X-Cache-Status"] = "HIT"
+							end
+							if content_type_list[i][11] == 1 and cookie_match == 0 then
+								ngx_header["Set-Cookie"] = nil
+							end
+							if content_type_list[i][17] ~= "" or #content_type_list[i][17] > 0 then
+								for a=1, #content_type_list[i][17] do
+									local header_name = string_lower(content_type_list[i][17][a])
+									local check_header = cached:get(header_name..key) or nil
+									if check_header ~= nil then
+										--ngx_log(ngx_LOG_TYPE, " check_header " .. check_header )
+										ngx_header[header_name] = check_header
+									end
+								end
+							end
+							ngx_header["Content-Length"] = #output_minified
+							--ngx_status = res_status
+							ngx_status = response_status_match(res_status)
+							ngx_say(output_minified)
+							ngx_exit(response_status_match(res_status))
+							--ngx_exit(res_status)
+
+						end
+					end --if content_type_cache == nil then
+
+				else --shared mem zone not specified
+					if #content_type_list[i][6] > 0 then
+						--[[]]
+						local pcall = pcall
+						local require = require
+						local restyhttp = pcall(require, "resty.http") --check if resty http library exists will be true or false
+						if restyhttp and content_type_list[i][13] then
+							local httpc = require("resty.http").new()
+							local res = httpc:request_uri(content_type_list[i][12], {
+								method = map[ngx_var.request_method],
+								body = request_body, --ngx_var.request_body,
+								headers = req_headers,
+							})
+							if res then
+								for z=1, #content_type_list[i][6] do
+									if #res.body > 0 and res.status == content_type_list[i][6][z] then
+										local output_minified = res.body
+
+										local content_type_header_match = 0
+										if res.headers ~= nil and type(res.headers) == "table" then
+											for headerName, header in next, res.headers do
+												--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
+												if string_lower(tostring(headerName)) == "content-type" then
+													if string_match(header, content_type_list[i][2]) == nil then
+														--goto end_for_loop
+														content_type_header_match = 1
+													end
+												end
+											end
+										end
+
+										if content_type_header_match == 0 then
+
+											local file_size_bigger = 0
+											if content_type_list[i][15] ~= "" and #output_minified > content_type_list[i][15] then
+												if content_type_list[i][5] == 1 then
+													ngx_log(ngx_LOG_TYPE, " File size bigger than maximum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][15] )
+												end
+												--goto end_for_loop
+												file_size_bigger = 1
+											end
+
+											local file_size_smaller = 0
+											if content_type_list[i][16] ~= "" and #output_minified < content_type_list[i][16] then
+												if content_type_list[i][5] == 1 then
+													ngx_log(ngx_LOG_TYPE, " File size smaller than minimum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][16] )
+												end
+												--goto end_for_loop
+												file_size_smaller = 1
+											end
+
+											if file_size_bigger == 0 and file_size_smaller == 0 then
+
+												if content_type_list[i][14] ~= "" and #content_type_list[i][14] > 0 then
+													for x=1,#content_type_list[i][14] do
+														output_minified = string_gsub(output_minified, content_type_list[i][14][x][1], content_type_list[i][14][x][2])
+													end --end foreach regex check
+												end
+
+												if content_type_list[i][11] == 1 and cookie_match == 0 then
+													ngx_header["Set-Cookie"] = nil
+												end
+												if res.headers ~= nil and type(res.headers) == "table" then
+													for headerName, header in next, res.headers do
+														--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
+														ngx_header[headerName] = header
+													end
+												end
+												ngx_header["Content-Length"] = #output_minified
+												--ngx_status = res.status
+												ngx_status = response_status_match(res.status)
+												ngx_say(output_minified)
+												ngx_exit(response_status_match(content_type_list[i][6][z]))
+												--ngx_exit(content_type_list[i][6][z])
+												break
+											end --file size bigger and smaller
+										end
+									end
+								end
+							end --end if res
+
+						else
+						--[[]]
+
+							local res = ngx.location.capture(content_type_list[i][12], {
+							method = map[ngx_var.request_method],
+							body = request_body, --ngx_var.request_body,
+							args = "",
+							headers = req_headers,
+							})
+							if res then
+								for z=1, #content_type_list[i][6] do
+									if #res.body > 0 and res.status == content_type_list[i][6][z] then
+										local output_minified = res.body
+
+										local content_type_header_match = 0
+										if res.header ~= nil and type(res.header) == "table" then
+											for headerName, header in next, res.header do
+												--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
+												if string_lower(tostring(headerName)) == "content-type" then
+													if string_match(header, content_type_list[i][2]) == nil then
+														--goto end_for_loop
+														content_type_header_match = 1
+													end
+												end
+											end
+										end
+
+										if content_type_header_match == 0 then
+
+											local file_size_bigger = 0
+											if content_type_list[i][15] ~= "" and #output_minified > content_type_list[i][15] then
+												if content_type_list[i][5] == 1 then
+													ngx_log(ngx_LOG_TYPE, " File size bigger than maximum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][15] )
+												end
+												--goto end_for_loop
+												file_size_bigger = 1
+											end
+
+											local file_size_smaller = 0
+											if content_type_list[i][16] ~= "" and #output_minified < content_type_list[i][16] then
+												if content_type_list[i][5] == 1 then
+													ngx_log(ngx_LOG_TYPE, " File size smaller than minimum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][16] )
+												end
+												--goto end_for_loop
+												file_size_smaller = 1
+											end
+
+											if file_size_bigger == 0 and file_size_smaller == 0 then
+
+												if content_type_list[i][14] ~= "" and #content_type_list[i][14] > 0 then
+													for x=1,#content_type_list[i][14] do
+														output_minified = string_gsub(output_minified, content_type_list[i][14][x][1], content_type_list[i][14][x][2])
+													end --end foreach regex check
+												end
+
+												if content_type_list[i][11] == 1 and cookie_match == 0 then
+													ngx_header["Set-Cookie"] = nil
+												end
+												if res.header ~= nil and type(res.header) == "table" then
+													for headerName, header in next, res.header do
+														--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
+														ngx_header[headerName] = header
+													end
+												end
+												ngx_header["Content-Length"] = #output_minified
+												--ngx_status = res.status
+												ngx_status = response_status_match(res.status)
+												ngx_say(output_minified)
+												ngx_exit(response_status_match(content_type_list[i][6][z]))
+												--ngx_exit(content_type_list[i][6][z])
+												break
+											end --file size bigger and smaller
+										end
+									end
+								end
+							end --end if res
+						end
+					end
+
+					--break --break out loop
+
+				end --end shared mem zone
+			end --if request_method_match == 1 and cookie_match == 0 and request_uri_match == 0 then
+		end --end if URL match check
+		--::end_for_loop::
+	end --end content_type foreach mime type table check
+end --end minification function
+
+minification(content_cache)
+end
