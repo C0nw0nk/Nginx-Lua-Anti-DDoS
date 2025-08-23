@@ -1,3 +1,10 @@
+Version: 1.2
+Date: 2025-08-23
+- Fixed both guest and logged in user cache
+- Fixed POST request caching
+- Change default value to false in-case other scripts are present on the Nginx server to be executed after this script.
+- Improved content cache key so it works with other request types like POST etc
+
 Version: 1.1
 Date: 2025-08-20
 - Added Feature Content-Type Caching using ngx.location.capture
