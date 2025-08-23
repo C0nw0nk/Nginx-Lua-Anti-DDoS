@@ -1,7 +1,7 @@
 local os_clock = os.clock()
 --[[
 Introduction and details :
-Script Version: 1.1
+Script Version: 1.2
 
 Copyright Conor McKnight
 
@@ -318,11 +318,11 @@ local content_cache = {
 		{"GET",}, --request method to cache
 		{ --bypass cache on cookie
 			{
-				"logged_in", --cookie name
-				"1", --cookie value
+				"logged_in", --cookie name regex ".*" for any cookie
+				"1", --cookie value ".*" for any value
 				0, --0 guest user cache only 1 both guest and logged in user cache useful if logged_in cookie is present then cache key will include cookies
 			},
-			--{"name1","value1",},
+			--{"name1","value1",0,},
 		}, --bypass cache on cookie
 		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
@@ -351,24 +351,24 @@ local content_cache = {
 		},
 		"", --1e+6, --Maximum content size to cache in bytes 1e+6 = 1MB content larger than this wont be cached empty string "" to skip
 		"", --Minimum content size to cache in bytes content smaller than this wont be cached empty string "" to skip
-		{"content-type","content-range","content-length","etag","last-modified","set-cookie",}, --headers
+		{"content-type","content-range","content-length","etag","last-modified","set-cookie",}, --headers you can use this to specify what headers you want to keep on your cache HIT/UPDATING output
 	},
 	{
 		".*", --regex match any site / path
 		"video/mp4", --content-type valid types are text/css text/javascript
-		--lua_shared_dict html_cache 10m; #HTML pages cache
-		ngx.shared.mp4_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict mp4_cache 10m; #video mp4 cache
+		--lua_shared_dict mp4_cache 300m; #video mp4 cache
+		ngx.shared.mp4_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict mp4_cache 300m; #video mp4 cache
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
 		{200,206,}, --response status codes to cache
 		{"GET",}, --request method to cache
 		{ --bypass cache on cookie
 			{
-				"logged_in", --cookie name
-				"1", --cookie value
+				"logged_in", --cookie name ".*" for any cookie
+				"1", --cookie value ".*" for any value
 				0, --0 guest user cache only 1 both guest and logged in user cache useful if logged_in cookie is present then cache key will include cookies
 			},
-			--{"name1","value1",},
+			--{"name1","value1",0,},
 		}, --bypass cache on cookie
 		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
@@ -378,7 +378,7 @@ local content_cache = {
 		"", --content modified not needed for this format
 		4e+7, --Maximum content size to cache in bytes 1e+6 = 1MB, 1e+7 = 10MB, 1e+8 = 100MB, 1e+9 = 1GB content larger than this wont be cached empty string "" to skip
 		200000, --200kb --Minimum content size to cache in bytes content smaller than this wont be cached empty string "" to skip
-		{"content-type","content-range","content-length","etag","last-modified","set-cookie",}, --headers
+		{"content-type","content-range","content-length","etag","last-modified","set-cookie",}, --headers you can use this to specify what headers you want to keep on your cache HIT/UPDATING output
 	},
 	]]
 }
@@ -1680,7 +1680,7 @@ useful for developers who do not want to trigger a exit status and do more thing
 true = ngx_exit(ngx_OK) --Go to content
 false = nothing the script will run down to the end of the file and nginx will continue normally going to the next script on the server
 ]]
-local exit_status = true --true or false
+local exit_status = false --true or false
 
 --[[
 End Configuration
@@ -5234,6 +5234,7 @@ local function minification(content_type_list)
 
 			local request_method_match = 0
 			local cookie_match = 0
+			local guest_or_logged_in = 0
 			local request_uri_match = 0
 			if content_type_list[i][7] ~= "" then
 				for a=1, #content_type_list[i][7] do
@@ -5243,32 +5244,38 @@ local function minification(content_type_list)
 					end
 				end
 				if request_method_match == 0 then
-					if content_type_list[i][5] == 1 then
-						ngx_log(ngx_LOG_TYPE, "request method not matched")
-					end
+					--if content_type_list[i][5] == 1 then
+						--ngx_log(ngx_LOG_TYPE, "request method not matched")
+					--end
 					--goto end_for_loop
 				end
 			end
 			if content_type_list[i][8] ~= "" then
-				local guest_or_logged_in = 0
 				for a=1, #content_type_list[i][8] do
 					local cookie_name = content_type_list[i][8][a][1]
 					local cookie_value = content_type_list[i][8][a][2]
-					guest_or_logged_in = content_type_list[i][8][a][3]
 					local cookie_exist = ngx_var["cookie_" .. cookie_name] or ""
 					if cookie_exist then
 						if string_match(cookie_exist, cookie_value ) then
 							cookie_match = 1
+							if content_type_list[i][8][a][3] == 1 then
+								guest_or_logged_in = 1
+							end
 							break
 						end
 					end
 				end
 				if cookie_match == 1 then
-					if content_type_list[i][5] == 1 then
-						ngx_log(ngx_LOG_TYPE, "cookie matched so bypass")
-					end
 					if guest_or_logged_in == 0 then --if guest user cache only then bypass cache for logged in users
 						--goto end_for_loop
+						--if content_type_list[i][5] == 1 then
+							--ngx_log(ngx_LOG_TYPE, " GUEST ONLY cache " .. guest_or_logged_in )
+						--end
+					else
+						--if content_type_list[i][5] == 1 then
+							--ngx_log(ngx_LOG_TYPE, " BOTH GUEST and LOGGED_IN in cache " .. guest_or_logged_in )
+						--end
+						cookie_match = 0 --set to 0
 					end
 				end
 			end
@@ -5280,9 +5287,9 @@ local function minification(content_type_list)
 					end
 				end
 				if request_uri_match == 1 then
-					if content_type_list[i][5] == 1 then
-						ngx_log(ngx_LOG_TYPE, "request uri matched so bypass")
-					end
+					--if content_type_list[i][5] == 1 then
+						--ngx_log(ngx_LOG_TYPE, "request uri matched so bypass")
+					--end
 					--goto end_for_loop
 				end
 			end
@@ -5423,6 +5430,14 @@ local function minification(content_type_list)
 					TRACE = ngx.HTTP_TRACE,
 					--CONNECT = ngx.HTTP_CONNECT, --does not exist but put here never know in the future
 				}
+
+				--[[
+				For debugging tests i have checked these and they work fine i am leaving this here for future refrence
+				curl post request test - curl.exe "http://localhost/" -H "User-Agent: testagent" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -H "Accept-Language: en-GB,en;q=0.5" -H "Accept-Encoding: gzip, deflate, br, zstd" -H "DNT: 1" -H "Connection: keep-alive" -H "Cookie: name1=1; name2=2; logged_in=1" -H "Upgrade-Insecure-Requests: 1" -H "Sec-Fetch-Dest: document" -H "Sec-Fetch-Mode: navigate" -H "Sec-Fetch-Site: none" -H "Sec-Fetch-User: ?1" -H "Priority: u=0, i" -H "Pragma: no-cache" -H "Cache-Control: no-cache" --request POST --data '{"username":"xyz","password":"xyz"}' -H "Content-Type: application/json"
+				curl post no data test - curl.exe "http://localhost/" -H "User-Agent: testagent" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -H "Accept-Language: en-GB,en;q=0.5" -H "Accept-Encoding: gzip, deflate, br, zstd" -H "DNT: 1" -H "Connection: keep-alive" -H "Cookie: name1=1; name2=2; logged_in=1" -H "Upgrade-Insecure-Requests: 1" -H "Sec-Fetch-Dest: document" -H "Sec-Fetch-Mode: navigate" -H "Sec-Fetch-Site: none" -H "Sec-Fetch-User: ?1" -H "Priority: u=0, i" -H "Pragma: no-cache" -H "Cache-Control: no-cache" --request POST -H "Content-Type: application/json"
+				
+				client_body_in_file_only on; #nginx config to test / debug on post data being stored in file incase of large post data sizes the nginx memory buffer was not big enough i turned this on to check this works as it should.
+				]]
 				ngx.req.read_body()
 				local request_body = ngx.req.get_body_data()
 				local request_body_file = ""
@@ -5431,6 +5446,8 @@ local function minification(content_type_list)
 					if file then
 						request_body_file = file
 					end
+					--client_body_in_file_only on; #nginx config to test / debug
+					--ngx_log(ngx_LOG_TYPE, " request_body_file is " .. request_body_file )
 				end
 				if request_body_file ~= "" then
 					local fh, err = io.open(request_body_file, "rb")
@@ -5443,13 +5460,17 @@ local function minification(content_type_list)
 					request_body = fh:read("*all")
 					fh:close()
 				end
+				if request_body == nil then
+					request_body = "" --set to empty string
+				end
+
 				local req_headers = ngx_req_get_headers() --get all request headers
 
 				local cached = content_type_list[i][3] or ""
 				if cached ~= "" then
 					local ttl = content_type_list[i][4] or ""
 					local cookie_string = ""
-					if cookie_match == 1 then
+					if guest_or_logged_in == 1 then
 						local cookies = req_headers["cookie"] or "" --for dynamic pages
 						if type(cookies) ~= "table" then
 							--ngx_log(ngx_LOG_TYPE, " cookies are string ")
@@ -5460,9 +5481,14 @@ local function minification(content_type_list)
 								cookie_string = cookie_string .. cookies[t]
 							end
 						end
+					else
+						req_headers["cookie"] = "" --avoid cache poisoning by removing REQUEST header cookies to ensure user is logged out when the expected logged_in cookie is missing
 					end
 					--ngx_log(ngx_LOG_TYPE, " cookies are " .. cookie_string)
-					local key = scheme .. "://" .. host .. content_type_list[i][12] .. cookie_string
+					
+					--TODO: convert cache key to a smaller storage format to use less memory for storage perhaps hex or binary etc
+					local key = ngx_var.request_method .. scheme .. "://" .. host .. content_type_list[i][12] .. cookie_string .. request_body --fastcgi_cache_key / proxy_cache_key - GET - https - :// - host - request_uri - request_header["cookie"] - request_body
+					--ngx_log(ngx_LOG_TYPE, " full cache key is " .. key)
 
 					local content_type_cache = cached:get("content-type"..key) or nil
 
@@ -5532,9 +5558,6 @@ local function minification(content_type_list)
 													if content_type_list[i][10] == 1 then
 														ngx_header["X-Cache-Status"] = "UPDATING"
 													end
-													if content_type_list[i][11] == 1 and cookie_match == 0 then
-														ngx_header["Set-Cookie"] = nil
-													end
 													cached:set(key, output_minified, ttl)
 													cached:set("s"..key, res.status, ttl)
 													if res.headers ~= nil and type(res.headers) == "table" then
@@ -5550,6 +5573,9 @@ local function minification(content_type_list)
 															--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
 															ngx_header[headerName] = header
 														end
+													end
+													if content_type_list[i][11] == 1 and guest_or_logged_in == 0 then
+														ngx_header["Set-Cookie"] = nil
 													end
 													ngx_header["Content-Length"] = #output_minified
 													--ngx_status = res.status
@@ -5625,9 +5651,6 @@ local function minification(content_type_list)
 													if content_type_list[i][10] == 1 then
 														ngx_header["X-Cache-Status"] = "UPDATING"
 													end
-													if content_type_list[i][11] == 1 and cookie_match == 0 then
-														ngx_header["Set-Cookie"] = nil
-													end
 													cached:set(key, output_minified, ttl)
 													cached:set("s"..key, res.status, ttl)
 													if res.header ~= nil and type(res.header) == "table" then
@@ -5643,6 +5666,9 @@ local function minification(content_type_list)
 															--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
 															ngx_header[headerName] = header
 														end
+													end
+													if content_type_list[i][11] == 1 and guest_or_logged_in == 0 then
+														ngx_header["Set-Cookie"] = nil
 													end
 													ngx_header["Content-Length"] = #output_minified
 													--ngx_status = res.status
@@ -5670,12 +5696,9 @@ local function minification(content_type_list)
 							local output_minified = cached:get(key)
 							local res_status = cached:get("s"..key)
 
-							ngx_header.content_type = content_type_list[i][2]
+							--ngx_header.content_type = content_type_list[i][2]
 							if content_type_list[i][10] == 1 then
 								ngx_header["X-Cache-Status"] = "HIT"
-							end
-							if content_type_list[i][11] == 1 and cookie_match == 0 then
-								ngx_header["Set-Cookie"] = nil
 							end
 							if content_type_list[i][17] ~= "" or #content_type_list[i][17] > 0 then
 								for a=1, #content_type_list[i][17] do
@@ -5686,6 +5709,9 @@ local function minification(content_type_list)
 										ngx_header[header_name] = check_header
 									end
 								end
+							end
+							if content_type_list[i][11] == 1 and guest_or_logged_in == 0 or guest_or_logged_in == 1 then
+								ngx_header["Set-Cookie"] = nil
 							end
 							ngx_header["Content-Length"] = #output_minified
 							--ngx_status = res_status
@@ -5756,15 +5782,15 @@ local function minification(content_type_list)
 													end --end foreach regex check
 												end
 
-												if content_type_list[i][11] == 1 and cookie_match == 0 then
-													ngx_header["Set-Cookie"] = nil
-												end
 												if res.headers ~= nil and type(res.headers) == "table" then
 													for headerName, header in next, res.headers do
 														--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
 														ngx_header[headerName] = header
 													end
 												end
+												--if content_type_list[i][11] == 1 and guest_or_logged_in == 0 then
+													--ngx_header["Set-Cookie"] = nil
+												--end
 												ngx_header["Content-Length"] = #output_minified
 												--ngx_status = res.status
 												ngx_status = response_status_match(res.status)
@@ -5833,15 +5859,15 @@ local function minification(content_type_list)
 													end --end foreach regex check
 												end
 
-												if content_type_list[i][11] == 1 and cookie_match == 0 then
-													ngx_header["Set-Cookie"] = nil
-												end
 												if res.header ~= nil and type(res.header) == "table" then
 													for headerName, header in next, res.header do
 														--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
 														ngx_header[headerName] = header
 													end
 												end
+												--if content_type_list[i][11] == 1 and guest_or_logged_in == 0 then
+													--ngx_header["Set-Cookie"] = nil
+												--end
 												ngx_header["Content-Length"] = #output_minified
 												--ngx_status = res.status
 												ngx_status = response_status_match(res.status)
