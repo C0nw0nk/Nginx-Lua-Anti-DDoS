@@ -66,6 +66,11 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Sat Aug 23 2025 C0nw0nk <C0nw0nk@github> - 1.2-1
+- Fixed both guest and logged in user cache
+- Fixed POST request caching
+- Change default value to false in-case other scripts are present on the Nginx server to be executed after this script.
+- Improved content cache key so it works with other request types like POST etc
 * Wed Aug 20 2025 C0nw0nk <C0nw0nk@github> - 1.1-1
 - Added Feature Content-Type Caching using ngx.location.capture
 - This is the same as `proxy_cache` or `fastcgi_cache` in nginx just more features and better.
