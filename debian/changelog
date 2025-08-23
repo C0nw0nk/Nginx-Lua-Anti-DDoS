@@ -6,6 +6,14 @@ nginx-lua-anti-ddos-challenge (1.2-1) stable; urgency=medium
 
  -- C0nw0nk <C0nw0nk@github>  Sat, 23 Aug 2025 00:00:00 +0000
 
+nginx-lua-anti-ddos-challenge (1.2-1) stable; urgency=medium
+  - Fixed both guest and logged in user cache
+  - Fixed POST request caching
+  - Change default value to false in-case other scripts are present on the Nginx server to be executed after this script.
+  - Improved content cache key so it works with other request types like POST etc
+
+ -- C0nw0nk <C0nw0nk@github>  Sat, 23 Aug 2025 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (1.1-1) stable; urgency=medium
   - Added Feature Content-Type Caching using ngx.location.capture
   - This is the same as `proxy_cache` or `fastcgi_cache` in nginx just more features and better.
