@@ -1,9 +1,0 @@
-Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: nginx-lua-anti-ddos-challenge
-Source: https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS
-
-Files: *
-Copyright: C0nw0nk
-License: MIT
-
-License: Please see /usr/share/doc/nginx-lua-anti-ddos-challenge/LICENSE
