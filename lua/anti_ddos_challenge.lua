@@ -1,6 +1,7 @@
 
 --[[
-Introduction and details :
+Introduction and details : 
+This version of the script will work with old nginx lua versions dating back to 2011 or 2015 In 2020 openresty Increased the maximum number of allowed upvalues from 60 to 120. so if you run nginx or openresty build from 2020 onwards i say use the master branch if your using older builds than 2020 use this version of the script.
 Script Version: 1.2
 
 Copyright Conor McKnight
@@ -27,78 +28,6 @@ https://www.facebook.com/C0nw0nk
 
 --[[
 Configuration :
-]]
-
---[[
-localize all standard Lua and ngx functions I use for better performance.
-]]
-local tonumber = tonumber
-local tostring = tostring
-local next = next
-local type = type
-local os_time = os.time
-local os_date = os.date
-local math_random = math.random
-local math_floor = math.floor
-local math_sin = math.sin
-local math_pow = math.pow
-local math_pi = math.pi
-local math_sqrt = math.sqrt
-local math_randomseed = math.randomseed
-local table_sort = table.sort
-local table_concat = table.concat
-local string_match = string.match
-local string_gmatch = string.gmatch
-local string_lower = string.lower
-local string_find = string.find
-local string_sub = string.sub
-local string_len = string.len
-local string_char = string.char
-local string_gsub = string.gsub
-local string_format = string.format
-local string_byte = string.byte
-local bit_bxor = bit.bxor
-local ngx = ngx
-local ngx_re_gsub = ngx.re.gsub
-local ngx_hmac_sha1 = ngx.hmac_sha1
-local ngx_encode_base64 = ngx.encode_base64
-local ngx_req_get_uri_args = ngx.req.get_uri_args
-local ngx_req_set_header = ngx.req.set_header
-local ngx_req_get_headers = ngx.req.get_headers
-local ngx_req_set_uri_args = ngx.req.set_uri_args
-local ngx_req_read_body = ngx.req.read_body
-local ngx_req_get_body_data = ngx.req.get_body_data
-local ngx_decode_args = ngx.decode_args
-local ngx_cookie_time = ngx.cookie_time
-local ngx_time = ngx.time
-local ngx_header = ngx.header
-local ngx_var = ngx.var
-local ngx_status = ngx.status
-local ngx_exit = ngx.exit
-local ngx_say = ngx.say
-local ngx_HTTP_OK = ngx.HTTP_OK
-local ngx_HTTP_FORBIDDEN = ngx.HTTP_FORBIDDEN
-local ngx_HTTP_UNAUTHORIZED = ngx.HTTP_UNAUTHORIZED
-local ngx_HTTP_NO_CONTENT = ngx.HTTP_NO_CONTENT
-local ngx_OK = ngx.OK
-local ngx_var_http_cf_connecting_ip = ngx_var.http_cf_connecting_ip
-local ngx_var_http_x_forwarded_for = ngx_var.http_x_forwarded_for
-local ngx_var_remote_addr = ngx_var.remote_addr
-local ngx_var_http_user_agent = ngx_var.http_user_agent
-local ngx_log = ngx.log
--- https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#nginx-log-level-constants
-local ngx_LOG_TYPE = ngx.STDERR
-local os_time_saved = os_time()-24*60*60
-local ngx_var_connection_requests = ngx_var.connection_requests or 0 --default timeout per connection in nginx is 60 seconds unless you have changed your timeout configs
-local ngx_var_request_length = ngx_var.request_length or 0
-local scheme = ngx_var.scheme --scheme is HTTP or HTTPS
-local host = ngx_var.host --host is website domain name
-local request_uri = ngx_var.request_uri or "/" --request uri is full URL link including query strings and arguements
-local URL = scheme .. "://" .. host .. request_uri
-local user_agent = ngx_var_http_user_agent or "" --user agent of browser
-local currenttime = ngx_time() --Current time on server
---[[
-End localization
 ]]
 
 --[[
@@ -212,7 +141,7 @@ local anti_ddos_table = {
 		ngx.shared.ddos_counter, --this zone is for the total number of ips in the list that are currently blocked
 
 		--Unique identifyer to use IP address works well but set this to Auto if you expect proxy traffic like from cloudflare
-		--ngx_var.binary_remote_addr, --if you use binary remote addr and the antiddos shared address is 10m in size you can store 160k ip addresses before you need to increase the memory dedicated
+		--ngx.var.binary_remote_addr, --if you use binary remote addr and the antiddos shared address is 10m in size you can store 160k ip addresses before you need to increase the memory dedicated
 		"auto", --auto is best but use binary above instead if you want
 
 		--Automatic I am Under Attack Mode - authentication puzzle to automatically enable when ddos detected
@@ -320,15 +249,15 @@ local content_cache = {
 			{
 				"logged_in", --cookie name regex ".*" for any cookie
 				"1", --cookie value ".*" for any value
-				0, --0 guest user cache only 1 both guest and logged in user cache useful if logged_in cookie is present then cache key will include cookies
+				1, --0 guest user cache only 1 both guest and logged in user cache useful if logged_in cookie is present then cache key will include cookies
 			},
 			--{"name1","value1",0,},
 		}, --bypass cache on cookie
 		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
 		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
-		request_uri, --url to use you can do "/index.html", as an example request_uri is best.
-		false, --true to use lua resty.http library if exist if you set this to true you can change request_uri above to "https://www.google.com/", as an example.
+		ngx.var.request_uri, --url to use you can do "/index.html", as an example ngx.var.request_uri is best.
+		false, --true to use lua resty.http library if exist if you set this to true you can change ngx.var.request_uri above to "https://www.google.com/", as an example.
 		{ --Content Modifier Modification/Minification / Minify HTML output
 			--Usage :
 			--Regex, Replacement
@@ -373,8 +302,8 @@ local content_cache = {
 		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
 		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
-		request_uri, --url to use you can do "/index.html", as an example request_uri is best.
-		false, --true to use lua resty.http library if exist if you set this to true you can change request_uri above to "https://www.google.com/", as an example.
+		ngx.var.request_uri, --url to use you can do "/index.html", as an example ngx.var.request_uri is best.
+		false, --true to use lua resty.http library if exist if you set this to true you can change ngx.var.request_uri above to "https://www.google.com/", as an example.
 		"", --content modified not needed for this format
 		4e+7, --Maximum content size to cache in bytes 1e+6 = 1MB, 1e+7 = 10MB, 1e+8 = 100MB, 1e+9 = 1GB content larger than this wont be cached empty string "" to skip
 		200000, --200kb --Minimum content size to cache in bytes content smaller than this wont be cached empty string "" to skip
@@ -382,7 +311,7 @@ local content_cache = {
 	},
 	]]
 }
-
+--do
 --[[
 This is a password that encrypts our puzzle and cookies unique to your sites and servers you should change this from the default.
 ]]
@@ -391,13 +320,13 @@ local secret = " enigma" --Signature secret key --CHANGE ME FROM DEFAULT!
 --[[
 Unique id to identify each individual user and machine trying to access your website IP address works well.
 
-ngx_var_http_cf_connecting_ip --If you proxy your traffic through cloudflare use this
-ngx_var_http_x_forwarded_for --If your traffic is proxied through another server / service.
-ngx_var_remote_addr --Users IP address
-ngx_var_http_user_agent --use this to protect Tor servers from DDoS
+ngx.var.http_cf_connecting_ip --If you proxy your traffic through cloudflare use this
+ngx.var.http_x_forwarded_for --If your traffic is proxied through another server / service.
+ngx.var.remote_addr --Users IP address
+ngx.var.http_user_agent --use this to protect Tor servers from DDoS
 
 You can combine multiple if you like. You can do so like this.
-local remote_addr = ngx_var_remote_addr .. ngx_var_http_user_agent
+local remote_addr = ngx.var.remote_addr .. ngx.var.http_user_agent
 
 remote_addr = "tor" this will mean this script will be functioning for tor users only
 remote_addr = "auto" the script will automatically get the clients IP this is the default it is the smartest and most compatible method with every service proxy etc
@@ -432,44 +361,6 @@ Timer to refresh auth page
 Time is in seconds only.
 ]]
 local refresh_auth = 5
-
---[[
-Javascript variable checks
-These custom javascript checks are to prevent our authentication javascript puzzle / question being solved by the browser if the browser is a fake ghost browser / bot etc.
-Only if the web browser does not trigger any of these or does not match conditions defined will the browser solve the authentication request.
-]]
-local JavascriptVars_opening = [[
-if(!window._phantom || !window.callPhantom){/*phantomjs*/
-if(!window.__phantomas){/*phantomas PhantomJS-based web perf metrics + monitoring tool*/
-if(!window.Buffer){/*nodejs*/
-if(!window.emit){/*couchjs*/
-if(!window.spawn){/*rhino*/
-if(!window.webdriver){/*selenium*/
-if(!window.domAutomation || !window.domAutomationController){/*chromium based automation driver*/
-if(!window.document.documentElement.getAttribute("webdriver")){
-/*if(navigator.userAgent){*/
-if(!/bot|curl|kodi|xbmc|wget|urllib|python|winhttp|httrack|alexa|ia_archiver|facebook|twitter|linkedin|pingdom/i.test(navigator.userAgent)){
-/*if(navigator.cookieEnabled){*/
-/*if(document.cookie.match(/^(?:.*;)?\s*[0-9a-f]{32}\s*=\s*([^;]+)(?:.*)?$/)){*//*HttpOnly Cookie flags prevent this*/
-]]
-
---[[
-Javascript variable blacklist
-]]
-local JavascriptVars_closing = [[
-/*}*/
-/*}*/
-}
-/*}*/
-}
-}
-}
-}
-}
-}
-}
-}
-]]
 
 --[[
 X-Auth-Header to be static or Dynamic setting this as dynamic is the best form of security
@@ -514,12 +405,12 @@ Supports IPv4 and IPv6 addresses aswell as subnet ranges
 To find all IP ranges of an ASN use : https://www.enjen.net/asn-blocklist/index.php?asn=16509&type=iplist
 ]]
 local ip_whitelist_remote_addr = "auto" --Automatically get the Clients IP address
---local ip_whitelist_remote_addr = ngx_var_remote_addr
+--local ip_whitelist_remote_addr = ngx.var.remote_addr
 local ip_whitelist_block_mode = 0 --0 whitelist acts as a bypass to puzzle auth checks 1 is to enforce only allowing whitelisted addresses access other addresses will be blocked.
 local ip_whitelist = {
 --"127.0.0.1", --localhost
 --"192.168.0.1", --localhost
---Cloudflare IP's https://www.cloudflare.com/en-gb/ips/ set block mode to 1 and local ip_whitelist_remote_addr = ngx_var_remote_addr to block all ips other than cloudflare from direct access to your server/sites.
+--Cloudflare IP's https://www.cloudflare.com/en-gb/ips/ set block mode to 1 and local ip_whitelist_remote_addr = ngx.var.remote_addr to block all ips other than cloudflare from direct access to your server/sites.
 --"173.245.48.0/20","103.21.244.0/22","103.22.200.0/22","103.31.4.0/22","141.101.64.0/18","108.162.192.0/18","190.93.240.0/20","188.114.96.0/20","197.234.240.0/22","198.41.128.0/17","162.158.0.0/15","104.16.0.0/13","104.24.0.0/14","172.64.0.0/13","131.0.72.0/22","2400:cb00::/32","2606:4700::/32","2803:f800::/32","2405:b500::/32","2405:8100::/32","2a06:98c0::/29","2c0f:f248::/32",
 }
 
@@ -550,9 +441,9 @@ local tor = 1 --Allow Tor Users
 --[[
 Unique ID to identify each individual Tor user who connects to the website
 Using their User-Agent as a static variable to latch onto works well.
-ngx_var_http_user_agent --Default
+ngx.var.http_user_agent --Default
 ]]
-local tor_remote_addr = ngx_var_http_user_agent or ""
+local tor_remote_addr = ngx.var.http_user_agent or ""
 
 --[[
 X-Tor-Header to be static or Dynamic setting this as dynamic is the best form of security
@@ -632,15 +523,6 @@ local master_switch_custom_hosts = {
 	}, --authenticate .com domains
 	]]
 }
-
---[[
-Enable/disable credits It would be nice if you would show these to help the community grow and make the internet safer for everyone
-but if not I completely understand hence why I made it a option to remove them for you.
-
-1 = enabled
-2 = disabled
-]]
-local credits = 1 --enabled by default
 
 --[[
 Javascript variables generated by the script to be static in length or Dynamic setting this as dynamic is the best form of security
@@ -1661,23 +1543,23 @@ local custom_headers = {
 Logging of users ip address
 This can be useful if you use fail2ban or banip that will read your log files
 for users who lets say fail to solve the puzzle multiple times within minutes or hours you can ban those ip addresses since you know they are bots.
-by default nginx syslog would be error.log file you can change the log type via `local ngx_LOG_TYPE =` variable
+by default nginx syslog would be error.log file you can change the log type via `local ngx.STDERR =` variable
 
 0 = Disable logging
 1 = Enable logging
 ]]
 local log_users_on_puzzle = 0
-local log_on_puzzle_text_start = "[Deny] IP : "
-local log_on_puzzle_text_end = " - Attempting to solve Auth puzzle"
+--local log_on_puzzle_text_start = "[Deny] IP : "
+--local log_on_puzzle_text_end = " - Attempting to solve Auth puzzle"
 
 
 local log_users_granted_access = 0
-local log_on_granted_text_start = "[Grant] IP : "
-local log_on_granted_text_end = " - Solved the puzzle"
+--local log_on_granted_text_start = "[Grant] IP : "
+--local log_on_granted_text_end = " - Solved the puzzle"
 
 --[[
 useful for developers who do not want to trigger a exit status and do more things in other scripts.
-true = ngx_exit(ngx_OK) --Go to content
+true = ngx.exit(ngx.OK) --Go to content
 false = nothing the script will run down to the end of the file and nginx will continue normally going to the next script on the server
 ]]
 local exit_status = false --true or false
@@ -1707,20 +1589,20 @@ local function anti_ddos()
 
 	--Slowhttp / Slowloris attack detection
 	local function check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table, logging_value)
-		local req_headers = ngx_req_get_headers()
+		local req_headers = ngx.req.get_headers()
 
 		--Expect: 100-continue Content-Length
 		local expect = req_headers["expect"]
 		if expect then
 			if type(expect) ~= "table" then
-				if expect and string_lower(expect) == "100-continue" then
+				if expect and string.lower(expect) == "100-continue" then
 					local content_length = req_headers["content-length"]
 					if content_length then
 						if type(content_length) ~= "table" then
 							local c_l = tonumber(content_length or "0")
 							if c_l > 0 and c_l < content_limit then
 								if logging_value == 1 then
-									ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Content-Length smaller than Limit.")
+									ngx.log(ngx.STDERR, "[Anti-DDoS] Content-Length smaller than Limit.")
 								end
 								return true
 							end
@@ -1729,7 +1611,7 @@ local function anti_ddos()
 								local c_l = tonumber(content_length[i] or "0")
 								if c_l > 0 and c_l < content_limit then
 									if logging_value == 1 then
-										ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Content-Length smaller than Limit.")
+										ngx.log(ngx.STDERR, "[Anti-DDoS] Content-Length smaller than Limit.")
 									end
 									return true
 								end
@@ -1739,14 +1621,14 @@ local function anti_ddos()
 				end
 			else
 				for i=1, #expect do
-					if expect[i] and string_lower(expect[i]) == "100-continue" then
+					if expect[i] and string.lower(expect[i]) == "100-continue" then
 						local content_length = req_headers["content-length"]
 						if content_length then
 							if type(content_length) ~= "table" then
 								local c_l = tonumber(content_length or "0")
 								if c_l > 0 and c_l < content_limit then
 									if logging_value == 1 then
-										ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Content-Length smaller than Limit.")
+										ngx.log(ngx.STDERR, "[Anti-DDoS] Content-Length smaller than Limit.")
 									end
 									return true
 								end
@@ -1755,7 +1637,7 @@ local function anti_ddos()
 									local c_l = tonumber(content_length[i] or "0")
 									if c_l > 0 and c_l < content_limit then
 										if logging_value == 1 then
-											ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Content-Length smaller than Limit.")
+											ngx.log(ngx.STDERR, "[Anti-DDoS] Content-Length smaller than Limit.")
 										end
 										return true
 									end
@@ -1768,10 +1650,10 @@ local function anti_ddos()
 		end
 
 		--Detect slow request time
-		local request_time = ngx_var.request_time
+		local request_time = ngx.var.request_time
 		if request_time and tonumber(request_time) > timeout then
 			if logging_value == 1 then
-				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Slow request time exceeded timeout.")
+				ngx.log(ngx.STDERR, "[Anti-DDoS] Slow request time exceeded timeout.")
 			end
 			return true
 		end
@@ -1780,44 +1662,44 @@ local function anti_ddos()
 		local connection = req_headers["connection"]
 		if connection then
 			if type(connection) ~= "table" then
-				if connection and string_lower(connection) == "keep-alive" then
+				if connection and string.lower(connection) == "keep-alive" then
 					local keep_alive = req_headers["keep-alive"]
 					if keep_alive then
 						if type(keep_alive) ~= "table" then
-							if keep_alive and string_match(keep_alive, "timeout%s*=%s*(%-?%d+)") then
-								local timeout = tonumber(string_match(keep_alive, "timeout%s*=%s*(%-?%d+)"))
+							if keep_alive and string.match(keep_alive, "timeout%s*=%s*(%-?%d+)") then
+								local timeout = tonumber(string.match(keep_alive, "timeout%s*=%s*(%-?%d+)"))
 								if timeout and timeout > connection_header_timeout then --if they send header to try to keep connection alive for more than set time
 									if logging_value == 1 then
-										ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Keep-Alive Timeout header exceeded limit.")
+										ngx.log(ngx.STDERR, "[Anti-DDoS] Keep-Alive Timeout header exceeded limit.")
 									end
 									return true
 								end
 							end
-							if keep_alive and string_match(keep_alive, "max%s*=%s*(%-?%d+)") then
-								local max_keepalive = tonumber(string_match(keep_alive, "max%s*=%s*(%-?%d+)"))
+							if keep_alive and string.match(keep_alive, "max%s*=%s*(%-?%d+)") then
+								local max_keepalive = tonumber(string.match(keep_alive, "max%s*=%s*(%-?%d+)"))
 								if max_keepalive and max_keepalive > connection_header_max_conns then --if they send header to set max connections to a ridiculous number
 									if logging_value == 1 then
-										ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Keep-Alive Max connections header exceeded limit.")
+										ngx.log(ngx.STDERR, "[Anti-DDoS] Keep-Alive Max connections header exceeded limit.")
 									end
 									return true
 								end
 							end
 						else
 							for i=1, #keep_alive do
-								if keep_alive[i] and string_match(keep_alive[i], "timeout%s*=%s*(%-?%d+)") then
-									local timeout = tonumber(string_match(keep_alive[i], "timeout%s*=%s*(%-?%d+)"))
+								if keep_alive[i] and string.match(keep_alive[i], "timeout%s*=%s*(%-?%d+)") then
+									local timeout = tonumber(string.match(keep_alive[i], "timeout%s*=%s*(%-?%d+)"))
 									if timeout and timeout > connection_header_timeout then --if they send header to try to keep connection alive for more than set time
 										if logging_value == 1 then
-											ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Keep-Alive Timeout header exceeded limit.")
+											ngx.log(ngx.STDERR, "[Anti-DDoS] Keep-Alive Timeout header exceeded limit.")
 										end
 										return true
 									end
 								end
-								if keep_alive[i] and string_match(keep_alive[i], "max%s*=%s*(%-?%d+)") then
-									local max_keepalive = tonumber(string_match(keep_alive[i], "max%s*=%s*(%-?%d+)"))
+								if keep_alive[i] and string.match(keep_alive[i], "max%s*=%s*(%-?%d+)") then
+									local max_keepalive = tonumber(string.match(keep_alive[i], "max%s*=%s*(%-?%d+)"))
 									if max_keepalive and max_keepalive > connection_header_max_conns then --if they send header to set max connections to a ridiculous number
 										if logging_value == 1 then
-											ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Keep-Alive Max connections header exceeded limit.")
+											ngx.log(ngx.STDERR, "[Anti-DDoS] Keep-Alive Max connections header exceeded limit.")
 										end
 										return true
 									end
@@ -1828,44 +1710,44 @@ local function anti_ddos()
 				end
 			else
 				for i=1, #connection do
-					if connection[i] and string_lower(connection[i]) == "keep-alive" then
+					if connection[i] and string.lower(connection[i]) == "keep-alive" then
 						local keep_alive = req_headers["keep-alive"]
 						if keep_alive then
 							if type(keep_alive) ~= "table" then
-								if keep_alive and string_match(keep_alive, "timeout%s*=%s*(%-?%d+)") then
-									local timeout = tonumber(string_match(keep_alive, "timeout%s*=%s*(%-?%d+)"))
+								if keep_alive and string.match(keep_alive, "timeout%s*=%s*(%-?%d+)") then
+									local timeout = tonumber(string.match(keep_alive, "timeout%s*=%s*(%-?%d+)"))
 									if timeout and timeout > connection_header_timeout then --if they send header to try to keep connection alive for more than set time
 										if logging_value == 1 then
-											ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Keep-Alive Timeout header exceeded limit.")
+											ngx.log(ngx.STDERR, "[Anti-DDoS] Keep-Alive Timeout header exceeded limit.")
 										end
 										return true
 									end
 								end
-								if keep_alive and string_match(keep_alive, "max%s*=%s*(%-?%d+)") then
-									local max_keepalive = tonumber(string_match(keep_alive, "max%s*=%s*(%-?%d+)"))
+								if keep_alive and string.match(keep_alive, "max%s*=%s*(%-?%d+)") then
+									local max_keepalive = tonumber(string.match(keep_alive, "max%s*=%s*(%-?%d+)"))
 									if max_keepalive and max_keepalive > connection_header_max_conns then --if they send header to set max connections to a ridiculous number
 										if logging_value == 1 then
-											ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Keep-Alive Max connections header exceeded limit.")
+											ngx.log(ngx.STDERR, "[Anti-DDoS] Keep-Alive Max connections header exceeded limit.")
 										end
 										return true
 									end
 								end
 							else
 								for i=1, #keep_alive do
-									if keep_alive[i] and string_match(keep_alive[i], "timeout%s*=%s*(%-?%d+)") then
-										local timeout = tonumber(string_match(keep_alive[i], "timeout%s*=%s*(%-?%d+)"))
+									if keep_alive[i] and string.match(keep_alive[i], "timeout%s*=%s*(%-?%d+)") then
+										local timeout = tonumber(string.match(keep_alive[i], "timeout%s*=%s*(%-?%d+)"))
 										if timeout and timeout > connection_header_timeout then --if they send header to try to keep connection alive for more than set time
 											if logging_value == 1 then
-												ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Keep-Alive Timeout header exceeded limit.")
+												ngx.log(ngx.STDERR, "[Anti-DDoS] Keep-Alive Timeout header exceeded limit.")
 											end
 											return true
 										end
 									end
-									if keep_alive[i] and string_match(keep_alive[i], "max%s*=%s*(%-?%d+)") then
-										local max_keepalive = tonumber(string_match(keep_alive[i], "max%s*=%s*(%-?%d+)"))
+									if keep_alive[i] and string.match(keep_alive[i], "max%s*=%s*(%-?%d+)") then
+										local max_keepalive = tonumber(string.match(keep_alive[i], "max%s*=%s*(%-?%d+)"))
 										if max_keepalive and max_keepalive > connection_header_max_conns then --if they send header to set max connections to a ridiculous number
 											if logging_value == 1 then
-												ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Keep-Alive Max connections header exceeded limit.")
+												ngx.log(ngx.STDERR, "[Anti-DDoS] Keep-Alive Max connections header exceeded limit.")
 											end
 											return true
 										end
@@ -1884,28 +1766,28 @@ local function anti_ddos()
 		if range then
 			if type(range) ~= "table" then
 				--Filter by what we expect a range header to be provided with
-				if ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
+				if ngx.header["content-type"] then --the content type that the user is requesting to use a range header on
 					if #range_table > 0 then
 						local whitelist_set = 0
 						local regex_g = "%s*(%-?%d+)%s*-%s*(%-?%d+)%s*[^,]+" --multi segment regex
 						local regex_m = "%s*(%-?%d+)%s*-%s*(%-?%d+)%s*" --single segment regex
 						local regex_s = "%s*(%-?%d+)%s*" --single start segment
 						local regex_c = "%s*(%-?%d+)%s*[^,]+" --single start segment comma seperated
-						local _, count = string_gsub(range, ","," , ") --fix commas
-						local _ = string_gsub(_, "%s+", "") --remove white space
-						if not string_match(_, ",$") then --if does not end in comma
+						local _, count = string.gsub(range, ","," , ") --fix commas
+						local _ = string.gsub(_, "%s+", "") --remove white space
+						if not string.match(_, ",$") then --if does not end in comma
 							_ = _ .. "," --insert comma
 						end
-						local _, count = string_gsub(_, ","," , ") --recount now that range is fixed
+						local _, count = string.gsub(_, ","," , ") --recount now that range is fixed
 						for i=1,#range_table do
 							if #range_table[i] > 0 then
 								for x=1,#range_table[i] do
 									if x == 1 then
 										if range_table[i][x] ~= "" then
-											if string_match(ngx_header["content-type"], range_table[i][x]) then
+											if string.match(ngx.header["content-type"], range_table[i][x]) then
 												if range_whitelist_blacklist == 0 then --0 blacklist 1 whitelist
 													if logging_value == 1 then
-														ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Blacklist match " .. range_table[i][x] )
+														ngx.log(ngx.STDERR, "[Anti-DDoS] Blacklist match " .. range_table[i][x] )
 													end
 													--range header prohibited block request
 													return true
@@ -1921,7 +1803,7 @@ local function anti_ddos()
 											if count and tonumber(count) > 1 then
 												if tonumber(count) > range_table[i][x] then
 													if logging_value == 1 then
-														ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Max MultiPart range Occurances exceeded: " .. count )
+														ngx.log(ngx.STDERR, "[Anti-DDoS] Max MultiPart range Occurances exceeded: " .. count )
 													end
 													return true
 												end
@@ -1933,52 +1815,52 @@ local function anti_ddos()
 											if count and tonumber(count) > 1 then
 												--for each segment
 												local rcount = 0
-												for start_byte, end_byte in string_gmatch(_, regex_g) do
+												for start_byte, end_byte in string.gmatch(_, regex_g) do
 													rcount = rcount+1
 													if start_byte and tonumber(start_byte) > tonumber(range_table[i][3]) and tonumber(start_byte) < tonumber(range_table[i][4]) then
 														if logging_value == 1 then
-															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+															ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
 														end
 														return true
 													end
 													if end_byte and tonumber(end_byte) > tonumber(range_table[i][3]) and tonumber(end_byte) < tonumber(range_table[i][4]) then
 														if logging_value == 1 then
-															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
+															ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
 														end
 														return true
 													end
 												end
 												if rcount == 0 then
-													for start_byte in string_gmatch(_, regex_c) do
+													for start_byte in string.gmatch(_, regex_c) do
 														if start_byte and tonumber(start_byte) > tonumber(range_table[i][3]) and tonumber(start_byte) < tonumber(range_table[i][4]) then
 															if logging_value == 1 then
-																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+																ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
 															end
 															return true
 														end
 													end
 												end
 											else
-												local start_byte, end_byte = string_match(_, regex_m)
+												local start_byte, end_byte = string.match(_, regex_m)
 												if start_byte or end_byte then
 													if start_byte and tonumber(start_byte) > tonumber(range_table[i][3]) and tonumber(start_byte) < tonumber(range_table[i][4]) then
 														if logging_value == 1 then
-															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+															ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
 														end
 														return true
 													end
 													if end_byte and tonumber(end_byte) > tonumber(range_table[i][3]) and tonumber(end_byte) < tonumber(range_table[i][4]) then
 														if logging_value == 1 then
-															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte )
+															ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value end = " .. end_byte )
 														end
 														return true
 													end
 												else
-													local start_byte = string_match(_, regex_s)
+													local start_byte = string.match(_, regex_s)
 													if start_byte then
 														if start_byte and tonumber(start_byte) > tonumber(range_table[i][3]) and tonumber(start_byte) < tonumber(range_table[i][4]) then
 															if logging_value == 1 then
-																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+																ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
 															end
 															return true
 														end
@@ -1989,9 +1871,9 @@ local function anti_ddos()
 									end
 									if x == 5 then
 										if range_table[i][x] ~= "" then
-											if not string_match(_, range_table[i][x]) then --string match specified unit or block
+											if not string.match(_, range_table[i][x]) then --string match specified unit or block
 												if logging_value == 1 then
-													ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Not using acceptable Unit type " .. range_table[i][x])
+													ngx.log(ngx.STDERR, "[Anti-DDoS] Not using acceptable Unit type " .. range_table[i][x])
 												end
 												--not using bytes block request not following standards https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Range
 												--curl -H "Range: bits=0-199, 120-200" http://localhost/video.mp4 --output "C:\Videos" -H "User-Agent: testagent"
@@ -2001,9 +1883,9 @@ local function anti_ddos()
 									end
 									if x == 6 then --illegal chars
 										if range_table[i][x] ~= "" then
-											if string_gsub(_, range_table[i][x], "") ~= "" then
+											if string.gsub(_, range_table[i][x], "") ~= "" then
 												if logging_value == 1 then
-													ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range header contains illegal chars " .. _ )
+													ngx.log(ngx.STDERR, "[Anti-DDoS] Range header contains illegal chars " .. _ )
 												end
 												return true
 											end
@@ -2014,52 +1896,52 @@ local function anti_ddos()
 											if count and tonumber(count) > 1 then
 												--for each segment
 												local rcount = 0
-												for start_byte, end_byte in string_gmatch(_, regex_g) do
+												for start_byte, end_byte in string.gmatch(_, regex_g) do
 													rcount = rcount+1
 													if start_byte and tonumber(start_byte) < tonumber(range_table[i][x]) then
 														if logging_value == 1 then
-															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+															ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
 														end
 														return true
 													end
 													if end_byte and tonumber(end_byte) < tonumber(range_table[i][x]) then
 														if logging_value == 1 then
-															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
+															ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
 														end
 														return true
 													end
 												end
 												if rcount == 0 then
-													for start_byte in string_gmatch(_, regex_c) do
+													for start_byte in string.gmatch(_, regex_c) do
 														if start_byte and tonumber(start_byte) < tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+																ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
 															end
 															return true
 														end
 													end
 												end
 											else
-												local start_byte, end_byte = string_match(_, regex_m)
+												local start_byte, end_byte = string.match(_, regex_m)
 												if start_byte or end_byte then
 													if start_byte and tonumber(start_byte) < tonumber(range_table[i][x]) then
 														if logging_value == 1 then
-															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte )
+															ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value start = " .. start_byte )
 														end
 														return true
 													end
 													if end_byte and tonumber(end_byte) < tonumber(range_table[i][x]) then
 														if logging_value == 1 then
-															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte )
+															ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value end = " .. end_byte )
 														end
 														return true
 													end
 												else
-													local start_byte = string_match(_, regex_s)
+													local start_byte = string.match(_, regex_s)
 													if start_byte then
 														if start_byte and tonumber(start_byte) < tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte )
+																ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value start = " .. start_byte )
 															end
 															return true
 														end
@@ -2073,52 +1955,52 @@ local function anti_ddos()
 											if count and tonumber(count) > 1 then
 												--for each segment
 												local rcount = 0
-												for start_byte, end_byte in string_gmatch(_, regex_g) do
+												for start_byte, end_byte in string.gmatch(_, regex_g) do
 													rcount = rcount+1
 													if start_byte and tonumber(start_byte) > tonumber(range_table[i][x]) then
 														if logging_value == 1 then
-															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+															ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
 														end
 														return true
 													end
 													if end_byte and tonumber(end_byte) > tonumber(range_table[i][x]) then
 														if logging_value == 1 then
-															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
+															ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
 														end
 														return true
 													end
 												end
 												if rcount == 0 then
-													for start_byte in string_gmatch(_, regex_c) do
+													for start_byte in string.gmatch(_, regex_c) do
 														if start_byte and tonumber(start_byte) > tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+																ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
 															end
 															return true
 														end
 													end
 												end
 											else
-												local start_byte, end_byte = string_match(_, regex_m)
+												local start_byte, end_byte = string.match(_, regex_m)
 												if start_byte or end_byte then
 													if start_byte and tonumber(start_byte) > tonumber(range_table[i][x]) then
 														if logging_value == 1 then
-															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte )
+															ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value start = " .. start_byte )
 														end
 														return true
 													end
 													if end_byte and tonumber(end_byte) > tonumber(range_table[i][x]) then
 														if logging_value == 1 then
-															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte )
+															ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value end = " .. end_byte )
 														end
 														return true
 													end
 												else
-													local start_byte = string_match(_, regex_s)
+													local start_byte = string.match(_, regex_s)
 													if start_byte then
 														if start_byte and tonumber(start_byte) > tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte )
+																ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value start = " .. start_byte )
 															end
 															return true
 														end
@@ -2133,7 +2015,7 @@ local function anti_ddos()
 												if count and tonumber(count) > 1 then
 													--for each segment
 													local rcount = 0
-													for start_byte, end_byte in string_gmatch(_, regex_g) do
+													for start_byte, end_byte in string.gmatch(_, regex_g) do
 														rcount = rcount+1
 														for z=1, #range_table[i][x] do
 															if z == rcount then
@@ -2141,13 +2023,13 @@ local function anti_ddos()
 																	if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
 																		if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][1]) and tonumber(start_byte) < tonumber(range_table[i][x][z][2]) then
 																			if logging_value == 1 then
-																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+																				ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
 																			end
 																			return true
 																		end
 																		if end_byte and tonumber(end_byte) > tonumber(range_table[i][x][z][1]) and tonumber(end_byte) < tonumber(range_table[i][x][z][2]) then
 																			if logging_value == 1 then
-																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
+																				ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
 																			end
 																			return true
 																		end
@@ -2155,13 +2037,13 @@ local function anti_ddos()
 																	if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
 																		if start_byte and tonumber(start_byte) < tonumber(range_table[i][x][z][3]) then
 																			if logging_value == 1 then
-																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+																				ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
 																			end
 																			return true
 																		end
 																		if end_byte and tonumber(end_byte) < tonumber(range_table[i][x][z][3]) then
 																			if logging_value == 1 then
-																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
+																				ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
 																			end
 																			return true
 																		end
@@ -2169,13 +2051,13 @@ local function anti_ddos()
 																	if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
 																		if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][4]) then
 																			if logging_value == 1 then
-																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+																				ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
 																			end
 																			return true
 																		end
 																		if end_byte and tonumber(end_byte) > tonumber(range_table[i][x][z][4]) then
 																			if logging_value == 1 then
-																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
+																				ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
 																			end
 																			return true
 																		end
@@ -2186,7 +2068,7 @@ local function anti_ddos()
 													end
 													if rcount == 0 then
 														local rcount = 0
-														for start_byte in string_gmatch(_, regex_c) do
+														for start_byte in string.gmatch(_, regex_c) do
 															rcount = rcount+1
 															for z=1, #range_table[i][x] do
 																if z == rcount then
@@ -2194,7 +2076,7 @@ local function anti_ddos()
 																		if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
 																			if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][1]) and tonumber(start_byte) < tonumber(range_table[i][x][z][2]) then
 																				if logging_value == 1 then
-																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+																					ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
 																				end
 																				return true
 																			end
@@ -2202,7 +2084,7 @@ local function anti_ddos()
 																		if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
 																			if start_byte and tonumber(start_byte) < tonumber(range_table[i][x][z][3]) then
 																				if logging_value == 1 then
-																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+																					ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
 																				end
 																				return true
 																			end
@@ -2210,7 +2092,7 @@ local function anti_ddos()
 																		if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
 																			if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][4]) then
 																				if logging_value == 1 then
-																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+																					ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
 																				end
 																				return true
 																			end
@@ -2221,7 +2103,7 @@ local function anti_ddos()
 														end
 													end
 												else
-													local start_byte, end_byte = string_match(_, regex_m)
+													local start_byte, end_byte = string.match(_, regex_m)
 													if start_byte or end_byte then
 														for z=1, #range_table[i][x] do
 															if z == 1 then
@@ -2229,13 +2111,13 @@ local function anti_ddos()
 																	if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
 																		if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][1]) and tonumber(start_byte) < tonumber(range_table[i][x][z][2]) then
 																			if logging_value == 1 then
-																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+																				ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
 																			end
 																			return true
 																		end
 																		if end_byte and tonumber(end_byte) > tonumber(range_table[i][x][z][1]) and tonumber(end_byte) < tonumber(range_table[i][x][z][2]) then
 																			if logging_value == 1 then
-																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte )
+																				ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value end = " .. end_byte )
 																			end
 																			return true
 																		end
@@ -2243,13 +2125,13 @@ local function anti_ddos()
 																	if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
 																		if start_byte and tonumber(start_byte) < tonumber(range_table[i][x][z][3]) then
 																			if logging_value == 1 then
-																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
+																				ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
 																			end
 																			return true
 																		end
 																		if end_byte and tonumber(end_byte) < tonumber(range_table[i][x][z][3]) then
 																			if logging_value == 1 then
-																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. z)
+																				ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. z)
 																			end
 																			return true
 																		end
@@ -2257,13 +2139,13 @@ local function anti_ddos()
 																	if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
 																		if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][4]) then
 																			if logging_value == 1 then
-																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. z)
+																				ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. z)
 																			end
 																			return true
 																		end
 																		if end_byte and tonumber(end_byte) > tonumber(range_table[i][x][z][4]) then
 																			if logging_value == 1 then
-																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. z)
+																				ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. z)
 																			end
 																			return true
 																		end
@@ -2273,14 +2155,14 @@ local function anti_ddos()
 															end
 														end
 													else
-														local start_byte = string_match(_, regex_s)
+														local start_byte = string.match(_, regex_s)
 														for z=1, #range_table[i][x] do
 															if z == 1 then
 																if range_table[i][x][z] ~= "" then
 																	if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
 																		if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][1]) and tonumber(start_byte) < tonumber(range_table[i][x][z][2]) then
 																			if logging_value == 1 then
-																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+																				ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
 																			end
 																			return true
 																		end
@@ -2288,7 +2170,7 @@ local function anti_ddos()
 																	if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
 																		if start_byte and tonumber(start_byte) < tonumber(range_table[i][x][z][3]) then
 																			if logging_value == 1 then
-																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
+																				ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
 																			end
 																			return true
 																		end
@@ -2296,7 +2178,7 @@ local function anti_ddos()
 																	if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
 																		if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][4]) then
 																			if logging_value == 1 then
-																				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. z)
+																				ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. z)
 																			end
 																			return true
 																		end
@@ -2315,10 +2197,10 @@ local function anti_ddos()
 						end
 						if range_whitelist_blacklist == 1 then
 							if whitelist_set == 1 then --no range provied found in whitelist block ?
-								--ngx_log(ngx_LOG_TYPE, " Whitelist Match " .. range_whitelist_blacklist )
+								--ngx.log(ngx.STDERR, " Whitelist Match " .. range_whitelist_blacklist )
 							else
 								if logging_value == 1 then
-									ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range provided not in Whitelist " .. range_whitelist_blacklist )
+									ngx.log(ngx.STDERR, "[Anti-DDoS] Range provided not in Whitelist " .. range_whitelist_blacklist )
 								end
 								return true
 							end
@@ -2328,28 +2210,28 @@ local function anti_ddos()
 			else
 				for i=1, #range do
 					--Filter by what we expect a range header to be provided with
-					if ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
+					if ngx.header["content-type"] then --the content type that the user is requesting to use a range header on
 						if #range_table > 0 then
 							local whitelist_set = 0
 							local regex_g = "%s*(%-?%d+)%s*-%s*(%-?%d+)%s*[^,]+" --multi segment regex
 							local regex_m = "%s*(%-?%d+)%s*-%s*(%-?%d+)%s*" --single segment regex
 							local regex_s = "%s*(%-?%d+)%s*" --single start segment
 							local regex_c = "%s*(%-?%d+)%s*[^,]+" --single start segment comma seperated
-							local _, count = string_gsub(range[i], ","," , ") --fix commas
-							local _ = string_gsub(_, "%s+", "") --remove white space
-							if not string_match(_, ",$") then --if does not end in comma
+							local _, count = string.gsub(range[i], ","," , ") --fix commas
+							local _ = string.gsub(_, "%s+", "") --remove white space
+							if not string.match(_, ",$") then --if does not end in comma
 								_ = _ .. "," --insert comma
 							end
-							local _, count = string_gsub(_, ","," , ") --recount now that range is fixed
+							local _, count = string.gsub(_, ","," , ") --recount now that range is fixed
 							for i=1,#range_table do
 								if #range_table[i] > 0 then
 									for x=1,#range_table[i] do
 										if x == 1 then
 											if range_table[i][x] ~= "" then
-												if string_match(ngx_header["content-type"], range_table[i][x]) then
+												if string.match(ngx.header["content-type"], range_table[i][x]) then
 													if range_whitelist_blacklist == 0 then --0 blacklist 1 whitelist
 														if logging_value == 1 then
-															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Blacklist match " .. range_table[i][x] )
+															ngx.log(ngx.STDERR, "[Anti-DDoS] Blacklist match " .. range_table[i][x] )
 														end
 														--range header prohibited block request
 														return true
@@ -2365,7 +2247,7 @@ local function anti_ddos()
 												if count and tonumber(count) > 1 then
 													if tonumber(count) > range_table[i][x] then
 														if logging_value == 1 then
-															ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Max MultiPart range Occurances exceeded: " .. count )
+															ngx.log(ngx.STDERR, "[Anti-DDoS] Max MultiPart range Occurances exceeded: " .. count )
 														end
 														return true
 													end
@@ -2377,52 +2259,52 @@ local function anti_ddos()
 												if count and tonumber(count) > 1 then
 													--for each segment
 													local rcount = 0
-													for start_byte, end_byte in string_gmatch(_, regex_g) do
+													for start_byte, end_byte in string.gmatch(_, regex_g) do
 														rcount = rcount+1
 														if start_byte and tonumber(start_byte) > tonumber(range_table[i][3]) and tonumber(start_byte) < tonumber(range_table[i][4]) then
 															if logging_value == 1 then
-																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+																ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
 															end
 															return true
 														end
 														if end_byte and tonumber(end_byte) > tonumber(range_table[i][3]) and tonumber(end_byte) < tonumber(range_table[i][4]) then
 															if logging_value == 1 then
-																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
+																ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
 															end
 															return true
 														end
 													end
 													if rcount == 0 then
-														for start_byte in string_gmatch(_, regex_c) do
+														for start_byte in string.gmatch(_, regex_c) do
 															if start_byte and tonumber(start_byte) > tonumber(range_table[i][3]) and tonumber(start_byte) < tonumber(range_table[i][4]) then
 																if logging_value == 1 then
-																	ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+																	ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
 																end
 																return true
 															end
 														end
 													end
 												else
-													local start_byte, end_byte = string_match(_, regex_m)
+													local start_byte, end_byte = string.match(_, regex_m)
 													if start_byte or end_byte then
 														if start_byte and tonumber(start_byte) > tonumber(range_table[i][3]) and tonumber(start_byte) < tonumber(range_table[i][4]) then
 															if logging_value == 1 then
-																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+																ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
 															end
 															return true
 														end
 														if end_byte and tonumber(end_byte) > tonumber(range_table[i][3]) and tonumber(end_byte) < tonumber(range_table[i][4]) then
 															if logging_value == 1 then
-																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte )
+																ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value end = " .. end_byte )
 															end
 															return true
 														end
 													else
-														local start_byte = string_match(_, regex_s)
+														local start_byte = string.match(_, regex_s)
 														if start_byte then
 															if start_byte and tonumber(start_byte) > tonumber(range_table[i][3]) and tonumber(start_byte) < tonumber(range_table[i][4]) then
 																if logging_value == 1 then
-																	ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+																	ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
 																end
 																return true
 															end
@@ -2433,9 +2315,9 @@ local function anti_ddos()
 										end --end 4
 										if x == 5 then
 											if range_table[i][x] ~= "" then
-												if not string_match(_, range_table[i][x]) then --string match specified unit or block
+												if not string.match(_, range_table[i][x]) then --string match specified unit or block
 													if logging_value == 1 then
-														ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Not using acceptable Unit type " .. range_table[i][x])
+														ngx.log(ngx.STDERR, "[Anti-DDoS] Not using acceptable Unit type " .. range_table[i][x])
 													end
 													--not using bytes block request not following standards https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Range
 													--curl -H "Range: bits=0-199, 120-200" http://localhost/video.mp4 --output "C:\Videos" -H "User-Agent: testagent"
@@ -2445,9 +2327,9 @@ local function anti_ddos()
 										end
 										if x == 6 then --illegal chars
 											if range_table[i][x] ~= "" then
-												if string_gsub(_, range_table[i][x], "") ~= "" then
+												if string.gsub(_, range_table[i][x], "") ~= "" then
 													if logging_value == 1 then
-														ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range header contains illegal chars " .. _ )
+														ngx.log(ngx.STDERR, "[Anti-DDoS] Range header contains illegal chars " .. _ )
 													end
 													return true
 												end
@@ -2458,52 +2340,52 @@ local function anti_ddos()
 												if count and tonumber(count) > 1 then
 													--for each segment
 													local rcount = 0
-													for start_byte, end_byte in string_gmatch(_, regex_g) do
+													for start_byte, end_byte in string.gmatch(_, regex_g) do
 														rcount = rcount+1
 														if start_byte and tonumber(start_byte) < tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+																ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
 															end
 															return true
 														end
 														if end_byte and tonumber(end_byte) < tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
+																ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
 															end
 															return true
 														end
 													end
 													if rcount == 0 then
-														for start_byte in string_gmatch(_, regex_c) do
+														for start_byte in string.gmatch(_, regex_c) do
 															if start_byte and tonumber(start_byte) < tonumber(range_table[i][x]) then
 																if logging_value == 1 then
-																	ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+																	ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
 																end
 																return true
 															end
 														end
 													end
 												else
-													local start_byte, end_byte = string_match(_, regex_m)
+													local start_byte, end_byte = string.match(_, regex_m)
 													if start_byte or end_byte then
 														if start_byte and tonumber(start_byte) < tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte )
+																ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value start = " .. start_byte )
 															end
 															return true
 														end
 														if end_byte and tonumber(end_byte) < tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte )
+																ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value end = " .. end_byte )
 															end
 															return true
 														end
 													else
-														local start_byte = string_match(_, regex_s)
+														local start_byte = string.match(_, regex_s)
 														if start_byte then
 															if start_byte and tonumber(start_byte) < tonumber(range_table[i][x]) then
 																if logging_value == 1 then
-																	ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte )
+																	ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value start = " .. start_byte )
 																end
 																return true
 															end
@@ -2517,52 +2399,52 @@ local function anti_ddos()
 												if count and tonumber(count) > 1 then
 													--for each segment
 													local rcount = 0
-													for start_byte, end_byte in string_gmatch(_, regex_g) do
+													for start_byte, end_byte in string.gmatch(_, regex_g) do
 														rcount = rcount+1
 														if start_byte and tonumber(start_byte) > tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+																ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
 															end
 															return true
 														end
 														if end_byte and tonumber(end_byte) > tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
+																ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
 															end
 															return true
 														end
 													end
 													if rcount == 0 then
-														for start_byte in string_gmatch(_, regex_c) do
+														for start_byte in string.gmatch(_, regex_c) do
 															if start_byte and tonumber(start_byte) > tonumber(range_table[i][x]) then
 																if logging_value == 1 then
-																	ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+																	ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
 																end
 																return true
 															end
 														end
 													end
 												else
-													local start_byte, end_byte = string_match(_, regex_m)
+													local start_byte, end_byte = string.match(_, regex_m)
 													if start_byte or end_byte then
 														if start_byte and tonumber(start_byte) > tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte )
+																ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value start = " .. start_byte )
 															end
 															return true
 														end
 														if end_byte and tonumber(end_byte) > tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte )
+																ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value end = " .. end_byte )
 															end
 															return true
 														end
 													else
-														local start_byte = string_match(_, regex_s)
+														local start_byte = string.match(_, regex_s)
 														if start_byte then
 															if start_byte and tonumber(start_byte) > tonumber(range_table[i][x]) then
 																if logging_value == 1 then
-																	ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte )
+																	ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value start = " .. start_byte )
 																end
 																return true
 															end
@@ -2577,7 +2459,7 @@ local function anti_ddos()
 													if count and tonumber(count) > 1 then
 														--for each segment
 														local rcount = 0
-														for start_byte, end_byte in string_gmatch(_, regex_g) do
+														for start_byte, end_byte in string.gmatch(_, regex_g) do
 															rcount = rcount+1
 															for z=1, #range_table[i][x] do
 																if z == rcount then
@@ -2585,13 +2467,13 @@ local function anti_ddos()
 																		if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
 																			if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][1]) and tonumber(start_byte) < tonumber(range_table[i][x][z][2]) then
 																				if logging_value == 1 then
-																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+																					ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
 																				end
 																				return true
 																			end
 																			if end_byte and tonumber(end_byte) > tonumber(range_table[i][x][z][1]) and tonumber(end_byte) < tonumber(range_table[i][x][z][2]) then
 																				if logging_value == 1 then
-																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
+																					ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
 																				end
 																				return true
 																			end
@@ -2599,13 +2481,13 @@ local function anti_ddos()
 																		if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
 																			if start_byte and tonumber(start_byte) < tonumber(range_table[i][x][z][3]) then
 																				if logging_value == 1 then
-																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+																					ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
 																				end
 																				return true
 																			end
 																			if end_byte and tonumber(end_byte) < tonumber(range_table[i][x][z][3]) then
 																				if logging_value == 1 then
-																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
+																					ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
 																				end
 																				return true
 																			end
@@ -2613,13 +2495,13 @@ local function anti_ddos()
 																		if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
 																			if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][4]) then
 																				if logging_value == 1 then
-																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+																					ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
 																				end
 																				return true
 																			end
 																			if end_byte and tonumber(end_byte) > tonumber(range_table[i][x][z][4]) then
 																				if logging_value == 1 then
-																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
+																					ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
 																				end
 																				return true
 																			end
@@ -2630,7 +2512,7 @@ local function anti_ddos()
 														end
 														if rcount == 0 then
 															local rcount = 0
-															for start_byte in string_gmatch(_, regex_c) do
+															for start_byte in string.gmatch(_, regex_c) do
 																rcount = rcount+1
 																for z=1, #range_table[i][x] do
 																	if z == rcount then
@@ -2638,7 +2520,7 @@ local function anti_ddos()
 																			if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
 																				if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][1]) and tonumber(start_byte) < tonumber(range_table[i][x][z][2]) then
 																					if logging_value == 1 then
-																						ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+																						ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
 																					end
 																					return true
 																				end
@@ -2646,7 +2528,7 @@ local function anti_ddos()
 																			if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
 																				if start_byte and tonumber(start_byte) < tonumber(range_table[i][x][z][3]) then
 																					if logging_value == 1 then
-																						ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+																						ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
 																					end
 																					return true
 																				end
@@ -2654,7 +2536,7 @@ local function anti_ddos()
 																			if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
 																				if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][4]) then
 																					if logging_value == 1 then
-																						ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+																						ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
 																					end
 																					return true
 																				end
@@ -2665,7 +2547,7 @@ local function anti_ddos()
 															end
 														end
 													else
-														local start_byte, end_byte = string_match(_, regex_m)
+														local start_byte, end_byte = string.match(_, regex_m)
 														if start_byte or end_byte then
 															for z=1, #range_table[i][x] do
 																if z == 1 then
@@ -2673,13 +2555,13 @@ local function anti_ddos()
 																		if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
 																			if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][1]) and tonumber(start_byte) < tonumber(range_table[i][x][z][2]) then
 																				if logging_value == 1 then
-																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+																					ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
 																				end
 																				return true
 																			end
 																			if end_byte and tonumber(end_byte) > tonumber(range_table[i][x][z][1]) and tonumber(end_byte) < tonumber(range_table[i][x][z][2]) then
 																				if logging_value == 1 then
-																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte )
+																					ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value end = " .. end_byte )
 																				end
 																				return true
 																			end
@@ -2687,13 +2569,13 @@ local function anti_ddos()
 																		if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
 																			if start_byte and tonumber(start_byte) < tonumber(range_table[i][x][z][3]) then
 																				if logging_value == 1 then
-																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
+																					ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
 																				end
 																				return true
 																			end
 																			if end_byte and tonumber(end_byte) < tonumber(range_table[i][x][z][3]) then
 																				if logging_value == 1 then
-																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. z)
+																					ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. z)
 																				end
 																				return true
 																			end
@@ -2701,13 +2583,13 @@ local function anti_ddos()
 																		if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
 																			if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][4]) then
 																				if logging_value == 1 then
-																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. z)
+																					ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. z)
 																				end
 																				return true
 																			end
 																			if end_byte and tonumber(end_byte) > tonumber(range_table[i][x][z][4]) then
 																				if logging_value == 1 then
-																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. z)
+																					ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. z)
 																				end
 																				return true
 																			end
@@ -2717,14 +2599,14 @@ local function anti_ddos()
 																end
 															end
 														else
-															local start_byte = string_match(_, regex_s)
+															local start_byte = string.match(_, regex_s)
 															for z=1, #range_table[i][x] do
 																if z == 1 then
 																	if range_table[i][x][z] ~= "" then
 																		if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
 																			if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][1]) and tonumber(start_byte) < tonumber(range_table[i][x][z][2]) then
 																				if logging_value == 1 then
-																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+																					ngx.log(ngx.STDERR, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
 																				end
 																				return true
 																			end
@@ -2732,7 +2614,7 @@ local function anti_ddos()
 																		if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
 																			if start_byte and tonumber(start_byte) < tonumber(range_table[i][x][z][3]) then
 																				if logging_value == 1 then
-																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
+																					ngx.log(ngx.STDERR, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
 																				end
 																				return true
 																			end
@@ -2740,7 +2622,7 @@ local function anti_ddos()
 																		if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
 																			if start_byte and tonumber(start_byte) > tonumber(range_table[i][x][z][4]) then
 																				if logging_value == 1 then
-																					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. z)
+																					ngx.log(ngx.STDERR, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. z)
 																				end
 																				return true
 																			end
@@ -2759,10 +2641,10 @@ local function anti_ddos()
 							end
 							if range_whitelist_blacklist == 1 then
 								if whitelist_set == 1 then --no range provied found in whitelist block ?
-									--ngx_log(ngx_LOG_TYPE, " Whitelist Match " .. range_whitelist_blacklist )
+									--ngx.log(ngx.STDERR, " Whitelist Match " .. range_whitelist_blacklist )
 								else
 									if logging_value == 1 then
-										ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Range provided not in Whitelist " .. range_whitelist_blacklist )
+										ngx.log(ngx.STDERR, "[Anti-DDoS] Range provided not in Whitelist " .. range_whitelist_blacklist )
 									end
 									return true
 								end
@@ -2785,7 +2667,7 @@ local function anti_ddos()
 			count, err = request_limit:incr(key, 1, 0, rate_limit_window)
 			if not count then
 				if logging == 1 then
-					ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Rate limit error: " .. err)
+					ngx.log(ngx.STDERR, "[Anti-DDoS] Rate limit error: " .. err)
 				end
 				return false
 			end
@@ -2805,17 +2687,17 @@ local function anti_ddos()
 		--Rate limit check
 		if count > rate_limit_requests then
 			--Block IP
-			blocked_addr:set(ip, currenttime, block_duration)
+			blocked_addr:set(ip, ngx.time(), block_duration)
 
 			if logging == 1 then
-				ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Rate limit exceeded, IP blocked: " .. ip .. " (" .. count .. " requests)")
+				ngx.log(ngx.STDERR, "[Anti-DDoS] Rate limit exceeded, IP blocked: " .. ip .. " (" .. count .. " requests)")
 			end
 
 			if shdict then --backwards compatibility for lua
 				local incr, err = ddos_counter:incr("blocked_ip", 1, 0, rate_limit_window)
 				if not incr then
 					if logging == 1 then
-						ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] TOTAL IN SHARED error: " .. err)
+						ngx.log(ngx.STDERR, "[Anti-DDoS] TOTAL IN SHARED error: " .. err)
 					end
 				end
 			else --older lua version
@@ -2838,29 +2720,29 @@ local function anti_ddos()
 	if #anti_ddos_table > 0 then
 		for i=1,#anti_ddos_table do --for each host/path in our table
 			local v = anti_ddos_table[i]
-			if string_match(URL, v[1]) then --if our host matches one in the table
+			if string.match(ngx.var.scheme .. "://" .. ngx.var.host .. ngx.var.request_uri, v[1]) then --if our host matches one in the table
 				if v[2] >= 1 then --limit keep alive ip
-					if tonumber(ngx_var_connection_requests) >= v[2] then
+					if tonumber(ngx.var.connection_requests) >= v[2] then
 						if v[7] == 1 then
-							ngx_log(ngx_LOG_TYPE,"[Anti-DDoS] Exceeded Number of keepalive conns from IP " .. ngx_var_connection_requests )
+							ngx.log(ngx.STDERR,"[Anti-DDoS] Exceeded Number of keepalive conns from IP " .. ngx.var.connection_requests )
 						end
-						ngx_exit(v[3])
+						ngx.exit(v[3])
 					end
 				end
 				if v[4] >= 1 then --limit request size smaller than
-					if tonumber(ngx_var_request_length) <= v[4] then --1000 bytes = 1kb
+					if tonumber(ngx.var.request_length) <= v[4] then --1000 bytes = 1kb
 						if v[7] == 1 then
-							ngx_log(ngx_LOG_TYPE,"[Anti-DDoS] Request Smaller than allowed LENGTH in bytes " .. ngx_var_request_length )
+							ngx.log(ngx.STDERR,"[Anti-DDoS] Request Smaller than allowed LENGTH in bytes " .. ngx.var.request_length )
 						end
-						ngx_exit(v[6])
+						ngx.exit(v[6])
 					end
 				end
 				if v[5] >= 1 then --limit request size greater than
-					if tonumber(ngx_var_request_length) >= v[5] then --1000 bytes = 1kb
+					if tonumber(ngx.var.request_length) >= v[5] then --1000 bytes = 1kb
 						if v[7] == 1 then
-							ngx_log(ngx_LOG_TYPE,"[Anti-DDoS] Request Larger than allowed LENGTH in bytes " .. ngx_var_request_length )
+							ngx.log(ngx.STDERR,"[Anti-DDoS] Request Larger than allowed LENGTH in bytes " .. ngx.var.request_length )
 						end
-						ngx_exit(v[6])
+						ngx.exit(v[6])
 					end
 				end
 
@@ -2883,40 +2765,40 @@ local function anti_ddos()
 					local ip = v[22]
 
 					if ip == "auto" then
-						if ngx_var_http_cf_connecting_ip ~= nil then
-							ip = ngx_var_http_cf_connecting_ip
-						elseif ngx_var_http_x_forwarded_for ~= nil then
-							ip = ngx_var_http_x_forwarded_for
+						if ngx.var.http_cf_connecting_ip ~= nil then
+							ip = ngx.var.http_cf_connecting_ip
+						elseif ngx.var.http_x_forwarded_for ~= nil then
+							ip = ngx.var.http_x_forwarded_for
 						else
-							ip = ngx_var.binary_remote_addr
+							ip = ngx.var.binary_remote_addr
 						end
 					end
 
 					local blocked_time = blocked_addr:get(ip)
 					if blocked_time then
 						if v[7] == 1 then
-							ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP attempt: " .. ip)
+							ngx.log(ngx.STDERR, "[Anti-DDoS] Blocked IP attempt: " .. ip)
 						end
-						ngx_req_set_header("Accept-Encoding", "") --disable gzip
+						ngx.req.set_header("Accept-Encoding", "") --disable gzip
 						
-						return ngx_exit(rate_limit_exit_status)
+						return ngx.exit(rate_limit_exit_status)
 					end
 
 					if check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, blocked_addr, ddos_counter, v[7]) then
-						ngx_req_set_header("Accept-Encoding", "") --disable gzip
-						return ngx_exit(rate_limit_exit_status)
+						ngx.req.set_header("Accept-Encoding", "") --disable gzip
+						return ngx.exit(rate_limit_exit_status)
 					end
 
 					if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table, v[7]) then
-						blocked_addr:set(ip, currenttime, block_duration)
+						blocked_addr:set(ip, ngx.time(), block_duration)
 						if v[7] == 1 then
-							ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
+							ngx.log(ngx.STDERR, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
 						end
 
 						if shdict then --backwards compatibility for lua
 							local incr, err = ddos_counter:incr("blocked_ip", 1, 0, rate_limit_window)
 							if not incr then
-								ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] TOTAL IN SHARED error: " .. err)
+								ngx.log(ngx.STDERR, "[Anti-DDoS] TOTAL IN SHARED error: " .. err)
 							end
 						else --older lua version
 
@@ -2928,20 +2810,20 @@ local function anti_ddos()
 								ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
 							end
 						end
-						ngx_req_set_header("Accept-Encoding", "") --disable gzip
+						ngx.req.set_header("Accept-Encoding", "") --disable gzip
 						
-						return ngx_exit(slow_limit_exit_status)
+						return ngx.exit(slow_limit_exit_status)
 					end
 
 					if v[23] == 1 then
 						local total_requests = ddos_counter:get("blocked_ip") or 0
 						if total_requests >= v[24] then --Automatically enable I am Under Attack Mode
 							if v[7] == 1 then
-								ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] Total Flood requests: " .. total_requests)
+								ngx.log(ngx.STDERR, "[Anti-DDoS] Total Flood requests: " .. total_requests)
 							end
 							--Automatic Detection of DDoS
 							--Disable GZIP to prevent GZIP memory bomb and CPU consumption attacks.
-							ngx_req_set_header("Accept-Encoding", "") --disable gzip
+							ngx.req.set_header("Accept-Encoding", "") --disable gzip
 							--MASTER SWITCH ENGAGED
 							master_switch = 1 --enabled for all sites
 						else
@@ -2953,25 +2835,25 @@ local function anti_ddos()
 						for i=1,#v[25] do --for each in our table
 							if #v[25][i] > 0 then --if subtable has values
 								local table_head_val = v[25][i][1] or nil
-								local req_headers = ngx_req_get_headers()
+								local req_headers = ngx.req.get_headers()
 								local header_value = req_headers[tostring(table_head_val)] or ""
 								if header_value then
 									if type(header_value) ~= "table" then
-										if string_match(string_lower(header_value), string_lower(v[25][i][2])) then
+										if string.match(string.lower(header_value), string.lower(v[25][i][2])) then
 											if v[25][i][4] > 0 then --add to ban list
-												blocked_addr:set(ip, currenttime, block_duration)
+												blocked_addr:set(ip, ngx.time(), block_duration)
 											end
-											ngx_req_set_header("Accept-Encoding", "") --disable gzip
-											ngx_exit(v[25][i][3])
+											ngx.req.set_header("Accept-Encoding", "") --disable gzip
+											ngx.exit(v[25][i][3])
 										end
 									else
 										for i=1, #header_value do
-											if string_match(string_lower(header_value[i]), string_lower(v[25][i][2])) then
+											if string.match(string.lower(header_value[i]), string.lower(v[25][i][2])) then
 												if v[25][i][4] > 0 then --add to ban list
-													blocked_addr:set(ip, currenttime, block_duration)
+													blocked_addr:set(ip, ngx.time(), block_duration)
 												end
-												ngx_req_set_header("Accept-Encoding", "") --disable gzip
-												ngx_exit(v[25][i][3])
+												ngx.req.set_header("Accept-Encoding", "") --disable gzip
+												ngx.exit(v[25][i][3])
 											end
 										end
 									end
@@ -2982,24 +2864,24 @@ local function anti_ddos()
 
 					if #v[26] > 0 then
 						for i=1,#v[26] do
-							if string_lower(ngx_var.request_method) == string_lower(v[26][i][1]) then
+							if string.lower(ngx.var.request_method) == string.lower(v[26][i][1]) then
 								if v[26][i][3] > 0 then
-									blocked_addr:set(ip, currenttime, block_duration)
+									blocked_addr:set(ip, ngx.time(), block_duration)
 								end
-								ngx_req_set_header("Accept-Encoding", "") --disable gzip
-								ngx_exit(v[26][i][2])
+								ngx.req.set_header("Accept-Encoding", "") --disable gzip
+								ngx.exit(v[26][i][2])
 							end
 						end
 					end
 
 					if v[27] < 1 then --disable gzip option
-						ngx_req_set_header("Accept-Encoding", "") --disable gzip
+						ngx.req.set_header("Accept-Encoding", "") --disable gzip
 					end
 
 					if v[28] > 0 then --dsiable compression when banlist has more than certain number of ips automated protection
 						local total_requests = ddos_counter:get("blocked_ip") or 0
 						if total_requests >= v[24] then --Automatically enable I am Under Attack Mode
-							ngx_req_set_header("Accept-Encoding", "") --disable gzip
+							ngx.req.set_header("Accept-Encoding", "") --disable gzip
 						end
 					end
 
@@ -3013,11 +2895,11 @@ local function anti_ddos()
 					local range_table = v[18]
 					--no shared memory set but we can still check and block slowhttp cons without shared memory
 					if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table) then
-						ngx_req_set_header("Accept-Encoding", "") --disable gzip
+						ngx.req.set_header("Accept-Encoding", "") --disable gzip
 						if v[7] == 1 then
-							ngx_log(ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
+							ngx.log(ngx.STDERR, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
 						end
-						return ngx_exit(slow_limit_exit_status)
+						return ngx.exit(slow_limit_exit_status)
 					end
 
 					if #v[25] > 0 then --make sure the 24th var is a lua table and has values
@@ -3025,19 +2907,19 @@ local function anti_ddos()
 							local t = v[25][i]
 							if #t > 0 then --if subtable has values
 								local table_head_val = t[1] or nil
-								local req_headers = ngx_req_get_headers()
+								local req_headers = ngx.req.get_headers()
 								local header_value = req_headers[tostring(table_head_val)] or ""
 								if header_value then
 									if type(header_value) ~= "table" then
-										if string_match(string_lower(header_value), string_lower(t[2])) then
-											ngx_req_set_header("Accept-Encoding", "") --disable gzip
-											ngx_exit(t[3])
+										if string.match(string.lower(header_value), string.lower(t[2])) then
+											ngx.req.set_header("Accept-Encoding", "") --disable gzip
+											ngx.exit(t[3])
 										end
 									else
 										for i=1, #header_value do
-											if string_match(string_lower(header_value[i]), string_lower(t[2])) then
-												ngx_req_set_header("Accept-Encoding", "") --disable gzip
-												ngx_exit(t[3])
+											if string.match(string.lower(header_value[i]), string.lower(t[2])) then
+												ngx.req.set_header("Accept-Encoding", "") --disable gzip
+												ngx.exit(t[3])
 											end
 										end
 									end
@@ -3048,15 +2930,15 @@ local function anti_ddos()
 
 					if #v[26] > 0 then
 						for i=1,#v[26] do
-							if string_lower(ngx_var.request_method) == string_lower(v[26][i][1]) then
-								ngx_req_set_header("Accept-Encoding", "") --disable gzip
-								ngx_exit(v[26][i][2])
+							if string.lower(ngx.var.request_method) == string.lower(v[26][i][1]) then
+								ngx.req.set_header("Accept-Encoding", "") --disable gzip
+								ngx.exit(v[26][i][2])
 							end
 						end
 					end
 
 					if v[27] < 1 then --disable gzip option
-						ngx_req_set_header("Accept-Encoding", "") --disable gzip
+						ngx.req.set_header("Accept-Encoding", "") --disable gzip
 					end
 
 				end
@@ -3071,16 +2953,16 @@ anti_ddos()
 local function getRandomSeed()
 	local collectgarbage = collectgarbage
 	local a = collectgarbage("count")
-	local b = os_time()
+	local b = os.time()
 	local c = tostring(a) .. tostring(b)
-	local d = (math_pi * b + math_sqrt(a + 1)) % 4294967296
+	local d = (math.pi * b + math.sqrt(a + 1)) % 4294967296
 	c = c .. tostring(d)
 	local e = 0
 	for i=1,#c do
-		local f = string_byte(c, i)
+		local f = string.byte(c, i)
 		e = (e * 33 + f) % 4294967296
 	end
-	return math_floor(e)
+	return math.floor(e)
 end
 
 local function run_checks() --nested function
@@ -3088,7 +2970,7 @@ local function run_checks() --nested function
 	local master_exit_var = 0
 	local function master_exit()
 		master_exit_var = 1
-		--return ngx_exit(ngx_OK) --Go to content
+		--return ngx.exit(ngx.OK) --Go to content
 		return ""
 	end
 	--master_exit()
@@ -3116,15 +2998,15 @@ local function header_modification()
 	if #custom_headers > 0 then
 		for i=1,#custom_headers do --for each host in our table
 			local v = custom_headers[i]
-			if string_match(URL, v[1]) then --if our host matches one in the table
+			if string.match(ngx.var.scheme .. "://" .. ngx.var.host .. ngx.var.request_uri, v[1]) then --if our host matches one in the table
 				for first=1,#v[2] do --for each arg in our table
 					local value1 = v[2][first][1]
 					local value2 = v[2][first][2]
 					if value1 ~= nil and value2 ~= nil then
-						ngx_header[value1] = value2
+						ngx.header[value1] = value2
 					end
 					if value2 == nil then
-						ngx_header[value1] = nil --remove the header
+						ngx.header[value1] = nil --remove the header
 					end
 				end
 			end
@@ -3138,30 +3020,30 @@ End Header Modifications
 
 --automatically figure out the IP address of the connecting Client
 if remote_addr == "auto" then
-	if ngx_var_http_cf_connecting_ip ~= nil then
-		remote_addr = ngx_var_http_cf_connecting_ip
-	elseif ngx_var_http_x_forwarded_for ~= nil then
-		remote_addr = ngx_var_http_x_forwarded_for
+	if ngx.var.http_cf_connecting_ip ~= nil then
+		remote_addr = ngx.var.http_cf_connecting_ip
+	elseif ngx.var.http_x_forwarded_for ~= nil then
+		remote_addr = ngx.var.http_x_forwarded_for
 	else
-		remote_addr = ngx_var_remote_addr
+		remote_addr = ngx.var.remote_addr
 	end
 end
 if ip_whitelist_remote_addr == "auto" then
-	if ngx_var_http_cf_connecting_ip ~= nil then
-		ip_whitelist_remote_addr = ngx_var_http_cf_connecting_ip
-	elseif ngx_var_http_x_forwarded_for ~= nil then
-		ip_whitelist_remote_addr = ngx_var_http_x_forwarded_for
+	if ngx.var.http_cf_connecting_ip ~= nil then
+		ip_whitelist_remote_addr = ngx.var.http_cf_connecting_ip
+	elseif ngx.var.http_x_forwarded_for ~= nil then
+		ip_whitelist_remote_addr = ngx.var.http_x_forwarded_for
 	else
-		ip_whitelist_remote_addr = ngx_var_remote_addr
+		ip_whitelist_remote_addr = ngx.var.remote_addr
 	end
 end
 if ip_blacklist_remote_addr == "auto" then
-	if ngx_var_http_cf_connecting_ip ~= nil then
-		ip_blacklist_remote_addr = ngx_var_http_cf_connecting_ip
-	elseif ngx_var_http_x_forwarded_for ~= nil then
-		ip_blacklist_remote_addr = ngx_var_http_x_forwarded_for
+	if ngx.var.http_cf_connecting_ip ~= nil then
+		ip_blacklist_remote_addr = ngx.var.http_cf_connecting_ip
+	elseif ngx.var.http_x_forwarded_for ~= nil then
+		ip_blacklist_remote_addr = ngx.var.http_x_forwarded_for
 	else
-		ip_blacklist_remote_addr = ngx_var_remote_addr
+		ip_blacklist_remote_addr = ngx.var.remote_addr
 	end
 end
 
@@ -3173,11 +3055,11 @@ local function header_append_ip()
 		for i=1,#send_ip_to_backend_custom_headers do --for each host in our table
 			--local v = custom_headers[i]
 			local v = send_ip_to_backend_custom_headers[i]
-			if string_match(URL, v[1]) then --if our host matches one in the table
+			if string.match(ngx.var.scheme .. "://" .. ngx.var.host .. ngx.var.request_uri, v[1]) then --if our host matches one in the table
 				for first=1,#v[2] do --for each arg in our table
 					local value1 = v[2][first][1]
 					if value1 ~= nil then
-						ngx_req_set_header(value1, remote_addr)
+						ngx.req.set_header(value1, remote_addr)
 					end
 				end
 				break --break out of the for each loop pointless to keep searching the rest since we matched our host
@@ -3191,7 +3073,7 @@ End headers to restore original visitor IP addresses at your origin web server
 ]]
 
 --if host of site is a tor website connecting clients will be tor network clients
-if string_match(string_lower(host), ".onion") then
+if string.match(string.lower(ngx.var.host), ".onion") then
 	remote_addr = "tor"
 end
 if remote_addr == "tor" then
@@ -3203,12 +3085,12 @@ Query String Remove arguments
 ]]
 local function query_string_remove_args()
 	if #query_string_remove_args_table > 0 then
-		local args = ngx_req_get_uri_args() --grab our query string args and put them into a table
+		local args = ngx.req.get_uri_args() --grab our query string args and put them into a table
 		local modified = nil
 
 		for i=1,#query_string_remove_args_table do --for each host in our table
 			local v = query_string_remove_args_table[i]
-			if string_match(URL, v[1]) then --if our host matches one in the table
+			if string.match(ngx.var.scheme .. "://" .. ngx.var.host .. ngx.var.request_uri, v[1]) then --if our host matches one in the table
 				for i=1,#v[2] do --for each arg in our table
 					local value = v[2][i]
 					args[value] = nil --remove the arguement from the args table
@@ -3218,7 +3100,7 @@ local function query_string_remove_args()
 			end
 		end
 		if modified == 1 then --need to set our args as our new modified one
-			ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check ngx_var.args
+			ngx.req.set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
 		else
 			return --carry on script functions
 		end
@@ -3246,12 +3128,12 @@ Query String Expected arguments Whitelist only
 ]]
 local function query_string_expected_args_only()
 	if #query_string_expected_args_only_table > 0 then
-		local args = ngx_req_get_uri_args() --grab our query string args and put them into a table
+		local args = ngx.req.get_uri_args() --grab our query string args and put them into a table
 		local modified = nil
 
 		for i=1,#query_string_expected_args_only_table do --for each host in our table
 			local v = query_string_expected_args_only_table[i]
-			if string_match(URL, v[1]) then --if our host matches one in the table
+			if string.match(ngx.var.scheme .. "://" .. ngx.var.host .. ngx.var.request_uri, v[1]) then --if our host matches one in the table
 				for key, value in next, args do
 					if has_value(v[2], tostring(key)) == false then
 						args[key] = nil --remove the arguement from the args table
@@ -3262,7 +3144,7 @@ local function query_string_expected_args_only()
 			end
 		end
 		if modified == 1 then --need to set our args as our new modified one
-			ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check ngx_var.args
+			ngx.req.set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
 		else
 			return --carry on script functions
 		end
@@ -3282,7 +3164,7 @@ local function query_string_sort()
 
 		for i=1,#query_string_sort_table do --for each host in our table
 			local v = query_string_sort_table[i]
-			if string_match(URL, v[1]) then --if our host matches one in the table
+			if string.match(ngx.var.scheme .. "://" .. ngx.var.host .. ngx.var.request_uri, v[1]) then --if our host matches one in the table
 				if v[2] == 1 then --run query string sort
 					allow_site = 2 --run query string sort
 				end
@@ -3293,9 +3175,9 @@ local function query_string_sort()
 			end
 		end
 		if allow_site == 2 then --sort our query string
-			local args = ngx_req_get_uri_args() --grab our query string args and put them into a table
-			table_sort(args) --sort our query string args table into order
-			ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check ngx_var.args
+			local args = ngx.req.get_uri_args() --grab our query string args and put them into a table
+			table.sort(args) --sort our query string args table into order
+			ngx.req.set_uri_args(args) --set the args on the server as our new ordered args check ngx.var.args
 		else --allow_site was 1
 			return --carry on script functions
 		end
@@ -3310,17 +3192,17 @@ End Query String Sort
 Start IP range function
 ]]
 local function ip_address_in_range(input_ip, client_connecting_ip)
-	if string_match(input_ip, "/") then --input ip is a subnet
+	if string.match(input_ip, "/") then --input ip is a subnet
 		--do nothing
 	else
 		return
 	end
 
 	local ip_type = nil
-	if string_match(input_ip, "%:") and string_match(client_connecting_ip, "%:") then --if both input and connecting ip are ipv6 addresses
+	if string.match(input_ip, "%:") and string.match(client_connecting_ip, "%:") then --if both input and connecting ip are ipv6 addresses
 		--ipv6
 		ip_type = 1
-	elseif string_match(input_ip, "%.") and string_match(client_connecting_ip, "%.") then --if both input and connecting ip are ipv4 addresses
+	elseif string.match(input_ip, "%.") and string.match(client_connecting_ip, "%.") then --if both input and connecting ip are ipv4 addresses
 		--ipv4
 		ip_type = 2
 	else
@@ -3338,12 +3220,12 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 			local pos, arr = 0, {}
 			local arr_table_length = 1
 			--for each divider found
-			for st, sp in function() return string_find(string, divide, pos, true) end do
-				arr[arr_table_length] = string_sub(string, pos, st - 1 ) --attach chars left of current divider
+			for st, sp in function() return string.find(string, divide, pos, true) end do
+				arr[arr_table_length] = string.sub(string, pos, st - 1 ) --attach chars left of current divider
 				arr_table_length=arr_table_length+1
 				pos = sp + 1 --jump past current divider
 			end
-				arr[arr_table_length] = string_sub(string, pos) -- Attach chars right of last divider
+				arr[arr_table_length] = string.sub(string, pos) -- Attach chars right of last divider
 				arr_table_length=arr_table_length+1
 			return arr
 		end
@@ -3352,7 +3234,7 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		Input IP
 		]]
 		--validate actual ip
-		local a, b, ip, mask = string_find(input_ip, '([%w:]+)/(%d+)')
+		local a, b, ip, mask = string.find(input_ip, '([%w:]+)/(%d+)')
 
 		--get ip bits
 		local ipbits = explode(ip, ':')
@@ -3364,13 +3246,13 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 			local k = i
 			local v = ipbits[i]
 			--length 0? we're at the :: bit
-			if string_len(v) == 0 then
+			if string.len(v) == 0 then
 				zeroblock = k
 
 				--length not 0 but not 4, prepend 0's
-			elseif string_len(v) < 4 then
-				--local padding = 4 - string_len(v)
-				for i = 1, 4 - string_len(v) do
+			elseif string.len(v) < 4 then
+				--local padding = 4 - string.len(v)
+				for i = 1, 4 - string.len(v) do
 					ipbits[k] = 0 .. ipbits[k]
 				end
 			end
@@ -3393,7 +3275,7 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		Client IP
 		]]
 		--validate actual ip
-		local a, b, clientip, mask_client = string_find(client_connecting_ip, '([%w:]+)')
+		local a, b, clientip, mask_client = string.find(client_connecting_ip, '([%w:]+)')
 
 		--get ip bits
 		local ipbits_client = explode(clientip, ':')
@@ -3405,13 +3287,13 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 			local k = i
 			local v = ipbits_client[i]
 			--length 0? we're at the :: bit
-			if string_len(v) == 0 then
+			if string.len(v) == 0 then
 				zeroblock_client = k
 
 				--length not 0 but not 4, prepend 0's
-			elseif string_len(v) < 4 then
-				--local padding = 4 - string_len(v)
-				for i = 1, 4 - string_len(v) do
+			elseif string.len(v) < 4 then
+				--local padding = 4 - string.len(v)
+				for i = 1, 4 - string.len(v) do
 					ipbits_client[k] = 0 .. ipbits_client[k]
 				end
 			end
@@ -3431,21 +3313,21 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		]]
 
 		local expanded_ip_count = (ipbits[1] or "0000") .. ':' .. (ipbits[2] or "0000") .. ':' .. (ipbits[3] or "0000") .. ':' .. (ipbits[4] or "0000") .. ':' .. (ipbits[5] or "0000") .. ':' .. (ipbits[6] or "0000") .. ':' .. (ipbits[7] or "0000") .. ':' .. (ipbits[8] or "0000")
-		expanded_ip_count = ngx_re_gsub(expanded_ip_count, ":", "", ngx_re_options)
+		expanded_ip_count = ngx.re.gsub(expanded_ip_count, ":", "", ngx_re_options)
 
 		local client_connecting_ip_count = (ipbits_client[1] or "0000") .. ':' .. (ipbits_client[2] or "0000") .. ':' .. (ipbits_client[3] or "0000") .. ':' .. (ipbits_client[4] or "0000") .. ':' .. (ipbits_client[5] or "0000") .. ':' .. (ipbits_client[6] or "0000") .. ':' .. (ipbits_client[7] or "0000") .. ':' .. (ipbits_client[8] or "0000")
-		client_connecting_ip_count = ngx_re_gsub(client_connecting_ip_count, ":", "", ngx_re_options)
+		client_connecting_ip_count = ngx.re.gsub(client_connecting_ip_count, ":", "", ngx_re_options)
 
 		--generate wildcard from mask
 		local indent = mask / 4
 
-		expanded_ip_count = string_sub(expanded_ip_count, 0, indent)
-		client_connecting_ip_count = string_sub(client_connecting_ip_count, 0, indent)
+		expanded_ip_count = string.sub(expanded_ip_count, 0, indent)
+		client_connecting_ip_count = string.sub(client_connecting_ip_count, 0, indent)
 
-		local client_connecting_ip_expanded = ngx_re_gsub(client_connecting_ip_count, "....", "%1:", ngx_re_options)
-		client_connecting_ip_expanded = ngx_re_gsub(client_connecting_ip_count, ":$", "", ngx_re_options)
-		local expanded_ip = ngx_re_gsub(expanded_ip_count, "....", "%1:", ngx_re_options)
-		expanded_ip = ngx_re_gsub(expanded_ip_count, ":$", "", ngx_re_options)
+		local client_connecting_ip_expanded = ngx.re.gsub(client_connecting_ip_count, "....", "%1:", ngx_re_options)
+		client_connecting_ip_expanded = ngx.re.gsub(client_connecting_ip_count, ":$", "", ngx_re_options)
+		local expanded_ip = ngx.re.gsub(expanded_ip_count, "....", "%1:", ngx_re_options)
+		expanded_ip = ngx.re.gsub(expanded_ip_count, ":$", "", ngx_re_options)
 
 		local wildcardbits = {}
 		local wildcardbits_table_length = 1
@@ -3482,8 +3364,8 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 				local topbit = ''
 				local bottombit = ''
 				for i = 1, 4 do
-					local wild = string_sub(wildcard[k], i, i)
-					local norm = string_sub(v, i, i)
+					local wild = string.sub(wildcard[k], i, i)
+					local norm = string.sub(v, i, i)
 					if wild == 'f' then
 						topbit = topbit .. norm
 						bottombit = bottombit .. norm
@@ -3497,38 +3379,38 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 			end
 
 		--count ips in mask
-		local ipcount = math_pow(2, 128 - mask)
+		local ipcount = math.pow(2, 128 - mask)
 
 		if expanded_ip == client_connecting_ip_expanded then
-			--ngx_log(ngx_LOG_TYPE,"ipv6 is in range")
+			--ngx.log(ngx.STDERR,"ipv6 is in range")
 			return true
 		end
 
 		--output
 		--[[
-		ngx_log(ngx_LOG_TYPE,'indent' .. indent)
-		ngx_log(ngx_LOG_TYPE,'client_ip numeric : ' .. client_connecting_ip_count )
-		ngx_log(ngx_LOG_TYPE,'input ip numeric : ' .. expanded_ip_count )
-		ngx_log(ngx_LOG_TYPE,'client_ip : ' .. client_connecting_ip_expanded )
-		ngx_log(ngx_LOG_TYPE,'input ip : ' .. expanded_ip )
-		ngx_log(ngx_LOG_TYPE, '###### INFO ######' )
-		ngx_log(ngx_LOG_TYPE, 'IP in: ' .. ip )
-		ngx_log(ngx_LOG_TYPE, '=> Expanded IP: ' .. (ipbits[1] or "0000") .. ':' .. (ipbits[2] or "0000") .. ':' .. (ipbits[3] or "0000") .. ':' .. (ipbits[4] or "0000") .. ':' .. (ipbits[5] or "0000") .. ':' .. (ipbits[6] or "0000") .. ':' .. (ipbits[7] or "0000") .. ':' .. (ipbits[8] or "0000") )
-		ngx_log(ngx_LOG_TYPE, 'Mask in: /' .. mask )
-		ngx_log(ngx_LOG_TYPE, '=> Mask Wildcard: ' .. (wildcard[1] or "0000") .. ':' .. (wildcard[2] or "0000") .. ':' .. (wildcard[3] or "0000") .. ':' .. (wildcard[4] or "0000") .. ':' .. (wildcard[5] or "0000") .. ':' .. (wildcard[6] or "0000") .. ':' .. (wildcard[7] or "0000") .. ':' .. (wildcard[8] or "0000") )
-		ngx_log(ngx_LOG_TYPE, '\n###### BLOCK ######' )
-		ngx_log(ngx_LOG_TYPE, '#IP\'s: ' .. ipcount )
-		ngx_log(ngx_LOG_TYPE, 'Range Start: ' .. (topip[1] or "0000") .. ':' .. (topip[2] or "0000") .. ':' .. (topip[3] or "0000") .. ':' .. (topip[4] or "0000") .. ':' .. (topip[5] or "0000") .. ':' .. (topip[6] or "0000") .. ':' .. (topip[7] or "0000") .. ':' .. (topip[8] or "0000") )
-		ngx_log(ngx_LOG_TYPE, 'Range End: ' .. (bottomip[1] or "ffff") .. ':' .. (bottomip[2] or "ffff") .. ':' .. (bottomip[3] or "ffff") .. ':' .. (bottomip[4] or "ffff") .. ':' .. (bottomip[5] or "ffff") .. ':' .. (bottomip[6] or "ffff") .. ':' .. (bottomip[7] or "ffff") .. ':' .. (bottomip[8] or "ffff") )
+		ngx.log(ngx.STDERR,'indent' .. indent)
+		ngx.log(ngx.STDERR,'client_ip numeric : ' .. client_connecting_ip_count )
+		ngx.log(ngx.STDERR,'input ip numeric : ' .. expanded_ip_count )
+		ngx.log(ngx.STDERR,'client_ip : ' .. client_connecting_ip_expanded )
+		ngx.log(ngx.STDERR,'input ip : ' .. expanded_ip )
+		ngx.log(ngx.STDERR, '###### INFO ######' )
+		ngx.log(ngx.STDERR, 'IP in: ' .. ip )
+		ngx.log(ngx.STDERR, '=> Expanded IP: ' .. (ipbits[1] or "0000") .. ':' .. (ipbits[2] or "0000") .. ':' .. (ipbits[3] or "0000") .. ':' .. (ipbits[4] or "0000") .. ':' .. (ipbits[5] or "0000") .. ':' .. (ipbits[6] or "0000") .. ':' .. (ipbits[7] or "0000") .. ':' .. (ipbits[8] or "0000") )
+		ngx.log(ngx.STDERR, 'Mask in: /' .. mask )
+		ngx.log(ngx.STDERR, '=> Mask Wildcard: ' .. (wildcard[1] or "0000") .. ':' .. (wildcard[2] or "0000") .. ':' .. (wildcard[3] or "0000") .. ':' .. (wildcard[4] or "0000") .. ':' .. (wildcard[5] or "0000") .. ':' .. (wildcard[6] or "0000") .. ':' .. (wildcard[7] or "0000") .. ':' .. (wildcard[8] or "0000") )
+		ngx.log(ngx.STDERR, '\n###### BLOCK ######' )
+		ngx.log(ngx.STDERR, '#IP\'s: ' .. ipcount )
+		ngx.log(ngx.STDERR, 'Range Start: ' .. (topip[1] or "0000") .. ':' .. (topip[2] or "0000") .. ':' .. (topip[3] or "0000") .. ':' .. (topip[4] or "0000") .. ':' .. (topip[5] or "0000") .. ':' .. (topip[6] or "0000") .. ':' .. (topip[7] or "0000") .. ':' .. (topip[8] or "0000") )
+		ngx.log(ngx.STDERR, 'Range End: ' .. (bottomip[1] or "ffff") .. ':' .. (bottomip[2] or "ffff") .. ':' .. (bottomip[3] or "ffff") .. ':' .. (bottomip[4] or "ffff") .. ':' .. (bottomip[5] or "ffff") .. ':' .. (bottomip[6] or "ffff") .. ':' .. (bottomip[7] or "ffff") .. ':' .. (bottomip[8] or "ffff") )
 		]]
 
 	end
 
 	if ip_type == 2 then --ipv4
 
-		local a, b, ip1, ip2, ip3, ip4, mask = string_find(input_ip, '(%d+).(%d+).(%d+).(%d+)/(%d+)')
+		local a, b, ip1, ip2, ip3, ip4, mask = string.find(input_ip, '(%d+).(%d+).(%d+).(%d+)/(%d+)')
 		local ip = { tonumber( ip1 ), tonumber( ip2 ), tonumber( ip3 ), tonumber( ip4 ) }
-		local a, b, client_ip1, client_ip2, client_ip3, client_ip4 = string_find(client_connecting_ip, '(%d+).(%d+).(%d+).(%d+)')
+		local a, b, client_ip1, client_ip2, client_ip3, client_ip4 = string.find(client_connecting_ip, '(%d+).(%d+).(%d+).(%d+)')
 		local client_ip = { tonumber( client_ip1 ), tonumber( client_ip2 ), tonumber( client_ip3 ), tonumber( client_ip4 ) }
 
 		--list masks => wildcard
@@ -3570,7 +3452,7 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		local wildcard = masks[tonumber( mask )]
 
 		--number of ips in mask
-		local ipcount = math_pow(2, ( 32 - mask ))
+		local ipcount = math.pow(2, ( 32 - mask ))
 
 		--network IP (route/bottom IP)
 		local bottomip = {}
@@ -3946,18 +3828,18 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 
 		--output
 		--[[
-		ngx_log(ngx_LOG_TYPE, '###### INFO ######' )
-		ngx_log(ngx_LOG_TYPE, 'IP in: ' .. ip[1] .. '.' .. ip[2] .. '.' .. ip[3] .. '.' .. ip[4]  )
-		ngx_log(ngx_LOG_TYPE, 'Mask in: /' .. mask )
-		ngx_log(ngx_LOG_TYPE, '=> Mask Wildcard: ' .. wildcard[1] .. '.' .. wildcard[2] .. '.' .. wildcard[3] .. '.' .. wildcard[4]  )
-		ngx_log(ngx_LOG_TYPE, '=> in IP is network-ip: ' .. tostring( isnetworkip ) )
-		ngx_log(ngx_LOG_TYPE, '=> in IP is broadcast-ip: ' .. tostring( isbroadcastip ) )
-		ngx_log(ngx_LOG_TYPE, '\n###### BLOCK ######' )
-		ngx_log(ngx_LOG_TYPE, '#IP\'s: ' .. ipcount )
-		ngx_log(ngx_LOG_TYPE, 'Bottom/Network: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] .. '/' .. mask )
-		ngx_log(ngx_LOG_TYPE, 'Top/Broadcast: ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] )
-		ngx_log(ngx_LOG_TYPE, 'Subnet Range: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] .. ' - ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] )
-		ngx_log(ngx_LOG_TYPE, 'Host Range: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] + 1 .. ' - ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] - 1 )
+		ngx.log(ngx.STDERR, '###### INFO ######' )
+		ngx.log(ngx.STDERR, 'IP in: ' .. ip[1] .. '.' .. ip[2] .. '.' .. ip[3] .. '.' .. ip[4]  )
+		ngx.log(ngx.STDERR, 'Mask in: /' .. mask )
+		ngx.log(ngx.STDERR, '=> Mask Wildcard: ' .. wildcard[1] .. '.' .. wildcard[2] .. '.' .. wildcard[3] .. '.' .. wildcard[4]  )
+		ngx.log(ngx.STDERR, '=> in IP is network-ip: ' .. tostring( isnetworkip ) )
+		ngx.log(ngx.STDERR, '=> in IP is broadcast-ip: ' .. tostring( isbroadcastip ) )
+		ngx.log(ngx.STDERR, '\n###### BLOCK ######' )
+		ngx.log(ngx.STDERR, '#IP\'s: ' .. ipcount )
+		ngx.log(ngx.STDERR, 'Bottom/Network: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] .. '/' .. mask )
+		ngx.log(ngx.STDERR, 'Top/Broadcast: ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] )
+		ngx.log(ngx.STDERR, 'Subnet Range: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] .. ' - ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] )
+		ngx.log(ngx.STDERR, 'Host Range: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] + 1 .. ' - ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] - 1 )
 		]]
 
 	end
@@ -3965,11 +3847,11 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 end
 --[[
 usage
-if ip_address_in_range("255.255.0.0/17", ngx_var_remote_addr) == true then --ipv4
-	ngx_log(ngx_LOG_TYPE,"IPv4 in range")
+if ip_address_in_range("255.255.0.0/17", ngx.var.remote_addr) == true then --ipv4
+	ngx.log(ngx.STDERR,"IPv4 in range")
 end
-if ip_address_in_range("2a02:0c68::/29", ngx_var_remote_addr) == true then --ipv6
-	ngx_log(ngx_LOG_TYPE,"IPv6 in range")
+if ip_address_in_range("2a02:0c68::/29", ngx.var.remote_addr) == true then --ipv6
+	ngx.log(ngx.STDERR,"IPv6 in range")
 end
 ]]
 --[[
@@ -3982,9 +3864,9 @@ local function WAF_Post_Requests()
 	--if next(WAF_POST_Request_table) ~= nil then --Check Post filter table has rules inside it
 	if #WAF_POST_Request_table > 0 then --Check Post filter table has rules inside it
 
-		ngx_req_read_body() --Grab the request Body
-		local read_request_body_args = (ngx_req_get_body_data() or "") --Put the request body arguments into a variable
-		local args = (ngx_decode_args(read_request_body_args) or "") --Put the Post args in to a table
+		ngx.req.read_body() --Grab the request Body
+		local read_request_body_args = (ngx.req.get_body_data() or "") --Put the request body arguments into a variable
+		local args = (ngx.decode_args(read_request_body_args) or "") --Put the Post args in to a table
 
 		if next(args) ~= nil then --Check Post args table has contents
 		--if #args > 0 then --Check Post args table has contents	
@@ -4002,14 +3884,14 @@ local function WAF_Post_Requests()
 					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
 					local args_name = tostring(key) or "" --variable to store POST data argument name
 					local args_value = tostring(value) or "" --variable to store POST data argument value
-					if string_match(args_name, argument_name) then --if the argument name in my table matches the one in the POST request
+					if string.match(args_name, argument_name) then --if the argument name in my table matches the one in the POST request
 						arguement1 = 1
 					end
-					if string_match(args_value, argument_value) then --if the argument value in my table matches the one the POST request
+					if string.match(args_value, argument_value) then --if the argument value in my table matches the one the POST request
 						arguement2 = 1
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-						return ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
+						return ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
 					end
 				end
 			end
@@ -4024,7 +3906,7 @@ local function WAF_Header_Requests()
 	--if next(WAF_Header_Request_table) ~= nil then --Check Header filter table has rules inside it
 	if #WAF_Header_Request_table > 0 then --Check Header filter table has rules inside it
 
-		local argument_request_headers = ngx_req_get_headers() --get our client request headers and put them into a table
+		local argument_request_headers = ngx.req.get_headers() --get our client request headers and put them into a table
 
 		if next(argument_request_headers) ~= nil then --Check Header args table has contents
 		--if #argument_request_headers > 0 then --Check Header args table has contents
@@ -4041,15 +3923,15 @@ local function WAF_Header_Requests()
 					local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
 					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
 					local args_name = tostring(key) or "" --variable to store Header data argument name
-					local args_value = tostring(ngx_req_get_headers()[args_name]) or ""
-					if string_match(args_name, argument_name) then --if the argument name in my table matches the one in the request
+					local args_value = tostring(ngx.req.get_headers()[args_name]) or ""
+					if string.match(args_name, argument_name) then --if the argument name in my table matches the one in the request
 						arguement1 = 1
 					end
-					if string_match(args_value, argument_value) then --if the argument value in my table matches the one the request
+					if string.match(args_value, argument_value) then --if the argument value in my table matches the one the request
 						arguement2 = 1
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-						return ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
+						return ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
 					end
 				end
 			end
@@ -4064,7 +3946,7 @@ local function WAF_query_string_Request()
 	--if next(WAF_query_string_Request_table) ~= nil then --Check query string filter table has rules inside it
 	if #WAF_query_string_Request_table > 0 then --Check query string filter table has rules inside it
 
-		local args = ngx_req_get_uri_args() --grab our query string args and put them into a table
+		local args = ngx.req.get_uri_args() --grab our query string args and put them into a table
 
 		if next(args) ~= nil then --Check query string args table has contents
 		--if #args > 0 then --Check query string args table has contents
@@ -4081,15 +3963,15 @@ local function WAF_query_string_Request()
 					local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
 					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
 					local args_name = tostring(key) or "" --variable to store query string data argument name
-					local args_value = tostring(ngx_req_get_uri_args()[args_name]) or "" --variable to store query string data argument value
-					if string_match(args_name, argument_name) then --if the argument name in my table matches the one in the request
+					local args_value = tostring(ngx.req.get_uri_args()[args_name]) or "" --variable to store query string data argument value
+					if string.match(args_name, argument_name) then --if the argument name in my table matches the one in the request
 						arguement1 = 1
 					end
-					if string_match(args_value, argument_value) then --if the argument value in my table matches the one the request
+					if string.match(args_value, argument_value) then --if the argument value in my table matches the one the request
 						arguement2 = 1
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-						return ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
+						return ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
 					end
 				end
 			end
@@ -4105,20 +3987,20 @@ local function WAF_URI_Request()
 	if #WAF_URI_Request_table > 0 then --Check Post filter table has rules inside it
 
 		--[[
-		Because ngx_var.uri is a bit stupid I strip the query string of the request uri.
+		Because ngx.var.uri is a bit stupid I strip the query string of the request uri.
 		The reason for this it is subject to normalisation
 		Consecutive / characters are replace by a single / 
 		and URL encoded characters are decoded 
 		but then your back end webserver / application recieve the encoded uri!?
 		So to keep the security strong I match the same version your web application would need protecting from (Yes the encoded copy that could contain malicious / exploitable contents)
 		]]
-		local args = string_gsub(request_uri, "?.*", "") --remove the query string from the uri
+		local args = string.gsub(ngx.var.request_uri, "?.*", "") --remove the query string from the uri
 
 		for i=1,#WAF_URI_Request_table do --for each host in our table
 			local v = WAF_URI_Request_table[i]
-			if string_match(URL, v[1]) then --if our host matches one in the table
-				if string_match(args, v[2]) then
-					return ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
+			if string.match(ngx.var.scheme .. "://" .. ngx.var.host .. ngx.var.request_uri, v[1]) then --if our host matches one in the table
+				if string.match(args, v[2]) then
+					return ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
 				end
 			end
 		end
@@ -4142,7 +4024,7 @@ local function check_ips()
 				end
 			end
 			if ip_whitelist_block_mode == 1 then --ip address not matched the above
-				return ngx_exit(ngx.HTTP_CLOSE) --deny user access
+				return ngx.exit(ngx.HTTP_CLOSE) --deny user access
 			end
 		end
 
@@ -4159,9 +4041,9 @@ local function check_ips()
 			for i=1,#ip_table do
 				local value = ip_table[i]
 				if value == ip_blacklist_remote_addr then
-					return ngx_exit(ngx.HTTP_CLOSE) --deny user access
+					return ngx.exit(ngx.HTTP_CLOSE) --deny user access
 				elseif ip_address_in_range(value, ip_blacklist_remote_addr) == true then
-					return ngx_exit(ngx.HTTP_CLOSE) --deny user access
+					return ngx.exit(ngx.HTTP_CLOSE) --deny user access
 				end
 			end
 		end
@@ -4179,25 +4061,25 @@ end
 local function check_user_agents()
 	local function check_user_agent_blacklist(user_agent_table)
 		if #user_agent_table > 0 then
-			local req_headers = ngx_req_get_headers()
+			local req_headers = ngx.req.get_headers()
 			local user_agent_blacklist_var = req_headers["user-agent"] or ""
 			if user_agent_blacklist_var then
 				if type(user_agent_blacklist_var) ~= "table" then
 					for i=1,#user_agent_table do
 						local value = user_agent_table[i]
 						if value[2] == 1 then --case insensative
-							user_agent_blacklist_var = string_lower(user_agent_blacklist_var)
-							value[1] = string_lower(value[1])
+							user_agent_blacklist_var = string.lower(user_agent_blacklist_var)
+							value[1] = string.lower(value[1])
 						end
 						if value[2] == 2 then --case sensative
 						end
 						if value[2] == 3 then --regex case sensative
 						end
 						if value[2] == 4 then --regex lower case insensative
-							user_agent_blacklist_var = string_lower(user_agent_blacklist_var)
+							user_agent_blacklist_var = string.lower(user_agent_blacklist_var)
 						end
-						if string_match(user_agent_blacklist_var, value[1])then
-							return ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
+						if string.match(user_agent_blacklist_var, value[1])then
+							return ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
 						end
 					end
 				else
@@ -4205,18 +4087,18 @@ local function check_user_agents()
 						for i=1,#user_agent_table do
 							local value = user_agent_table[i]
 							if value[2] == 1 then --case insensative
-								user_agent_blacklist_var[x] = string_lower(user_agent_blacklist_var[x])
-								value[1] = string_lower(value[1])
+								user_agent_blacklist_var[x] = string.lower(user_agent_blacklist_var[x])
+								value[1] = string.lower(value[1])
 							end
 							if value[2] == 2 then --case sensative
 							end
 							if value[2] == 3 then --regex case sensative
 							end
 							if value[2] == 4 then --regex lower case insensative
-								user_agent_blacklist_var[x] = string_lower(user_agent_blacklist_var[x])
+								user_agent_blacklist_var[x] = string.lower(user_agent_blacklist_var[x])
 							end
-							if string_match(user_agent_blacklist_var[x], value[1])then
-								return ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
+							if string.match(user_agent_blacklist_var[x], value[1])then
+								return ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
 							end
 						end
 					end
@@ -4230,24 +4112,24 @@ local function check_user_agents()
 
 	local function check_user_agent_whitelist(user_agent_table)
 		if #user_agent_table > 0 then
-			local req_headers = ngx_req_get_headers()
+			local req_headers = ngx.req.get_headers()
 			local user_agent_whitelist_var = req_headers["user-agent"] or ""
 			if user_agent_whitelist_var then
 				if type(user_agent_whitelist_var) ~= "table" then
 					for i=1,#user_agent_table do
 						local value = user_agent_table[i]
 						if value[2] == 1 then --case insensative
-							user_agent_whitelist_var = string_lower(user_agent_whitelist_var)
-							value[1] = string_lower(value[1])
+							user_agent_whitelist_var = string.lower(user_agent_whitelist_var)
+							value[1] = string.lower(value[1])
 						end
 						if value[2] == 2 then --case sensative
 						end
 						if value[2] == 3 then --regex case sensative
 						end
 						if value[2] == 4 then --regex lower case insensative
-							user_agent_whitelist_var = string_lower(user_agent_whitelist_var)
+							user_agent_whitelist_var = string.lower(user_agent_whitelist_var)
 						end
-						if string_match(user_agent_whitelist_var, value[1])then
+						if string.match(user_agent_whitelist_var, value[1])then
 							return master_exit() --Go to content
 						end
 					end
@@ -4256,17 +4138,17 @@ local function check_user_agents()
 						for i=1,#user_agent_table do
 							local value = user_agent_table[i]
 							if value[2] == 1 then --case insensative
-								user_agent_whitelist_var[x] = string_lower(user_agent_whitelist_var[x])
-								value[1] = string_lower(value[1])
+								user_agent_whitelist_var[x] = string.lower(user_agent_whitelist_var[x])
+								value[1] = string.lower(value[1])
 							end
 							if value[2] == 2 then --case sensative
 							end
 							if value[2] == 3 then --regex case sensative
 							end
 							if value[2] == 4 then --regex lower case insensative
-								user_agent_whitelist_var[x] = string_lower(user_agent_whitelist_var[x])
+								user_agent_whitelist_var[x] = string.lower(user_agent_whitelist_var[x])
 							end
-							if string_match(user_agent_whitelist_var[x], value[1])then
+							if string.match(user_agent_whitelist_var[x], value[1])then
 								return master_exit() --Go to content
 							end
 						end
@@ -4288,13 +4170,13 @@ return --exit from run_checks() function
 end
 
 -- Seed the randomness with our custom seed
-math_randomseed(getRandomSeed())
+math.randomseed(getRandomSeed())
 
 --[[
 String XOR helper function
 ]]
 local function xorChar(c, key)
-    return string_char(bit_bxor(string_byte(c), key))
+    return string.char(bit.bxor(string.byte(c), key))
 end
 --[[
 End String XOR helper function
@@ -4303,7 +4185,7 @@ End String XOR helper function
 Char Shift helper function
 ]]
 local function shiftChar(c, amount)
-    return string_char((string_byte(c) + amount) % 256)
+    return string.char((string.byte(c) + amount) % 256)
 end
 --[[
 End Char Shift helper function
@@ -4312,15 +4194,15 @@ End Char Shift helper function
 Calculate answer Function
 ]]--
 local function calculateAnswer(client_signature) 
-    local seed = math_floor(math_sin(tonumber(os_date("%Y%m%d", os_time_saved))) * 1000)
+    local seed = math.floor(math.sin(tonumber(os.date("%Y%m%d", os.time()-24*60*60))) * 1000)
     local key = seed % 256
-    local shiftAmount = math_floor((seed * math_sin(seed)) % 10) + 1
+    local shiftAmount = math.floor((seed * math.sin(seed)) % 10) + 1
 
     local result = ""
     for i = 1, #client_signature do
-        result = result .. shiftChar(xorChar(string_sub(client_signature, i, i), (key + i - 1) % 256), shiftAmount)
+        result = result .. shiftChar(xorChar(string.sub(client_signature, i, i), (key + i - 1) % 256), shiftAmount)
     end
-    return ngx_encode_base64(result)
+    return ngx.encode_base64(result)
 end
 --[[
 End Calculate answer Function
@@ -4328,10 +4210,10 @@ End Calculate answer Function
 
 --function to encrypt strings with our secret key / password provided
 local function calculate_signature(str)
-	local output = ngx_encode_base64(ngx_hmac_sha1(secret, str))
-	output = ngx_re_gsub(output, "[+]", "-", ngx_re_options) --Replace + with -
-	output = ngx_re_gsub(output, "[/]", "_", ngx_re_options) --Replace / with _
-	output = ngx_re_gsub(output, "[=]", "", ngx_re_options) --Remove =
+	local output = ngx.encode_base64(ngx.hmac_sha1(secret, str))
+	output = ngx.re.gsub(output, "[+]", "-", ngx_re_options) --Replace + with -
+	output = ngx.re.gsub(output, "[/]", "_", ngx_re_options) --Replace / with _
+	output = ngx.re.gsub(output, "[=]", "", ngx_re_options) --Remove =
 	return output
 end
 --calculate_signature(str)
@@ -4340,23 +4222,23 @@ end
 --qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890
 local charset = {}
 for i = 48,  57 do
-charset[#charset+1] = string_char(i)
+charset[#charset+1] = string.char(i)
 end --0-9 numeric
 --[[
 for i = 65,  90 do
-charset[#charset+1] = string_char(i)
+charset[#charset+1] = string.char(i)
 end --A-Z uppercase
 ]]
 --[[
 for i = 97, 122 do
-charset[#charset+1] = string_char(i)
+charset[#charset+1] = string.char(i)
 end --a-z lowercase
 ]]
-charset[#charset+1] = string_char(95) --insert number 95 underscore
+charset[#charset+1] = string.char(95) --insert number 95 underscore
 local stringrandom_table = {} --create table to store our generated vars to avoid duplicates
 local function stringrandom(length)
 	if length > 0 then
-		local output = stringrandom(length - 1) .. charset[math_random(1, #charset)]
+		local output = stringrandom(length - 1) .. charset[math.random(1, #charset)]
 		local duplicate_found = 0 --mark if we find a duplicate or not
 		for i=1,#stringrandom_table do --for each value in our generated var table
 			if stringrandom_table[i] == output then --if a value in our table matches our generated var
@@ -4380,13 +4262,13 @@ local stringrandom_length = "" --create our random length variable
 if dynamic_javascript_vars_length == 1 then --if our javascript random var length is to be static
 	stringrandom_length = dynamic_javascript_vars_length_static --set our length as our static value
 else --it is to be dynamic
-	stringrandom_length = math_random(dynamic_javascript_vars_length_start, dynamic_javascript_vars_length_end) --set our length to be our dynamic min and max value
+	stringrandom_length = math.random(dynamic_javascript_vars_length_start, dynamic_javascript_vars_length_end) --set our length to be our dynamic min and max value
 end
 
 --shuffle table function
 local function shuffle(tbl)
 	for i = #tbl, 2, -1 do
-		local j = math_random(i)
+		local j = math.random(i)
 		tbl[i], tbl[j] = tbl[j], tbl[i]
 	end
 	return tbl
@@ -4394,15 +4276,15 @@ end
 
 --for my javascript Hex output
 local function sep(str, patt, re)
-	local rstr = string_gsub(str, patt, "%1%" .. re)
-	--local rstr = ngx_re_gsub(str, patt, "%1%" .. re, ngx_re_options) --this has a major issue no idea why need to investigate more
-	return string_sub(rstr, 1, #rstr - #re)
+	local rstr = string.gsub(str, patt, "%1%" .. re)
+	--local rstr = ngx.re.gsub(str, patt, "%1%" .. re, ngx_re_options) --this has a major issue no idea why need to investigate more
+	return string.sub(rstr, 1, #rstr - #re)
 end
 
 local function stringtohex(str)
-	--return ngx_re_gsub(str, ".", function (c) ngx_log(ngx_LOG_TYPE,tostring(c[0])) return string_format('%02X', string_byte(c[0])) end, ngx_re_options) --this has a major issue no idea why need to investigate more
-	return string_gsub(str, '.', function (c)
-		return string_format('%02X', string_byte(c))
+	--return ngx.re.gsub(str, ".", function (c) ngx.log(ngx.STDERR,tostring(c[0])) return string.format('%02X', string.byte(c[0])) end, ngx_re_options) --this has a major issue no idea why need to investigate more
+	return string.gsub(str, '.', function (c)
+		return string.format('%02X', string.byte(c))
 	end)
 end
 
@@ -4411,7 +4293,7 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 	local output = "" --Empty var
 
 	if type == 0 then
-		type = math_random(3, 5) --Random encryption
+		type = math.random(3, 5) --Random encryption
 	end
 
 	if type == 1 or type == nil then --No encryption
@@ -4433,18 +4315,18 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 
 		if tonumber(num_encrypt) ~= nil then --If number of times extra to rencrypt is set
 			for i=1, tonumber(num_encrypt) do --for each number
-				string1 = ngx_encode_base64(base64_data_uri)
+				string1 = ngx.encode_base64(base64_data_uri)
 			end
 		end
 
 		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
-			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx_encode_base64(string1) .. "\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\"></script>"
+			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\"></script>"
 		end
 		if defer_async == "1" then --Defer
-			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx_encode_base64(string1) .. "\" defer=\"defer\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\"></script>"
+			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" defer=\"defer\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\"></script>"
 		end
 		if defer_async == "2" then --Async
-			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx_encode_base64(string1) .. "\" async=\"async\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\"></script>"
+			output = "<script type=\"text/javascript\" src=\"data:text/javascript;base64," .. ngx.encode_base64(string1) .. "\" async=\"async\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\"></script>"
 		end
 	end
 
@@ -4454,14 +4336,14 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		local encrypt_type_origin = encrypt_type --Store var passed to function in local var
 
 		if tonumber(encrypt_type) == nil or tonumber(encrypt_type) <= 0 then
-			encrypt_type = math_random(2, 2) --Random encryption
+			encrypt_type = math.random(2, 2) --Random encryption
 		end
 		--I was inspired by http://www.hightools.net/javascript-encrypter.php so i built it myself
 		if tonumber(encrypt_type) == 1 then
 			hexadecimal_x = "%" .. sep(hex_output, "%x%x", "%") --hex output insert a char every 2 chars %x%x
 		end
 		if tonumber(encrypt_type) == 2 then
-			hexadecimal_x = string_char(92) .. "x" .. sep(hex_output, "%x%x", string_char(92) .. "x") --hex output insert a char every 2 chars %x%x
+			hexadecimal_x = string.char(92) .. "x" .. sep(hex_output, "%x%x", string.char(92) .. "x") --hex output insert a char every 2 chars %x%x
 		end
 
 		--TODO: Fix this.
@@ -4469,7 +4351,7 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		if tonumber(num_encrypt) ~= nil then --If number of times extra to rencrypt is set
 			for i=1, tonumber(num_encrypt) do --for each number
 				if tonumber(encrypt_type) ~= nil then
-					encrypt_type = math_random(1, 2) --Random encryption
+					encrypt_type = math.random(1, 2) --Random encryption
 					if tonumber(encrypt_type) == 1 then
 						--hexadecimal_x = "%" .. sep(ndk.set_var.set_encode_hex("eval(decodeURIComponent('" .. hexadecimal_x .. "'))"), "%x%x", "%") --hex output insert a char every 2 chars %x%x
 					end
@@ -4493,11 +4375,11 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 	end
 
 	if type == 4 then --Base64 javascript decode
-		local base64_javascript = "eval(decodeURIComponent(escape(window.atob('" .. ngx_encode_base64(string1) .. "'))))"
+		local base64_javascript = "eval(decodeURIComponent(escape(window.atob('" .. ngx.encode_base64(string1) .. "'))))"
 
 		if tonumber(num_encrypt) ~= nil then --If number of times extra to rencrypt is set
 			for i=1, tonumber(num_encrypt) do --for each number
-				base64_javascript = "eval(decodeURIComponent(escape(window.atob('" .. ngx_encode_base64(base64_javascript) .. "'))))"
+				base64_javascript = "eval(decodeURIComponent(escape(window.atob('" .. ngx.encode_base64(base64_javascript) .. "'))))"
 			end
 		end
 
@@ -4513,10 +4395,10 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 	end
 
 	if type == 5 then --Conor Mcknight's Javascript Scrambler (Obfuscate Javascript by putting it into vars and shuffling them like a deck of cards)
-		local base64_javascript = ngx_encode_base64(string1) --base64 encode our script
+		local base64_javascript = ngx.encode_base64(string1) --base64 encode our script
 
 		local counter = 0 --keep track of how many times we pass through
-		local r = math_random(1, #base64_javascript) --randomize where to split string
+		local r = math.random(1, #base64_javascript) --randomize where to split string
 		local chunks = {} --create our chunks table for string storage
 		local chunks_order = {} --create our chunks table for string storage that stores the value only
 		local random_var = nil --create our random string variable to use
@@ -4525,7 +4407,7 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 			if counter <= #base64_javascript then
 				random_var = stringrandom(stringrandom_length) --create a random variable name to use
 				chunks_order[#chunks_order+1] = "_" .. random_var .. "" --insert the value into our ordered table
-				chunks[#chunks+1] = 'var _' .. random_var .. '="' .. string_sub(base64_javascript,counter,counter+r).. '";' --insert our value into our table we will scramble
+				chunks[#chunks+1] = 'var _' .. random_var .. '="' .. string.sub(base64_javascript,counter,counter+r).. '";' --insert our value into our table we will scramble
 				counter = counter+r+1
 			else
 				break
@@ -4534,8 +4416,8 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 
 		shuffle(chunks) --scramble our table
 
-		output = table_concat(chunks, "") --put our scrambled table into string
-		output = output .. "eval(decodeURIComponent(escape(window.atob(" .. table_concat(chunks_order, " + " ) .. "))));" --put our scrambled table and ordered table into a string
+		output = table.concat(chunks, "") --put our scrambled table into string
+		output = output .. "eval(decodeURIComponent(escape(window.atob(" .. table.concat(chunks_order, " + " ) .. "))));" --put our scrambled table and ordered table into a string
 		
 		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
 			output = "<script type=\"text/javascript\" charset=\"" .. default_charset .. "\" data-cfasync=\"false\">" .. output .. "</script>"
@@ -4556,25 +4438,25 @@ local currentdate = "" --make current date a empty var
 
 --Make sure our current date is in align with expires_time variable so that the auth page only shows when the cookie expires
 if expire_time <= 60 then --less than equal to one minute
-	currentdate = os_date("%M",os_time_saved) --Current minute
+	currentdate = os.date("%M",os.time()-24*60*60) --Current minute
 end
 if expire_time > 60 then --greater than one minute
-	currentdate = os_date("%H",os_time_saved) --Current hour
+	currentdate = os.date("%H",os.time()-24*60*60) --Current hour
 end
 if expire_time > 3600 then --greater than one hour
-	currentdate = os_date("%d",os_time_saved) --Current day of the year
+	currentdate = os.date("%d",os.time()-24*60*60) --Current day of the year
 end
 if expire_time > 86400 then --greater than one day
-	currentdate = os_date("%W",os_time_saved) --Current week
+	currentdate = os.date("%W",os.time()-24*60*60) --Current week
 end
 if expire_time > 6048000 then --greater than one week
-	currentdate = os_date("%m",os_time_saved) --Current month
+	currentdate = os.date("%m",os.time()-24*60*60) --Current month
 end
 if expire_time > 2628000 then --greater than one month
-	currentdate = os_date("%Y",os_time_saved) --Current year
+	currentdate = os.date("%Y",os.time()-24*60*60) --Current year
 end
 if expire_time > 31536000 then --greater than one year
-	currentdate = os_date("%z",os_time_saved) --Current time zone
+	currentdate = os.date("%z",os.time()-24*60*60) --Current time zone
 end
 
 local expected_header_status = 200
@@ -4591,11 +4473,11 @@ Start Tor detection
 ]]
 if x_tor_header == 2 then --if x-tor-header is dynamic
 	x_tor_header_name = calculate_signature(tor_remote_addr .. x_tor_header_name .. currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	x_tor_header_name = ngx_re_gsub(x_tor_header_name, "_", "", ngx_re_options) --replace underscore with nothing
+	x_tor_header_name = ngx.re.gsub(x_tor_header_name, "_", "", ngx_re_options) --replace underscore with nothing
 	x_tor_header_name_allowed = calculate_signature(tor_remote_addr .. x_tor_header_name_allowed .. currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	x_tor_header_name_allowed = ngx_re_gsub(x_tor_header_name_allowed, "_", "", ngx_re_options) --replace underscore with nothing
+	x_tor_header_name_allowed = ngx.re.gsub(x_tor_header_name_allowed, "_", "", ngx_re_options) --replace underscore with nothing
 	x_tor_header_name_blocked = calculate_signature(tor_remote_addr .. x_tor_header_name_blocked .. currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	x_tor_header_name_blocked = ngx_re_gsub(x_tor_header_name_blocked, "_", "", ngx_re_options) --replace underscore with nothing
+	x_tor_header_name_blocked = ngx.re.gsub(x_tor_header_name_blocked, "_", "", ngx_re_options) --replace underscore with nothing
 end
 
 if encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to be encrypted
@@ -4606,12 +4488,12 @@ end
 
 --block tor function to block traffic from tor users
 local function blocktor()
-	return ngx_exit(ngx_HTTP_FORBIDDEN) --deny user access
+	return ngx.exit(ngx.HTTP_FORBIDDEN) --deny user access
 end
 
 --check the connecting client to see if they have our required matching tor cookie name in their request
 local tor_cookie_name = "cookie_" .. cookie_tor
-local tor_cookie_value = ngx_var[tor_cookie_name] or ""
+local tor_cookie_value = ngx.var[tor_cookie_name] or ""
 
 if tor_cookie_value == cookie_tor_value_allow then --if their cookie value matches the value we expect
 	if tor == 2 then --perform check if tor users should be allowed or blocked if tor users already browsing your site have been granted access and you change this setting you want them to be blocked now so this makes sure they are denied any further access before their cookie expires
@@ -4661,7 +4543,7 @@ local function check_authorization(authorization, authorization_dynamic)
 	local remote_addr = tor_remote_addr --set for compatibility with Tor Clients
 	if authorization == 2 then --Cookie sessions
 		local cookie_name = "cookie_" .. authorization_cookie
-		local cookie_value = ngx_var[cookie_name] or ""
+		local cookie_value = ngx.var[cookie_name] or ""
 		expected_cookie_value = calculate_signature(remote_addr .. "authenticate" .. currentdate) --encrypt our expected cookie value
 		if cookie_value == expected_cookie_value then --cookie value client gave us matches what we expect it to be
 			master_exit() --Go to content
@@ -4672,7 +4554,7 @@ local function check_authorization(authorization, authorization_dynamic)
 	local authorization_display_user_details = nil
 	for i=1,#authorization_paths do --for each host in our table
 		local v = authorization_paths[i]
-		if string_match(URL, v[2]) then --if our host matches one in the table
+		if string.match(ngx.var.scheme .. "://" .. ngx.var.host .. ngx.var.request_uri, v[2]) then --if our host matches one in the table
 			if v[1] == 1 then --Showbox
 				allow_site = 1 --showbox
 			end
@@ -4693,7 +4575,7 @@ local function check_authorization(authorization, authorization_dynamic)
 	local authorization_username = nil
 	local authorization_password = nil
 
-	local req_headers = ngx_req_get_headers() --get all request headers
+	local req_headers = ngx.req.get_headers() --get all request headers
 
 	if authorization_dynamic == 0 then --static
 		for i=1,#authorization_logins do --for each login
@@ -4701,13 +4583,13 @@ local function check_authorization(authorization, authorization_dynamic)
 			authorization_username = value[1] --username
 			authorization_password = value[2] --password
 			local base64_expected = authorization_username .. ":" .. authorization_password --convert to browser format
-			base64_expected = ngx_encode_base64(base64_expected) --base64 encode like browser format
+			base64_expected = ngx.encode_base64(base64_expected) --base64 encode like browser format
 			local authroization_user_pass = "Basic " .. base64_expected --append Basic to start like browser header does
 			if req_headers["Authorization"] == authroization_user_pass then --if the details match what we expect
 				if authorization == 2 then --Cookie sessions
-					set_cookie1 = authorization_cookie.."="..expected_cookie_value.."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";"
+					set_cookie1 = authorization_cookie.."="..expected_cookie_value.."; path=/; expires=" .. ngx.cookie_time(ngx.time()+expire_time) .. "; Max-Age=" .. expire_time .. ";"
 					set_cookies = {set_cookie1}
-					ngx_header["Set-Cookie"] = set_cookies --send client a cookie for their session to be valid
+					ngx.header["Set-Cookie"] = set_cookies --send client a cookie for their session to be valid
 				end
 				allow_access = 1 --grant access
 				break --break out foreach loop since our user and pass was correct
@@ -4717,17 +4599,17 @@ local function check_authorization(authorization, authorization_dynamic)
 	if authorization_dynamic == 1 then --dynamic
 		authorization_username = calculate_signature(remote_addr .. "username" .. currentdate) --encrypt username
 		authorization_password = calculate_signature(remote_addr .. "password" .. currentdate) --encrypt password
-		authorization_username = string_sub(authorization_username, 1, authorization_dynamic_length) --change username to set length
-		authorization_password = string_sub(authorization_password, 1, authorization_dynamic_length) --change password to set length
+		authorization_username = string.sub(authorization_username, 1, authorization_dynamic_length) --change username to set length
+		authorization_password = string.sub(authorization_password, 1, authorization_dynamic_length) --change password to set length
 
 		local base64_expected = authorization_username .. ":" .. authorization_password --convert to browser format
-		base64_expected = ngx_encode_base64(base64_expected) --base64 encode like browser format
+		base64_expected = ngx.encode_base64(base64_expected) --base64 encode like browser format
 		local authroization_user_pass = "Basic " .. base64_expected --append Basic to start like browser header does
 		if req_headers["Authorization"] == authroization_user_pass then --if the details match what we expect
 			if authorization == 2 then --Cookie sessions
-				set_cookie1 = authorization_cookie.."="..expected_cookie_value.."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";"
+				set_cookie1 = authorization_cookie.."="..expected_cookie_value.."; path=/; expires=" .. ngx.cookie_time(ngx.time()+expire_time) .. "; Max-Age=" .. expire_time .. ";"
 				set_cookies = {set_cookie1}
-				ngx_header["Set-Cookie"] = set_cookies --send client a cookie for their session to be valid
+				ngx.header["Set-Cookie"] = set_cookies --send client a cookie for their session to be valid
 			end
 			allow_access = 1 --grant access
 		end
@@ -4736,13 +4618,13 @@ local function check_authorization(authorization, authorization_dynamic)
 	if allow_access == 1 then
 		master_exit() --Go to content
 	else
-		ngx_status = ngx_HTTP_UNAUTHORIZED --send client unathorized header
+		ngx.status = ngx.HTTP_UNAUTHORIZED --send client unathorized header
 		if authorization_display_user_details == 0 then
-			ngx_header['WWW-Authenticate'] = 'Basic realm="' .. authorization_message .. '", charset="' .. default_charset .. '"' --send client a box to input required username and password fields
+			ngx.header['WWW-Authenticate'] = 'Basic realm="' .. authorization_message .. '", charset="' .. default_charset .. '"' --send client a box to input required username and password fields
 		else
-			ngx_header['WWW-Authenticate'] = 'Basic realm="' .. authorization_message .. ' ' .. authorization_username_message .. ' ' .. authorization_username .. ' ' .. authorization_password_message .. ' ' .. authorization_password .. '", charset="' .. default_charset .. '"' --send client a box to input required username and password fields
+			ngx.header['WWW-Authenticate'] = 'Basic realm="' .. authorization_message .. ' ' .. authorization_username_message .. ' ' .. authorization_username .. ' ' .. authorization_password_message .. ' ' .. authorization_password .. '", charset="' .. default_charset .. '"' --send client a box to input required username and password fields
 		end
-		ngx_exit(ngx_HTTP_UNAUTHORIZED) --deny access any further
+		ngx.exit(ngx.HTTP_UNAUTHORIZED) --deny access any further
 	end
 end
 check_authorization(authorization, authorization_dynamic)
@@ -4765,7 +4647,7 @@ local function check_master_switch()
 		local allow_site = nil
 		for i=1,#master_switch_custom_hosts do --for each host in our table
 			local v = master_switch_custom_hosts[i]
-			if string_match(URL, v[2]) then --if our host matches one in the table
+			if string.match(ngx.var.scheme .. "://" .. ngx.var.host .. ngx.var.request_uri, v[2]) then --if our host matches one in the table
 				if v[1] == 1 then --run auth
 					allow_site = 2 --run auth checks
 				end
@@ -4795,7 +4677,7 @@ local JsPuzzleAnswer = calculateAnswer(answer) -- Localize the answer to be used
 
 if x_auth_header == 2 then --if x-auth-header is dynamic
 	x_auth_header_name = calculate_signature(remote_addr .. x_auth_header_name .. currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	x_auth_header_name = ngx_re_gsub(x_auth_header_name, "_", "", ngx_re_options) --replace underscore with nothing
+	x_auth_header_name = ngx.re.gsub(x_auth_header_name, "_", "", ngx_re_options) --replace underscore with nothing
 end
 
 if encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to be encrypted
@@ -4812,24 +4694,24 @@ Grant access function to either grant or deny user access to our website
 local function grant_access()
 	--our uid cookie
 	local cookie_name = "cookie_" .. challenge
-	local cookie_value = ngx_var[cookie_name] or ""
+	local cookie_value = ngx.var[cookie_name] or ""
 	--our start date cookie
 	local cookie_name_start_date_name = "cookie_" .. cookie_name_start_date
-	local cookie_name_start_date_value = ngx_var[cookie_name_start_date_name] or "0" --Added a 0, since a missing 'cookie_name_start_date_name' value in ngx_var resulted in 502
+	local cookie_name_start_date_value = ngx.var[cookie_name_start_date_name] or "0" --Added a 0, since a missing 'cookie_name_start_date_name' value in ngx.var resulted in 502
 	local cookie_name_start_date_value_unix = tonumber(cookie_name_start_date_value) or 0
 	--our end date cookie
 	local cookie_name_end_date_name = "cookie_" .. cookie_name_end_date
-	local cookie_name_end_date_value = ngx_var[cookie_name_end_date_name] or "0" --Just to make sure it doesnt fail somewhere
+	local cookie_name_end_date_value = ngx.var[cookie_name_end_date_name] or "0" --Just to make sure it doesnt fail somewhere
 	--our start date and end date combined to a unique id
 	local cookie_name_encrypted_start_and_end_date_name = "cookie_" .. cookie_name_encrypted_start_and_end_date
-	local cookie_name_encrypted_start_and_end_date_value = ngx_var[cookie_name_encrypted_start_and_end_date_name] or ""
+	local cookie_name_encrypted_start_and_end_date_value = ngx.var[cookie_name_encrypted_start_and_end_date_name] or ""
 
 	if cookie_value ~= answer then --if cookie value not equal to or matching our expected cookie they should be giving us
 		return --return to refresh the page so it tries again
 	end
 
 	--if x-auth-answer is correct to the user unique id time stamps etc meaning browser figured it out then set a new cookie that grants access without needed these checks
-	local req_headers = ngx_req_get_headers() --get all request headers
+	local req_headers = ngx.req.get_headers() --get all request headers
 	if req_headers["x-requested-with"] == "XMLHttpRequest" then --if request header matches request type of XMLHttpRequest
 		if req_headers[x_tor_header_name] == x_tor_header_name_value and req_headers[x_auth_header_name] == JsPuzzleAnswer then --if the header and value are what we expect then the client is legitimate
 			remote_addr = tor_remote_addr --set as our defined static tor variable to use
@@ -4840,41 +4722,41 @@ local function grant_access()
 			cookie_name_end_date = calculate_signature(remote_addr .. cookie_name_end_date_original .. currentdate) --create our cookie_name_end_date again under the new remote_addr (Stops a double page refresh loop)
 			cookie_name_encrypted_start_and_end_date = calculate_signature(remote_addr .. cookie_name_encrypted_start_and_end_date_original .. currentdate) --create our cookie_name_encrypted_start_and_end_date again under the new remote_addr (Stops a double page refresh loop)
 
-			set_cookie1 = challenge.."="..answer.."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie incase javascript setting this cookies time stamp correctly has issues
-			set_cookie2 = cookie_name_start_date.."="..currenttime.."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start date cookie
-			set_cookie3 = cookie_name_end_date.."="..(currenttime+expire_time).."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --end date cookie
-			set_cookie4 = cookie_name_encrypted_start_and_end_date.."="..calculate_signature(remote_addr .. currenttime .. (currenttime+expire_time) ).."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start and end date combined to unique id
-			set_cookie5 = cookie_tor.."="..cookie_tor_value.."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --create our tor cookie to identify the client as a tor user
+			set_cookie1 = challenge.."="..answer.."; path=/; expires=" .. ngx.cookie_time(ngx.time()+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie incase javascript setting this cookies time stamp correctly has issues
+			set_cookie2 = cookie_name_start_date.."="..ngx.time().."; path=/; expires=" .. ngx.cookie_time(ngx.time()+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start date cookie
+			set_cookie3 = cookie_name_end_date.."="..(ngx.time()+expire_time).."; path=/; expires=" .. ngx.cookie_time(ngx.time()+expire_time) .. "; Max-Age=" .. expire_time .. ";" --end date cookie
+			set_cookie4 = cookie_name_encrypted_start_and_end_date.."="..calculate_signature(remote_addr .. ngx.time() .. (ngx.time()+expire_time) ).."; path=/; expires=" .. ngx.cookie_time(ngx.time()+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start and end date combined to unique id
+			set_cookie5 = cookie_tor.."="..cookie_tor_value.."; path=/; expires=" .. ngx.cookie_time(ngx.time()+expire_time) .. "; Max-Age=" .. expire_time .. ";" --create our tor cookie to identify the client as a tor user
 
 			set_cookies = {set_cookie1 , set_cookie2 , set_cookie3 , set_cookie4, set_cookie5}
-			ngx_header["Set-Cookie"] = set_cookies
-			ngx_header["X-Content-Type-Options"] = "nosniff"
-			ngx_header["X-Frame-Options"] = "SAMEORIGIN"
-			ngx_header["X-XSS-Protection"] = "1; mode=block"
-			ngx_header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
-			ngx_header["Pragma"] = "no-cache"
-			ngx_header["Expires"] = "0"
-			ngx_header.content_type = "text/html; charset=" .. default_charset
-			ngx_status = expected_header_status
-			ngx_exit(ngx_HTTP_NO_CONTENT)
+			ngx.header["Set-Cookie"] = set_cookies
+			ngx.header["X-Content-Type-Options"] = "nosniff"
+			ngx.header["X-Frame-Options"] = "SAMEORIGIN"
+			ngx.header["X-XSS-Protection"] = "1; mode=block"
+			ngx.header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+			ngx.header["Pragma"] = "no-cache"
+			ngx.header["Expires"] = "0"
+			ngx.header.content_type = "text/html; charset=" .. default_charset
+			ngx.status = expected_header_status
+			ngx.exit(ngx.HTTP_NO_CONTENT)
 		end
 		if req_headers[x_auth_header_name] == JsPuzzleAnswer then --if the answer header provided by the browser Javascript matches what our Javascript puzzle answer should be
-			set_cookie1 = challenge.."="..cookie_value.."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie incase javascript setting this cookies time stamp correctly has issues
-			set_cookie2 = cookie_name_start_date.."="..currenttime.."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start date cookie
-			set_cookie3 = cookie_name_end_date.."="..(currenttime+expire_time).."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --end date cookie
-			set_cookie4 = cookie_name_encrypted_start_and_end_date.."="..calculate_signature(remote_addr .. currenttime .. (currenttime+expire_time) ).."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start and end date combined to unique id
+			set_cookie1 = challenge.."="..cookie_value.."; path=/; expires=" .. ngx.cookie_time(ngx.time()+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie incase javascript setting this cookies time stamp correctly has issues
+			set_cookie2 = cookie_name_start_date.."="..ngx.time().."; path=/; expires=" .. ngx.cookie_time(ngx.time()+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start date cookie
+			set_cookie3 = cookie_name_end_date.."="..(ngx.time()+expire_time).."; path=/; expires=" .. ngx.cookie_time(ngx.time()+expire_time) .. "; Max-Age=" .. expire_time .. ";" --end date cookie
+			set_cookie4 = cookie_name_encrypted_start_and_end_date.."="..calculate_signature(remote_addr .. ngx.time() .. (ngx.time()+expire_time) ).."; path=/; expires=" .. ngx.cookie_time(ngx.time()+expire_time) .. "; Max-Age=" .. expire_time .. ";" --start and end date combined to unique id
 
 			set_cookies = {set_cookie1 , set_cookie2 , set_cookie3 , set_cookie4}
-			ngx_header["Set-Cookie"] = set_cookies
-			ngx_header["X-Content-Type-Options"] = "nosniff"
-			ngx_header["X-Frame-Options"] = "SAMEORIGIN"
-			ngx_header["X-XSS-Protection"] = "1; mode=block"
-			ngx_header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
-			ngx_header["Pragma"] = "no-cache"
-			ngx_header["Expires"] = "0"
-			ngx_header.content_type = "text/html; charset=" .. default_charset
-			ngx_status = expected_header_status
-			ngx_exit(ngx_HTTP_NO_CONTENT)
+			ngx.header["Set-Cookie"] = set_cookies
+			ngx.header["X-Content-Type-Options"] = "nosniff"
+			ngx.header["X-Frame-Options"] = "SAMEORIGIN"
+			ngx.header["X-XSS-Protection"] = "1; mode=block"
+			ngx.header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+			ngx.header["Pragma"] = "no-cache"
+			ngx.header["Expires"] = "0"
+			ngx.header.content_type = "text/html; charset=" .. default_charset
+			ngx.status = expected_header_status
+			ngx.exit(ngx.HTTP_NO_CONTENT)
 		end
 	end
 
@@ -4883,7 +4765,7 @@ local function grant_access()
 		if cookie_name_end_date_value_unix == nil or cookie_name_end_date_value_unix == "" then --if our cookie end date date in unix does not exist
 			return --return to refresh the page so it tries again
 		end
-		if cookie_name_end_date_value_unix <= currenttime then --if our cookie end date is less than or equal to the current date meaning the users authentication time expired
+		if cookie_name_end_date_value_unix <= ngx.time() then --if our cookie end date is less than or equal to the current date meaning the users authentication time expired
 			return --return to refresh the page so it tries again
 		end
 		if cookie_name_encrypted_start_and_end_date_value ~= calculate_signature(remote_addr .. cookie_name_start_date_value_unix .. cookie_name_end_date_value_unix) then --if users authentication encrypted cookie not equal to or matching our expected cookie they should be giving us
@@ -4893,7 +4775,7 @@ local function grant_access()
 	--else all checks passed bypass our firewall and show page content
 
 	if log_users_granted_access == 1 then
-		ngx_log(ngx_LOG_TYPE,  log_on_granted_text_start .. remote_addr .. log_on_granted_text_end)
+		ngx.log(ngx.STDERR,  "[Grant] IP : " .. remote_addr .. " - Solved the puzzle")
 	end
 
 	return master_exit() --Go to content
@@ -4911,14 +4793,14 @@ return --exit from run_checks() function
 end
 
 if log_users_on_puzzle == 1 then
-	ngx_log(ngx_LOG_TYPE,  log_on_puzzle_text_start .. remote_addr .. log_on_puzzle_text_end)
+	ngx.log(ngx.STDERR,  "[Deny] IP : " .. remote_addr .. " - Attempting to solve Auth puzzle")
 end
-
+--do -- DO HERE
 --[[
 Build HTML Template
 ]]
 
-local title = host .. [[ | Anti-DDoS Flood Protection and Firewall]]
+local title = ngx.var.host .. [[ | Anti-DDoS Flood Protection and Firewall]]
 
 --[[
 Javascript after setting cookie run xmlhttp GET request
@@ -4929,7 +4811,7 @@ then if GET request response had specific passed security check response header
 run window.location.reload(); Javascript
 ]]
 if javascript_REQUEST_TYPE == 3 then --Dynamic Random request
-	javascript_REQUEST_TYPE = math_random (1, 2) --Randomize between 1 and 2
+	javascript_REQUEST_TYPE = math.random(1, 2) --Randomize between 1 and 2
 end
 if javascript_REQUEST_TYPE == 1 then --GET request
 	javascript_REQUEST_TYPE = "GET"
@@ -4949,7 +4831,7 @@ if javascript_REQUEST_TYPE == "POST" then
 	javascript_POST_data = [["name1=Henry&name2=Ford"]]
 
 end
-
+--do
 local JavascriptPuzzleVariable_name = "_" .. stringrandom(stringrandom_length)
 
 --Variable names for JS puzzle
@@ -4958,7 +4840,7 @@ local JsPuzzleVar2 = "_" .. stringrandom(stringrandom_length)
 local JsPuzzleVar3 = "_" .. stringrandom(stringrandom_length)
 local JsPuzzleVar4 = "_" .. stringrandom(stringrandom_length)
 local JsPuzzleVar5 = "_" .. stringrandom(stringrandom_length)
-
+--end
 --[[
 Begin Tor Browser Checks
 Because Tor blocks browser fingerprinting / tracking it actually makes it easy to detect by comparing screen window sizes if they do not match we know it is Tor
@@ -5008,7 +4890,7 @@ Javascript Puzzle for web browser to solve do not touch this unless you understa
 --Improved the script
 --Moved the script to be able to use answer (ip+signature string)
 local JavascriptPuzzleVars = [[
-	(function(){var ]]..JsPuzzleVar1..[[=Math.floor(1E3*Math.sin(']]..os_date("%Y%m%d", os_time_saved)..[[')),]]..JsPuzzleVar2..[[=]]..JsPuzzleVar5..[[(]]..JsPuzzleVar1..[[,256),]]..JsPuzzleVar3..[[=Math.floor(]]..JsPuzzleVar5..[[(]]..JsPuzzleVar1..[[*Math.sin(]]..JsPuzzleVar1..[[),10))+1;]]..JsPuzzleVar1..[[=']]..answer..[['.split("").map(function(]]..JsPuzzleVar1..[[,]]..JsPuzzleVar4..[[){return String.fromCharCode(]]..JsPuzzleVar5..[[((String.fromCharCode(]]..JsPuzzleVar5..[[(]]..JsPuzzleVar1..[[.charCodeAt(0)^(]]..JsPuzzleVar2..[[+]]..JsPuzzleVar4..[[),256)).charCodeAt(0)+]]..JsPuzzleVar3..[[),256))}).join("");return btoa(]]..JsPuzzleVar1..[[)})();
+	(function(){var ]]..JsPuzzleVar1..[[=Math.floor(1E3*Math.sin(']]..os.date("%Y%m%d", os.time()-24*60*60)..[[')),]]..JsPuzzleVar2..[[=]]..JsPuzzleVar5..[[(]]..JsPuzzleVar1..[[,256),]]..JsPuzzleVar3..[[=Math.floor(]]..JsPuzzleVar5..[[(]]..JsPuzzleVar1..[[*Math.sin(]]..JsPuzzleVar1..[[),10))+1;]]..JsPuzzleVar1..[[=']]..answer..[['.split("").map(function(]]..JsPuzzleVar1..[[,]]..JsPuzzleVar4..[[){return String.fromCharCode(]]..JsPuzzleVar5..[[((String.fromCharCode(]]..JsPuzzleVar5..[[(]]..JsPuzzleVar1..[[.charCodeAt(0)^(]]..JsPuzzleVar2..[[+]]..JsPuzzleVar4..[[),256)).charCodeAt(0)+]]..JsPuzzleVar3..[[),256))}).join("");return btoa(]]..JsPuzzleVar1..[[)})();
 ]] --JavaScript code to produce a unique string by using client's signature and yesterday's date and XORing them
    --Made it more secure by using random variable names on each run.
    --Could be obfuscated as well in the future
@@ -5040,12 +4922,10 @@ local javascript_anti_ddos = [[
 			var time = now.getTime();
 			time += 300 * 1000;
 			now.setTime(time);
-			document.cookie = ']] .. challenge .. [[=]] .. answer .. [[' + '; expires=' + ']] .. ngx_cookie_time(currenttime+expire_time) .. [[' + '; path=/';
+			document.cookie = ']] .. challenge .. [[=]] .. answer .. [[' + '; expires=' + ']] .. ngx.cookie_time(ngx.time()+expire_time) .. [[' + '; path=/';
 			//javascript puzzle for browser to figure out to get answer
-			]] .. JavascriptVars_opening .. [[
 			]] .. JavascriptPuzzleHelperFunctions .. [[
 			]] .. JavascriptPuzzleVariable .. [[
-			]] .. JavascriptVars_closing .. [[
 			//end javascript puzzle
 			var xhttp = new XMLHttpRequest();
 			xhttp.onreadystatechange = function() {
@@ -5054,7 +4934,7 @@ local javascript_anti_ddos = [[
 					location.reload(true);
 				}
 			};
-			xhttp.open("]] .. javascript_REQUEST_TYPE .. [[", "]] .. request_uri .. [[", true);
+			xhttp.open("]] .. javascript_REQUEST_TYPE .. [[", "]] .. ngx.var.request_uri .. [[", true);
 			]] .. javascript_REQUEST_headers .. [[
 			]] .. javascript_POST_headers .. [[
 			xhttp.send(]] .. javascript_POST_data .. [[);
@@ -5065,6 +4945,7 @@ local javascript_anti_ddos = [[
 
 --TODO: include Captcha like Google ReCaptcha
 
+--do
 --[[
 encrypt/obfuscate the javascript output
 ]]
@@ -5076,47 +4957,13 @@ else --some form of obfuscation has been specified so obfuscate the javascript o
 javascript_anti_ddos = encrypt_javascript(javascript_anti_ddos, encrypt_javascript_output) --run my function to encrypt/obfuscate javascript output
 end
 
-
---Adverts positions
-local head_ad_slot = [[
-<!-- Start: Ad code and script tags for header of page -->
-<!-- End: Ad code and script tags for header of page -->
-]]
-local top_body_ad_slot = [[
-<!-- Start: Ad code and script tags for top of page -->
-<!-- End: Ad code and script tags for top of page -->
-]]
-local left_body_ad_slot = [[
-<!-- Start: Ad code and script tags for left of page -->
-<!-- End: Ad code and script tags for left of page -->
-]]
-local right_body_ad_slot = [[
-<!-- Start: Ad code and script tags for right of page -->
-<!-- End: Ad code and script tags for right of page -->
-]]
-local footer_body_ad_slot = [[
-<!-- Start: Ad code and script tags for bottom of page -->
-<!-- End: Ad code and script tags for bottom of page -->
-]]
---End advert positions
-
-local ddos_credits = [[
-<div class="credits" style="text-align:center;font-size:100%;">
-<a href="//facebook.com/C0nw0nk" target="_blank">DDoS protection by &copy; Conor McKnight</a>
-</div>
-]]
-
-if credits == 2 then
-ddos_credits = "" --make empty string
-end
-
 --Fix remote_addr output as what ever IP address the Client is using
-if ngx_var_http_cf_connecting_ip ~= nil then
-remote_addr = ngx_var_http_cf_connecting_ip
-elseif ngx_var_http_x_forwarded_for ~= nil then
-remote_addr = ngx_var_http_x_forwarded_for
+if ngx.var.http_cf_connecting_ip ~= nil then
+remote_addr = ngx.var.http_cf_connecting_ip
+elseif ngx.var.http_x_forwarded_for ~= nil then
+remote_addr = ngx.var.http_x_forwarded_for
 else
-remote_addr = ngx_var_remote_addr
+remote_addr = ngx.var.remote_addr
 end
 
 local request_details = [[
@@ -5132,9 +4979,9 @@ Please allow up to <span id="countdowntimer">]] .. refresh_auth .. [[</span> sec
 <h3 style="color:#bd2426;">Request Details :</h3>
 IP address : ]] .. remote_addr .. [[
 <br>
-Request URL : ]] .. URL .. [[
+Request URL : ]] .. ngx.var.scheme .. "://" .. ngx.var.host .. ngx.var.request_uri .. [[
 <br>
-User-Agent : ]] .. user_agent .. [[
+User-Agent : ]] .. ngx.var.http_user_agent .. [[
 <br>
 ]]
 
@@ -5163,7 +5010,6 @@ local anti_ddos_html_output = [[
 <style type="text/css">
 ]] .. style_sheet .. [[
 </style>
-]] .. head_ad_slot .. [[
 ]] .. javascript_anti_ddos .. [[
 </head>
 <body style="background-color:#EEEEEE;color:#000000;font-family:Arial,Helvetica,sans-serif;font-size:100%;">
@@ -5179,16 +5025,13 @@ local anti_ddos_html_output = [[
 <br>
 <br>
 <br>
-]] .. top_body_ad_slot .. [[
 <br>
 <br>
 <center>
 <h2>Information :</h2>
 ]] .. request_details .. [[
 </center>
-]] .. footer_body_ad_slot .. [[
 </div>
-]] .. ddos_credits .. [[
 </body>
 </html>
 ]]
@@ -5196,29 +5039,25 @@ local anti_ddos_html_output = [[
 --All previous checks failed and no access_granted permited so display authentication check page.
 --Output Anti-DDoS Authentication Page
 if set_cookies == nil then
-set_cookies = challenge.."="..answer.."; path=/; expires=" .. ngx_cookie_time(currenttime+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie in header here incase browsers javascript can't set cookies due to permissions.
+set_cookies = challenge.."="..answer.."; path=/; expires=" .. ngx.cookie_time(ngx.time()+expire_time) .. "; Max-Age=" .. expire_time .. ";" --apply our uid cookie in header here incase browsers javascript can't set cookies due to permissions.
 end
-ngx_header["Set-Cookie"] = set_cookies
-ngx_header["X-Content-Type-Options"] = "nosniff"
-ngx_header["X-Frame-Options"] = "SAMEORIGIN"
-ngx_header["X-XSS-Protection"] = "1; mode=block"
-ngx_header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
-ngx_header["Pragma"] = "no-cache"
-ngx_header["Expires"] = "0"
-if credits == 1 then
-ngx_header["X-Anti-DDoS"] = "Conor McKnight | facebook.com/C0nw0nk"
-end
-ngx_header.content_type = "text/html; charset=" .. default_charset
-ngx_status = authentication_page_status_output
-ngx_say(anti_ddos_html_output)
-ngx_exit(ngx_HTTP_OK)
-
+ngx.header["Set-Cookie"] = set_cookies
+ngx.header["X-Content-Type-Options"] = "nosniff"
+ngx.header["X-Frame-Options"] = "SAMEORIGIN"
+ngx.header["X-XSS-Protection"] = "1; mode=block"
+ngx.header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+ngx.header["Pragma"] = "no-cache"
+ngx.header["Expires"] = "0"
+ngx.header.content_type = "text/html; charset=" .. default_charset
+ngx.status = authentication_page_status_output
+ngx.say(anti_ddos_html_output)
+ngx.exit(ngx.HTTP_OK)
 end
 run_checks() --nest function to prevent function at line 1 has more than 200 local variables and function at line X has more than X upvalues just my way of putting locals inside functions to get around the 200 limit
 
 if content_cache == nil or #content_cache == 0 then
 	if exit_status then
-		ngx_exit(ngx_OK) --Go to content
+		ngx.exit(ngx.OK) --Go to content
 	end
 end
 
@@ -5226,9 +5065,9 @@ if content_cache ~= nil and #content_cache > 0 then
 
 local function minification(content_type_list)
 	for i=1,#content_type_list do
-		if string_match(URL, content_type_list[i][1]) then --if our host matches one in the table
+		if string.match(ngx.var.scheme .. "://" .. ngx.var.host .. ngx.var.request_uri, content_type_list[i][1]) then --if our host matches one in the table
 			if content_type_list[i][10] == 1 then
-				ngx_header["X-Cache-Status"] = "MISS"
+				ngx.header["X-Cache-Status"] = "MISS"
 			end
 
 			local request_method_match = 0
@@ -5237,14 +5076,14 @@ local function minification(content_type_list)
 			local request_uri_match = 0
 			if content_type_list[i][7] ~= "" then
 				for a=1, #content_type_list[i][7] do
-					if ngx_var.request_method == content_type_list[i][7][a] then
+					if ngx.var.request_method == content_type_list[i][7][a] then
 						request_method_match = 1
 						break
 					end
 				end
 				if request_method_match == 0 then
 					--if content_type_list[i][5] == 1 then
-						--ngx_log(ngx_LOG_TYPE, "request method not matched")
+						--ngx.log(ngx.STDERR, "request method not matched")
 					--end
 					--goto end_for_loop
 				end
@@ -5253,9 +5092,9 @@ local function minification(content_type_list)
 				for a=1, #content_type_list[i][8] do
 					local cookie_name = content_type_list[i][8][a][1]
 					local cookie_value = content_type_list[i][8][a][2]
-					local cookie_exist = ngx_var["cookie_" .. cookie_name] or ""
+					local cookie_exist = ngx.var["cookie_" .. cookie_name] or ""
 					if cookie_exist then
-						if string_match(cookie_exist, cookie_value ) then
+						if string.match(cookie_exist, cookie_value ) then
 							cookie_match = 1
 							if content_type_list[i][8][a][3] == 1 then
 								guest_or_logged_in = 1
@@ -5268,11 +5107,11 @@ local function minification(content_type_list)
 					if guest_or_logged_in == 0 then --if guest user cache only then bypass cache for logged in users
 						--goto end_for_loop
 						--if content_type_list[i][5] == 1 then
-							--ngx_log(ngx_LOG_TYPE, " GUEST ONLY cache " .. guest_or_logged_in )
+							--ngx.log(ngx.STDERR, " GUEST ONLY cache " .. guest_or_logged_in )
 						--end
 					else
 						--if content_type_list[i][5] == 1 then
-							--ngx_log(ngx_LOG_TYPE, " BOTH GUEST and LOGGED_IN in cache " .. guest_or_logged_in )
+							--ngx.log(ngx.STDERR, " BOTH GUEST and LOGGED_IN in cache " .. guest_or_logged_in )
 						--end
 						cookie_match = 0 --set to 0
 					end
@@ -5280,14 +5119,14 @@ local function minification(content_type_list)
 			end
 			if content_type_list[i][9] ~= "" then
 				for a=1, #content_type_list[i][9] do
-					if string_match(request_uri, content_type_list[i][9][a] ) then
+					if string.match(ngx.var.request_uri, content_type_list[i][9][a] ) then
 						request_uri_match = 1
 						break
 					end
 				end
 				if request_uri_match == 1 then
 					--if content_type_list[i][5] == 1 then
-						--ngx_log(ngx_LOG_TYPE, "request uri matched so bypass")
+						--ngx.log(ngx.STDERR, "request uri matched so bypass")
 					--end
 					--goto end_for_loop
 				end
@@ -5297,7 +5136,7 @@ local function minification(content_type_list)
 
 				--I use this to override the status output
 				local function response_status_match(resstatus)
-					--ngx_log(ngx_LOG_TYPE, " res status is " .. tostring(resstatus) )
+					--ngx.log(ngx.STDERR, " res status is " .. tostring(resstatus) )
 					if resstatus == 100 then
 						return ngx.HTTP_CONTINUE --(100)
 					end
@@ -5446,13 +5285,13 @@ local function minification(content_type_list)
 						request_body_file = file
 					end
 					--client_body_in_file_only on; #nginx config to test / debug
-					--ngx_log(ngx_LOG_TYPE, " request_body_file is " .. request_body_file )
+					--ngx.log(ngx.STDERR, " request_body_file is " .. request_body_file )
 				end
 				if request_body_file ~= "" then
 					local fh, err = io.open(request_body_file, "rb")
 					if err then
-						ngx_status = ngx.HTTP_INTERNAL_SERVER_ERROR
-						ngx_log(ngx_LOG_TYPE, "error reading request_body_file:", err)
+						ngx.status = ngx.HTTP_INTERNAL_SERVER_ERROR
+						ngx.log(ngx.STDERR, "error reading request_body_file:", err)
 						return
 						--goto end_for_loop
 					end
@@ -5463,7 +5302,7 @@ local function minification(content_type_list)
 					request_body = "" --set to empty string
 				end
 
-				local req_headers = ngx_req_get_headers() --get all request headers
+				local req_headers = ngx.req.get_headers() --get all request headers
 
 				local cached = content_type_list[i][3] or ""
 				if cached ~= "" then
@@ -5472,10 +5311,10 @@ local function minification(content_type_list)
 					if guest_or_logged_in == 1 then
 						local cookies = req_headers["cookie"] or "" --for dynamic pages
 						if type(cookies) ~= "table" then
-							--ngx_log(ngx_LOG_TYPE, " cookies are string ")
+							--ngx.log(ngx.STDERR, " cookies are string ")
 							cookie_string = cookies
 						else
-							--ngx_log(ngx_LOG_TYPE, " cookies are table ")
+							--ngx.log(ngx.STDERR, " cookies are table ")
 							for t=1, #cookies do
 								cookie_string = cookie_string .. cookies[t]
 							end
@@ -5483,11 +5322,11 @@ local function minification(content_type_list)
 					else
 						req_headers["cookie"] = "" --avoid cache poisoning by removing REQUEST header cookies to ensure user is logged out when the expected logged_in cookie is missing
 					end
-					--ngx_log(ngx_LOG_TYPE, " cookies are " .. cookie_string)
+					--ngx.log(ngx.STDERR, " cookies are " .. cookie_string)
 					
 					--TODO: convert cache key to a smaller storage format to use less memory for storage perhaps hex or binary etc
-					local key = ngx_var.request_method .. scheme .. "://" .. host .. content_type_list[i][12] .. cookie_string .. request_body --fastcgi_cache_key / proxy_cache_key - GET - https - :// - host - request_uri - request_header["cookie"] - request_body
-					--ngx_log(ngx_LOG_TYPE, " full cache key is " .. key)
+					local key = ngx.var.request_method .. ngx.var.scheme .. "://" .. ngx.var.host .. content_type_list[i][12] .. cookie_string .. request_body --fastcgi_cache_key / proxy_cache_key - GET - https - :// - host - ngx.var.request_uri - request_header["cookie"] - request_body
+					--ngx.log(ngx.STDERR, " full cache key is " .. key)
 
 					local content_type_cache = cached:get("content-type"..key) or nil
 
@@ -5500,8 +5339,8 @@ local function minification(content_type_list)
 							if restyhttp and content_type_list[i][13] then
 								local httpc = require("resty.http").new()
 								local res = httpc:request_uri(content_type_list[i][12], {
-									method = map[ngx_var.request_method],
-									body = request_body, --ngx_var.request_body,
+									method = map[ngx.var.request_method],
+									body = request_body, --ngx.var.request_body,
 									headers = req_headers,
 								})
 								if res then
@@ -5512,9 +5351,9 @@ local function minification(content_type_list)
 											local content_type_header_match = 0
 											if res.headers ~= nil and type(res.headers) == "table" then
 												for headerName, header in next, res.headers do
-													--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
-													if string_lower(tostring(headerName)) == "content-type" then
-														if string_match(header, content_type_list[i][2]) == nil then
+													--ngx.log(ngx.STDERR, " header name" .. headerName .. " value " .. header )
+													if string.lower(tostring(headerName)) == "content-type" then
+														if string.match(header, content_type_list[i][2]) == nil then
 															--goto end_for_loop
 															content_type_header_match = 1
 														end
@@ -5527,7 +5366,7 @@ local function minification(content_type_list)
 												local file_size_bigger = 0
 												if content_type_list[i][15] ~= "" and #output_minified > content_type_list[i][15] then
 													if content_type_list[i][5] == 1 then
-														ngx_log(ngx_LOG_TYPE, " File size bigger than maximum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][15] )
+														ngx.log(ngx.STDERR, " File size bigger than maximum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][15] )
 													end
 													--goto end_for_loop
 													file_size_bigger = 1
@@ -5536,7 +5375,7 @@ local function minification(content_type_list)
 												local file_size_smaller = 0
 												if content_type_list[i][16] ~= "" and #output_minified < content_type_list[i][16] then
 													if content_type_list[i][5] == 1 then
-														ngx_log(ngx_LOG_TYPE, " File size smaller than minimum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][16] )
+														ngx.log(ngx.STDERR, " File size smaller than minimum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][16] )
 													end
 													--goto end_for_loop
 													file_size_smaller = 1
@@ -5546,16 +5385,16 @@ local function minification(content_type_list)
 
 													if content_type_list[i][14] ~= "" and #content_type_list[i][14] > 0 then
 														for x=1,#content_type_list[i][14] do
-															output_minified = string_gsub(output_minified, content_type_list[i][14][x][1], content_type_list[i][14][x][2])
+															output_minified = string.gsub(output_minified, content_type_list[i][14][x][1], content_type_list[i][14][x][2])
 														end --end foreach regex check
 													end
 
 													if content_type_list[i][5] == 1 then
-														ngx_log(ngx_LOG_TYPE, " Page not yet cached or ttl has expired so putting into cache " )
+														ngx.log(ngx.STDERR, " Page not yet cached or ttl has expired so putting into cache " )
 													end
-													ngx_header.content_type = content_type_list[i][2]
+													ngx.header.content_type = content_type_list[i][2]
 													if content_type_list[i][10] == 1 then
-														ngx_header["X-Cache-Status"] = "UPDATING"
+														ngx.header["X-Cache-Status"] = "UPDATING"
 													end
 													cached:set(key, output_minified, ttl)
 													cached:set("s"..key, res.status, ttl)
@@ -5564,24 +5403,24 @@ local function minification(content_type_list)
 															local header_original = headerName --so we do not make the header all lower case on insert
 															if content_type_list[i][17] ~= "" or #content_type_list[i][17] > 0 then
 																for a=1, #content_type_list[i][17] do
-																	if string_lower(tostring(header_original)) == string_lower(content_type_list[i][17][a]) then
-																		cached:set(string_lower(tostring(header_original))..key, header, ttl)
+																	if string.lower(tostring(header_original)) == string.lower(content_type_list[i][17][a]) then
+																		cached:set(string.lower(tostring(header_original))..key, header, ttl)
 																	end
 																end
 															end
-															--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
-															ngx_header[headerName] = header
+															--ngx.log(ngx.STDERR, " header name" .. headerName .. " value " .. header )
+															ngx.header[headerName] = header
 														end
 													end
 													if content_type_list[i][11] == 1 and guest_or_logged_in == 0 then
-														ngx_header["Set-Cookie"] = nil
+														ngx.header["Set-Cookie"] = nil
 													end
-													ngx_header["Content-Length"] = #output_minified
-													--ngx_status = res.status
-													ngx_status = response_status_match(res.status)
-													ngx_say(output_minified)
-													ngx_exit(response_status_match(content_type_list[i][6][z]))
-													--ngx_exit(content_type_list[i][6][z])
+													ngx.header["Content-Length"] = #output_minified
+													--ngx.status = res.status
+													ngx.status = response_status_match(res.status)
+													ngx.say(output_minified)
+													ngx.exit(response_status_match(content_type_list[i][6][z]))
+													--ngx.exit(content_type_list[i][6][z])
 													break
 												end --file size bigger and smaller
 											end
@@ -5592,8 +5431,8 @@ local function minification(content_type_list)
 							else
 
 								local res = ngx.location.capture(content_type_list[i][12], {
-								method = map[ngx_var.request_method],
-								body = request_body, --ngx_var.request_body,
+								method = map[ngx.var.request_method],
+								body = request_body, --ngx.var.request_body,
 								args = "",
 								headers = req_headers,
 								})
@@ -5605,9 +5444,9 @@ local function minification(content_type_list)
 											local content_type_header_match = 0
 											if res.header ~= nil and type(res.header) == "table" then
 												for headerName, header in next, res.header do
-													--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
-													if string_lower(tostring(headerName)) == "content-type" then
-														if string_match(header, content_type_list[i][2]) == nil then
+													--ngx.log(ngx.STDERR, " header name" .. headerName .. " value " .. header )
+													if string.lower(tostring(headerName)) == "content-type" then
+														if string.match(header, content_type_list[i][2]) == nil then
 															--goto end_for_loop
 															content_type_header_match = 1
 														end
@@ -5620,7 +5459,7 @@ local function minification(content_type_list)
 												local file_size_bigger = 0
 												if content_type_list[i][15] ~= "" and #output_minified > content_type_list[i][15] then
 													if content_type_list[i][5] == 1 then
-														ngx_log(ngx_LOG_TYPE, " File size bigger than maximum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][15] )
+														ngx.log(ngx.STDERR, " File size bigger than maximum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][15] )
 													end
 													--goto end_for_loop
 													file_size_bigger = 1
@@ -5629,7 +5468,7 @@ local function minification(content_type_list)
 												local file_size_smaller = 0
 												if content_type_list[i][16] ~= "" and #output_minified < content_type_list[i][16] then
 													if content_type_list[i][5] == 1 then
-														ngx_log(ngx_LOG_TYPE, " File size smaller than minimum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][16] )
+														ngx.log(ngx.STDERR, " File size smaller than minimum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][16] )
 													end
 													--goto end_for_loop
 													file_size_smaller = 1
@@ -5639,16 +5478,16 @@ local function minification(content_type_list)
 
 													if content_type_list[i][14] ~= "" and #content_type_list[i][14] > 0 then
 														for x=1,#content_type_list[i][14] do
-															output_minified = string_gsub(output_minified, content_type_list[i][14][x][1], content_type_list[i][14][x][2])
+															output_minified = string.gsub(output_minified, content_type_list[i][14][x][1], content_type_list[i][14][x][2])
 														end --end foreach regex check
 													end
 
 													if content_type_list[i][5] == 1 then
-														ngx_log(ngx_LOG_TYPE, " Page not yet cached or ttl has expired so putting into cache " )
+														ngx.log(ngx.STDERR, " Page not yet cached or ttl has expired so putting into cache " )
 													end
-													ngx_header.content_type = content_type_list[i][2]
+													ngx.header.content_type = content_type_list[i][2]
 													if content_type_list[i][10] == 1 then
-														ngx_header["X-Cache-Status"] = "UPDATING"
+														ngx.header["X-Cache-Status"] = "UPDATING"
 													end
 													cached:set(key, output_minified, ttl)
 													cached:set("s"..key, res.status, ttl)
@@ -5657,24 +5496,24 @@ local function minification(content_type_list)
 															local header_original = headerName --so we do not make the header all lower case on insert
 															if content_type_list[i][17] ~= "" or #content_type_list[i][17] > 0 then
 																for a=1, #content_type_list[i][17] do
-																	if string_lower(tostring(header_original)) == string_lower(content_type_list[i][17][a]) then
-																		cached:set(string_lower(tostring(header_original))..key, header, ttl)
+																	if string.lower(tostring(header_original)) == string.lower(content_type_list[i][17][a]) then
+																		cached:set(string.lower(tostring(header_original))..key, header, ttl)
 																	end
 																end
 															end
-															--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
-															ngx_header[headerName] = header
+															--ngx.log(ngx.STDERR, " header name" .. headerName .. " value " .. header )
+															ngx.header[headerName] = header
 														end
 													end
 													if content_type_list[i][11] == 1 and guest_or_logged_in == 0 then
-														ngx_header["Set-Cookie"] = nil
+														ngx.header["Set-Cookie"] = nil
 													end
-													ngx_header["Content-Length"] = #output_minified
-													--ngx_status = res.status
-													ngx_status = response_status_match(res.status)
-													ngx_say(output_minified)
-													ngx_exit(response_status_match(content_type_list[i][6][z]))
-													--ngx_exit(content_type_list[i][6][z])
+													ngx.header["Content-Length"] = #output_minified
+													--ngx.status = res.status
+													ngx.status = response_status_match(res.status)
+													ngx.say(output_minified)
+													ngx.exit(response_status_match(content_type_list[i][6][z]))
+													--ngx.exit(content_type_list[i][6][z])
 													break
 												end --file size bigger and smaller
 											end
@@ -5686,38 +5525,38 @@ local function minification(content_type_list)
 
 					else --if content_type_cache == nil then
 
-						if content_type_cache and string_match(content_type_cache, content_type_list[i][2]) then
+						if content_type_cache and string.match(content_type_cache, content_type_list[i][2]) then
 
 							if content_type_list[i][5] == 1 then
-								ngx_log(ngx_LOG_TYPE, " Served from cache " )
+								ngx.log(ngx.STDERR, " Served from cache " )
 							end
 
 							local output_minified = cached:get(key)
 							local res_status = cached:get("s"..key)
 
-							--ngx_header.content_type = content_type_list[i][2]
+							--ngx.header.content_type = content_type_list[i][2]
 							if content_type_list[i][10] == 1 then
-								ngx_header["X-Cache-Status"] = "HIT"
+								ngx.header["X-Cache-Status"] = "HIT"
 							end
 							if content_type_list[i][17] ~= "" or #content_type_list[i][17] > 0 then
 								for a=1, #content_type_list[i][17] do
-									local header_name = string_lower(content_type_list[i][17][a])
+									local header_name = string.lower(content_type_list[i][17][a])
 									local check_header = cached:get(header_name..key) or nil
 									if check_header ~= nil then
-										--ngx_log(ngx_LOG_TYPE, " check_header " .. check_header )
-										ngx_header[header_name] = check_header
+										--ngx.log(ngx.STDERR, " check_header " .. check_header )
+										ngx.header[header_name] = check_header
 									end
 								end
 							end
 							if content_type_list[i][11] == 1 and guest_or_logged_in == 0 or guest_or_logged_in == 1 then
-								ngx_header["Set-Cookie"] = nil
+								ngx.header["Set-Cookie"] = nil
 							end
-							ngx_header["Content-Length"] = #output_minified
-							--ngx_status = res_status
-							ngx_status = response_status_match(res_status)
-							ngx_say(output_minified)
-							ngx_exit(response_status_match(res_status))
-							--ngx_exit(res_status)
+							ngx.header["Content-Length"] = #output_minified
+							--ngx.status = res_status
+							ngx.status = response_status_match(res_status)
+							ngx.say(output_minified)
+							ngx.exit(response_status_match(res_status))
+							--ngx.exit(res_status)
 
 						end
 					end --if content_type_cache == nil then
@@ -5731,8 +5570,8 @@ local function minification(content_type_list)
 						if restyhttp and content_type_list[i][13] then
 							local httpc = require("resty.http").new()
 							local res = httpc:request_uri(content_type_list[i][12], {
-								method = map[ngx_var.request_method],
-								body = request_body, --ngx_var.request_body,
+								method = map[ngx.var.request_method],
+								body = request_body, --ngx.var.request_body,
 								headers = req_headers,
 							})
 							if res then
@@ -5743,9 +5582,9 @@ local function minification(content_type_list)
 										local content_type_header_match = 0
 										if res.headers ~= nil and type(res.headers) == "table" then
 											for headerName, header in next, res.headers do
-												--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
-												if string_lower(tostring(headerName)) == "content-type" then
-													if string_match(header, content_type_list[i][2]) == nil then
+												--ngx.log(ngx.STDERR, " header name" .. headerName .. " value " .. header )
+												if string.lower(tostring(headerName)) == "content-type" then
+													if string.match(header, content_type_list[i][2]) == nil then
 														--goto end_for_loop
 														content_type_header_match = 1
 													end
@@ -5758,7 +5597,7 @@ local function minification(content_type_list)
 											local file_size_bigger = 0
 											if content_type_list[i][15] ~= "" and #output_minified > content_type_list[i][15] then
 												if content_type_list[i][5] == 1 then
-													ngx_log(ngx_LOG_TYPE, " File size bigger than maximum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][15] )
+													ngx.log(ngx.STDERR, " File size bigger than maximum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][15] )
 												end
 												--goto end_for_loop
 												file_size_bigger = 1
@@ -5767,7 +5606,7 @@ local function minification(content_type_list)
 											local file_size_smaller = 0
 											if content_type_list[i][16] ~= "" and #output_minified < content_type_list[i][16] then
 												if content_type_list[i][5] == 1 then
-													ngx_log(ngx_LOG_TYPE, " File size smaller than minimum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][16] )
+													ngx.log(ngx.STDERR, " File size smaller than minimum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][16] )
 												end
 												--goto end_for_loop
 												file_size_smaller = 1
@@ -5777,25 +5616,25 @@ local function minification(content_type_list)
 
 												if content_type_list[i][14] ~= "" and #content_type_list[i][14] > 0 then
 													for x=1,#content_type_list[i][14] do
-														output_minified = string_gsub(output_minified, content_type_list[i][14][x][1], content_type_list[i][14][x][2])
+														output_minified = string.gsub(output_minified, content_type_list[i][14][x][1], content_type_list[i][14][x][2])
 													end --end foreach regex check
 												end
 
 												if res.headers ~= nil and type(res.headers) == "table" then
 													for headerName, header in next, res.headers do
-														--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
-														ngx_header[headerName] = header
+														--ngx.log(ngx.STDERR, " header name" .. headerName .. " value " .. header )
+														ngx.header[headerName] = header
 													end
 												end
 												--if content_type_list[i][11] == 1 and guest_or_logged_in == 0 then
-													--ngx_header["Set-Cookie"] = nil
+													--ngx.header["Set-Cookie"] = nil
 												--end
-												ngx_header["Content-Length"] = #output_minified
-												--ngx_status = res.status
-												ngx_status = response_status_match(res.status)
-												ngx_say(output_minified)
-												ngx_exit(response_status_match(content_type_list[i][6][z]))
-												--ngx_exit(content_type_list[i][6][z])
+												ngx.header["Content-Length"] = #output_minified
+												--ngx.status = res.status
+												ngx.status = response_status_match(res.status)
+												ngx.say(output_minified)
+												ngx.exit(response_status_match(content_type_list[i][6][z]))
+												--ngx.exit(content_type_list[i][6][z])
 												break
 											end --file size bigger and smaller
 										end
@@ -5807,8 +5646,8 @@ local function minification(content_type_list)
 						--[[]]
 
 							local res = ngx.location.capture(content_type_list[i][12], {
-							method = map[ngx_var.request_method],
-							body = request_body, --ngx_var.request_body,
+							method = map[ngx.var.request_method],
+							body = request_body, --ngx.var.request_body,
 							args = "",
 							headers = req_headers,
 							})
@@ -5820,9 +5659,9 @@ local function minification(content_type_list)
 										local content_type_header_match = 0
 										if res.header ~= nil and type(res.header) == "table" then
 											for headerName, header in next, res.header do
-												--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
-												if string_lower(tostring(headerName)) == "content-type" then
-													if string_match(header, content_type_list[i][2]) == nil then
+												--ngx.log(ngx.STDERR, " header name" .. headerName .. " value " .. header )
+												if string.lower(tostring(headerName)) == "content-type" then
+													if string.match(header, content_type_list[i][2]) == nil then
 														--goto end_for_loop
 														content_type_header_match = 1
 													end
@@ -5835,7 +5674,7 @@ local function minification(content_type_list)
 											local file_size_bigger = 0
 											if content_type_list[i][15] ~= "" and #output_minified > content_type_list[i][15] then
 												if content_type_list[i][5] == 1 then
-													ngx_log(ngx_LOG_TYPE, " File size bigger than maximum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][15] )
+													ngx.log(ngx.STDERR, " File size bigger than maximum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][15] )
 												end
 												--goto end_for_loop
 												file_size_bigger = 1
@@ -5844,7 +5683,7 @@ local function minification(content_type_list)
 											local file_size_smaller = 0
 											if content_type_list[i][16] ~= "" and #output_minified < content_type_list[i][16] then
 												if content_type_list[i][5] == 1 then
-													ngx_log(ngx_LOG_TYPE, " File size smaller than minimum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][16] )
+													ngx.log(ngx.STDERR, " File size smaller than minimum allowed not going to cache " .. #output_minified .. " and " .. content_type_list[i][16] )
 												end
 												--goto end_for_loop
 												file_size_smaller = 1
@@ -5854,25 +5693,25 @@ local function minification(content_type_list)
 
 												if content_type_list[i][14] ~= "" and #content_type_list[i][14] > 0 then
 													for x=1,#content_type_list[i][14] do
-														output_minified = string_gsub(output_minified, content_type_list[i][14][x][1], content_type_list[i][14][x][2])
+														output_minified = string.gsub(output_minified, content_type_list[i][14][x][1], content_type_list[i][14][x][2])
 													end --end foreach regex check
 												end
 
 												if res.header ~= nil and type(res.header) == "table" then
 													for headerName, header in next, res.header do
-														--ngx_log(ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
-														ngx_header[headerName] = header
+														--ngx.log(ngx.STDERR, " header name" .. headerName .. " value " .. header )
+														ngx.header[headerName] = header
 													end
 												end
 												--if content_type_list[i][11] == 1 and guest_or_logged_in == 0 then
-													--ngx_header["Set-Cookie"] = nil
+													--ngx.header["Set-Cookie"] = nil
 												--end
-												ngx_header["Content-Length"] = #output_minified
-												--ngx_status = res.status
-												ngx_status = response_status_match(res.status)
-												ngx_say(output_minified)
-												ngx_exit(response_status_match(content_type_list[i][6][z]))
-												--ngx_exit(content_type_list[i][6][z])
+												ngx.header["Content-Length"] = #output_minified
+												--ngx.status = res.status
+												ngx.status = response_status_match(res.status)
+												ngx.say(output_minified)
+												ngx.exit(response_status_match(content_type_list[i][6][z]))
+												--ngx.exit(content_type_list[i][6][z])
 												break
 											end --file size bigger and smaller
 										end
