@@ -2,6 +2,8 @@
 
 [![Cloudflare I am Under Attack Mode!](https://blog.cloudflare.com/content/images/im_under_attack_page.png.scaled500.png)](https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/funding)
 
+[Master Branch for Modern Nginx Lua Builds](https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/tree/master) - [Old Outdated Nginx Lua Builds use this branch](https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/tree/old-outdated-nginx-lua-builds)
+
 # Nginx-Lua-Anti-DDoS
 A Anti-DDoS script to protect Nginx web servers using Lua with a Javascript based authentication puzzle inspired by Cloudflare I am under attack mode I built my own Anti-DDoS authentication HTML page puzzle intergrating my Lua, Javascript, HTML and HTTP knowledge.
 
