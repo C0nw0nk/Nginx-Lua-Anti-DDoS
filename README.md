@@ -1,3 +1,9 @@
+# This branch is for Nginx + Lua builds older than July Year 2020 This script version will work with all old Nginx + Lua builds.
+
+In july 2020 Openresty had a major update `OpenResty 1.17.8.1` https://openresty.org/en/ann-1017008001.html In this update they changed and increased a core default value `LuaJIT Increased the maximum number of allowed upvalues from 60 to 120.` To allow users who can not use the modern or updated builds and are stuck on the old builds i made some changes to the script so it will work with Nginx Builds dating all the way back to 2011. Enjoy this version of the script to keep your nginx and servers secure!
+
+
+
 [![Languages](https://img.shields.io/github/languages/count/C0nw0nk/Nginx-Lua-Anti-DDoS) ![Top language](https://img.shields.io/github/languages/top/C0nw0nk/Nginx-Lua-Anti-DDoS) ![File size](https://img.shields.io/github/size/C0nw0nk/Nginx-Lua-Anti-DDoS/lua/anti_ddos_challenge.lua)](https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/funding) [![Build and Publish RPM/DEB Packages](https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/actions/workflows/build-publish.yml/badge.svg)](https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/actions/workflows/build-publish.yml)
 
 [![Cloudflare I am Under Attack Mode!](https://blog.cloudflare.com/content/images/im_under_attack_page.png.scaled500.png)](https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/funding)
