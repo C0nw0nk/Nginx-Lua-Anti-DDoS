@@ -4,6 +4,12 @@ nginx-lua-anti-ddos-challenge (1.3-1) stable; urgency=medium
 
  -- C0nw0nk <C0nw0nk@github>  Wed, 03 Sep 2025 00:00:00 +0000
 
+nginx-lua-anti-ddos-challenge (1.3-1) stable; urgency=medium
+  - localize vars so the script is compatible with all nginx lua versions old and new.
+  - Fix content-type header depending on how early in execution process we are with nginx the content-type header could still be nil so i have fixed it.
+
+ -- C0nw0nk <C0nw0nk@github>  Wed, 03 Sep 2025 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (1.2-1) stable; urgency=medium
   - Fixed both guest and logged in user cache
   - Fixed POST request caching
