@@ -1753,6 +1753,64 @@ This is where things get very complex. ;)
 Begin Required Functions
 ]]
 
+localized.get_resp_content_type_counter = 0
+local function get_resp_content_type(forced) --incase content-type header not yet exists grab it
+	local resp_content_type = nil
+	if forced == nil then
+		localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+1
+		if localized.ngx_header["content-type"] then
+			--localized.ngx_log(localized.ngx_LOG_TYPE, " localized.ngx_header['content-type'] " .. localized.ngx_header["content-type"] )
+			resp_content_type = localized.ngx_header["content-type"]
+			return resp_content_type
+		end
+	end
+	--made it this far still no content-type ?
+	if localized.get_resp_content_type_counter > 1 then --so we dont run location capture multiple times on the first run it will either be content-type or nil
+		return resp_content_type
+	end
+	--localized.ngx_log(localized.ngx_LOG_TYPE, " count is " .. localized.get_resp_content_type_counter )
+	--local req_headers = localized.ngx_req_get_headers()
+	local map = {
+		GET = localized.ngx_HTTP_GET,
+		HEAD = localized.ngx_HTTP_HEAD,
+		PUT = localized.ngx_HTTP_PUT,
+		POST = localized.ngx_HTTP_POST,
+		DELETE = localized.ngx_HTTP_DELETE,
+		OPTIONS = localized.ngx_HTTP_OPTIONS,
+		MKCOL = localized.ngx_HTTP_MKCOL,
+		COPY = localized.ngx_HTTP_COPY,
+		MOVE = localized.ngx_HTTP_MOVE,
+		PROPFIND = localized.ngx_HTTP_PROPFIND,
+		PROPPATCH = localized.ngx_HTTP_PROPPATCH,
+		LOCK = localized.ngx_HTTP_LOCK,
+		UNLOCK = localized.ngx_HTTP_UNLOCK,
+		PATCH = localized.ngx_HTTP_PATCH,
+		TRACE = localized.ngx_HTTP_TRACE,
+		CONNECT = localized.ngx_HTTP_CONNECT, --does not exist but put here never know in the future
+	}
+	local res = localized.ngx.location.capture(localized.request_uri, {
+	method = map[localized.ngx_var.request_method],
+	--headers = req_headers,
+	})
+	if res then
+		if res.header ~= nil and localized.type(res.header) == "table" then
+			for headerName, header in next, res.header do
+				--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
+				if localized.string_lower(localized.tostring(headerName)) == "content-type" then
+					--localized.ngx_log(localized.ngx_LOG_TYPE, " localized.ngx.location.capture " .. header )
+					resp_content_type = header
+				end
+			end
+		end
+	end
+	localized.ngx_header["content-type"] = resp_content_type --set header as content-type be either nil or the content-type
+	localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
+	return resp_content_type
+
+end
+--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Content-Type header is. " .. get_resp_content_type() )
+--get_resp_content_type()
+
 --Anti DDoS function
 local function anti_ddos()
 	local pcall = pcall
@@ -1938,6 +1996,7 @@ local function anti_ddos()
 		if range then
 			if localized.type(range) ~= "table" then
 				--Filter by what we expect a range header to be provided with
+				get_resp_content_type() --grab content-type incase does not exist
 				if localized.ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
 					if #range_table > 0 then
 						local whitelist_set = 0
@@ -2382,6 +2441,7 @@ local function anti_ddos()
 			else
 				for i=1, #range do
 					--Filter by what we expect a range header to be provided with
+					get_resp_content_type() --grab content-type incase does not exist
 					if localized.ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
 						if #range_table > 0 then
 							local whitelist_set = 0
@@ -5276,6 +5336,9 @@ end
 run_checks() --nest function to prevent function at line 1 has more than 200 local variables and function at line X has more than X upvalues just my way of putting locals inside functions to get around the 200 limit
 
 if localized.content_cache == nil or #localized.content_cache == 0 then
+	--localized.ngx_log(localized.ngx_LOG_TYPE,  " resp_content_type before " .. get_resp_content_type() )
+	get_resp_content_type(1) --fix for random bug where content-type output is application/octet-stream on text/html seems to only happen on a / directory not a /index.html
+	--localized.ngx_log(localized.ngx_LOG_TYPE,  " resp_content_type after " .. get_resp_content_type() )
 	if localized.exit_status then
 		localized.ngx_exit(localized.ngx_OK) --Go to content
 	end
@@ -5582,6 +5645,7 @@ local function minification(content_type_list)
 											end
 
 											if content_type_header_match == 0 then
+												localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
 
 												local file_size_bigger = 0
 												if content_type_list[i][15] ~= "" and #output_minified > content_type_list[i][15] then
@@ -5675,6 +5739,7 @@ local function minification(content_type_list)
 											end
 
 											if content_type_header_match == 0 then
+												localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
 
 												local file_size_bigger = 0
 												if content_type_list[i][15] ~= "" and #output_minified > content_type_list[i][15] then
@@ -5746,6 +5811,7 @@ local function minification(content_type_list)
 					else --if content_type_cache == nil then
 
 						if content_type_cache and localized.string_match(content_type_cache, content_type_list[i][2]) then
+							localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
 
 							if content_type_list[i][5] == 1 then
 								localized.ngx_log(localized.ngx_LOG_TYPE, " Served from cache " )
@@ -5813,6 +5879,7 @@ local function minification(content_type_list)
 										end
 
 										if content_type_header_match == 0 then
+											localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
 
 											local file_size_bigger = 0
 											if content_type_list[i][15] ~= "" and #output_minified > content_type_list[i][15] then
@@ -5890,6 +5957,7 @@ local function minification(content_type_list)
 										end
 
 										if content_type_header_match == 0 then
+											localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
 
 											local file_size_bigger = 0
 											if content_type_list[i][15] ~= "" and #output_minified > content_type_list[i][15] then
@@ -5947,6 +6015,13 @@ local function minification(content_type_list)
 			end --if request_method_match == 1 and cookie_match == 0 and request_uri_match == 0 then
 		end --end if URL match check
 		--::end_for_loop::
+
+		if i >= #content_type_list then --last occurance
+			--localized.ngx_log(localized.ngx_LOG_TYPE,  "count is " .. i .. " " .. localized.get_resp_content_type_counter .. " resp_content_type before " .. get_resp_content_type() .. " and " .. localized.ngx_header["Content-Type"]  )
+			get_resp_content_type(1) --fix for random bug where content-type output is application/octet-stream on text/html seems to only happen on a / directory not a /index.html
+			--localized.ngx_log(localized.ngx_LOG_TYPE,  localized.get_resp_content_type_counter .. " resp_content_type after " .. get_resp_content_type() )
+		end
+
 	end --end content_type foreach mime type table check
 end --end minification function
 
