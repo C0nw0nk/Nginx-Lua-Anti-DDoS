@@ -66,6 +66,9 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Wed Sep 03 2025 C0nw0nk <C0nw0nk@github> - 1.3-1
+- localize vars so the script is compatible with all nginx lua versions old and new.
+- Fix content-type header depending on how early in execution process we are with nginx the content-type header could still be nil so i have fixed it.
 * Sat Aug 23 2025 C0nw0nk <C0nw0nk@github> - 1.2-1
 - Fixed both guest and logged in user cache
 - Fixed POST request caching
