@@ -371,11 +371,11 @@ localized.content_cache = {
 		{"GET",}, --request method to cache
 		{ --bypass cache on cookie
 			{
-				"logged_in", --cookie name regex ".*" for any cookie
-				"1", --cookie value ".*" for any value
+				".*", --cookie name regex ".*" for any cookie
+				".*", --cookie value ".*" for any value
 				0, --0 guest user cache only 1 both guest and logged in user cache useful if logged_in cookie is present then cache key will include cookies
 			},
-			--{"name1","value1",0,},
+			--{"logged_in","1",0,},
 		}, --bypass cache on cookie
 		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
@@ -427,11 +427,11 @@ localized.content_cache = {
 		{"GET",}, --request method to cache
 		{ --bypass cache on cookie
 			{
-				"logged_in", --cookie name ".*" for any cookie
-				"1", --cookie value ".*" for any value
+				".*", --cookie name ".*" for any cookie
+				".*", --cookie value ".*" for any value
 				0, --0 guest user cache only 1 both guest and logged in user cache useful if logged_in cookie is present then cache key will include cookies
 			},
-			--{"name1","value1",0,},
+			--{"logged_in","1",0,},
 		}, --bypass cache on cookie
 		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
