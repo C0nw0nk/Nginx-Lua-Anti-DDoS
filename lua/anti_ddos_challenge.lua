@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 1.3
+Script Version: 1.4
 
 Copyright Conor McKnight
 
@@ -371,11 +371,11 @@ localized.content_cache = {
 		{"GET",}, --request method to cache
 		{ --bypass cache on cookie
 			{
-				"logged_in", --cookie name regex ".*" for any cookie
-				"1", --cookie value ".*" for any value
+				".*", --cookie name regex ".*" for any cookie
+				".*", --cookie value ".*" for any value
 				0, --0 guest user cache only 1 both guest and logged in user cache useful if logged_in cookie is present then cache key will include cookies
 			},
-			--{"name1","value1",0,},
+			--{"logged_in","1",0,},
 		}, --bypass cache on cookie
 		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
@@ -405,6 +405,16 @@ localized.content_cache = {
 		"", --1e+6, --Maximum content size to cache in bytes 1e+6 = 1MB content larger than this wont be cached empty string "" to skip
 		"", --Minimum content size to cache in bytes content smaller than this wont be cached empty string "" to skip
 		{"content-type","content-range","content-length","etag","last-modified","set-cookie",}, --headers you can use this to specify what headers you want to keep on your cache HIT/UPDATING output
+		--Request header forwarding / overrides :
+		--the way ngx.location.capture works with request headers is it forwards your browser request headers to the ngx.location you can remove them using a table by setting the request header from your browser to nil
+		--you can over ride your browsers request headers being sent to the backend using a table any headers your browser sends that is not specified in the table will not be overridden and will still go to the ngx location as is.
+		--nil,--nil or empty table to use browsers request headers
+		{ --override browsers request headers
+			--["Content-Type"] = "application/x-www-form-urlencoded", --add this header to request being sent to backend
+			--["Accept"] = localized.ngx_req_get_headers()["Accept"], --override this header being sent with the contents of browsers accept value
+			--["host"] = "www.google.com", --override this header to request being sent to backend
+			--["priority"] = "", --remove this header from the request being sent to the backened
+		},
 	},
 	{
 		".*", --regex match any site / path
@@ -417,11 +427,11 @@ localized.content_cache = {
 		{"GET",}, --request method to cache
 		{ --bypass cache on cookie
 			{
-				"logged_in", --cookie name ".*" for any cookie
-				"1", --cookie value ".*" for any value
+				".*", --cookie name ".*" for any cookie
+				".*", --cookie value ".*" for any value
 				0, --0 guest user cache only 1 both guest and logged in user cache useful if logged_in cookie is present then cache key will include cookies
 			},
-			--{"name1","value1",0,},
+			--{"logged_in","1",0,},
 		}, --bypass cache on cookie
 		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
@@ -432,6 +442,16 @@ localized.content_cache = {
 		4e+7, --Maximum content size to cache in bytes 1e+6 = 1MB, 1e+7 = 10MB, 1e+8 = 100MB, 1e+9 = 1GB content larger than this wont be cached empty string "" to skip
 		200000, --200kb --Minimum content size to cache in bytes content smaller than this wont be cached empty string "" to skip
 		{"content-type","content-range","content-length","etag","last-modified","set-cookie",}, --headers you can use this to specify what headers you want to keep on your cache HIT/UPDATING output
+		--Request header forwarding / overrides :
+		--the way ngx.location.capture works with request headers is it forwards your browser request headers to the ngx.location you can remove them using a table by setting the request header from your browser to nil
+		--you can over ride your browsers request headers being sent to the backend using a table any headers your browser sends that is not specified in the table will not be overridden and will still go to the ngx location as is.
+		--nil,--nil or empty table to use browsers request headers
+		{ --override browsers request headers
+			--["Content-Type"] = "application/x-www-form-urlencoded", --add this header to request being sent to backend
+			--["Accept"] = localized.ngx_req_get_headers()["Accept"], --override this header being sent with the contents of browsers accept value
+			--["host"] = "www.google.com", --override this header to request being sent to backend
+			--["priority"] = "", --remove this header from the request being sent to the backened
+		},
 	},
 	]]
 }
@@ -1794,7 +1814,7 @@ local function get_resp_content_type(forced) --incase content-type header not ye
 	})
 	if res then
 		if res.header ~= nil and localized.type(res.header) == "table" then
-			for headerName, header in next, res.header do
+			for headerName, header in localized.next, res.header do
 				--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
 				if localized.string_lower(localized.tostring(headerName)) == "content-type" then
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " localized.ngx.location.capture " .. header )
@@ -3347,7 +3367,7 @@ Query String Remove arguments
 local function has_value(table_, val)
 	--for i=1,#table_ do
 		--if table_[i] == val then
-	for key, value in next, table_ do
+	for key, value in localized.next, table_ do
 		if value == val then
 			return true
 		end
@@ -3366,7 +3386,7 @@ local function query_string_expected_args_only()
 		for i=1,#localized.query_string_expected_args_only_table do --for each host in our table
 			local v = localized.query_string_expected_args_only_table[i]
 			if localized.string_match(localized.URL, v[1]) then --if our host matches one in the table
-				for key, value in next, args do
+				for key, value in localized.next, args do
 					if has_value(v[2], localized.tostring(key)) == false then
 						args[key] = nil --remove the arguement from the args table
 						modified = 1 --set args as modified
@@ -4106,7 +4126,7 @@ local function WAF_Post_Requests()
 			local arguement1 = nil --create empty variable
 			local arguement2 = nil --create empty variable
 
-			for key, value in next, args do
+			for key, value in localized.next, args do
 
 				for i=1,#localized.WAF_POST_Request_table do
 					arguement1 = nil --reset to nil each loop
@@ -4146,7 +4166,7 @@ local function WAF_Header_Requests()
 			local arguement1 = nil --create empty variable
 			local arguement2 = nil --create empty variable
 
-			for key, value in next, argument_request_headers do
+			for key, value in localized.next, argument_request_headers do
 
 				for i=1,#localized.WAF_Header_Request_table do
 					arguement1 = nil --reset to nil each loop
@@ -4186,7 +4206,7 @@ local function WAF_query_string_Request()
 			local arguement1 = nil --create empty variable
 			local arguement2 = nil --create empty variable
 
-			for key, value in next, args do
+			for key, value in localized.next, args do
 
 				for i=1,#localized.WAF_query_string_Request_table do
 					arguement1 = nil --reset to nil each loop
@@ -5533,6 +5553,17 @@ local function minification(content_type_list)
 					return resstatus
 				end
 
+				local function headers_forward()
+					local output = nil
+					if content_type_list[i][18] ~= nil and #content_type_list[i][18] > 0 then
+						--for headerName, header in localized.next, content_type_list[i][18] do
+							--localized.ngx_log(localized.ngx_LOG_TYPE, " localized.ngx.location.capture forwarding header name " .. headerName .. " value " .. header )
+						--end
+						output = content_type_list[i][18]
+					end
+					return output
+				end
+
 				local map = {
 					GET = localized.ngx_HTTP_GET,
 					HEAD = localized.ngx_HTTP_HEAD,
@@ -5624,7 +5655,7 @@ local function minification(content_type_list)
 								local res = httpc:request_uri(content_type_list[i][12], {
 									method = map[localized.ngx_var.request_method],
 									body = request_body, --localized.ngx_var.request_body,
-									headers = req_headers,
+									headers = headers_forward(),
 								})
 								if res then
 									for z=1, #content_type_list[i][6] do
@@ -5633,7 +5664,7 @@ local function minification(content_type_list)
 
 											local content_type_header_match = 0
 											if res.headers ~= nil and localized.type(res.headers) == "table" then
-												for headerName, header in next, res.headers do
+												for headerName, header in localized.next, res.headers do
 													--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
 													if localized.string_lower(localized.tostring(headerName)) == "content-type" then
 														if localized.string_match(header, content_type_list[i][2]) == nil then
@@ -5683,7 +5714,7 @@ local function minification(content_type_list)
 													cached:set(key, output_minified, ttl)
 													cached:set("s"..key, res.status, ttl)
 													if res.headers ~= nil and localized.type(res.headers) == "table" then
-														for headerName, header in next, res.headers do
+														for headerName, header in localized.next, res.headers do
 															local header_original = headerName --so we do not make the header all lower case on insert
 															if content_type_list[i][17] ~= "" or #content_type_list[i][17] > 0 then
 																for a=1, #content_type_list[i][17] do
@@ -5718,7 +5749,7 @@ local function minification(content_type_list)
 								method = map[localized.ngx_var.request_method],
 								body = request_body, --localized.ngx_var.request_body,
 								args = "",
-								headers = req_headers,
+								headers = headers_forward(),
 								})
 								if res then
 									for z=1, #content_type_list[i][6] do
@@ -5727,7 +5758,7 @@ local function minification(content_type_list)
 
 											local content_type_header_match = 0
 											if res.header ~= nil and localized.type(res.header) == "table" then
-												for headerName, header in next, res.header do
+												for headerName, header in localized.next, res.header do
 													--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
 													if localized.string_lower(localized.tostring(headerName)) == "content-type" then
 														if localized.string_match(header, content_type_list[i][2]) == nil then
@@ -5777,7 +5808,7 @@ local function minification(content_type_list)
 													cached:set(key, output_minified, ttl)
 													cached:set("s"..key, res.status, ttl)
 													if res.header ~= nil and localized.type(res.header) == "table" then
-														for headerName, header in next, res.header do
+														for headerName, header in localized.next, res.header do
 															local header_original = headerName --so we do not make the header all lower case on insert
 															if content_type_list[i][17] ~= "" or #content_type_list[i][17] > 0 then
 																for a=1, #content_type_list[i][17] do
@@ -5858,7 +5889,7 @@ local function minification(content_type_list)
 							local res = httpc:request_uri(content_type_list[i][12], {
 								method = map[localized.ngx_var.request_method],
 								body = request_body, --localized.ngx_var.request_body,
-								headers = req_headers,
+								headers = headers_forward(),
 							})
 							if res then
 								for z=1, #content_type_list[i][6] do
@@ -5867,7 +5898,7 @@ local function minification(content_type_list)
 
 										local content_type_header_match = 0
 										if res.headers ~= nil and localized.type(res.headers) == "table" then
-											for headerName, header in next, res.headers do
+											for headerName, header in localized.next, res.headers do
 												--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
 												if localized.string_lower(localized.tostring(headerName)) == "content-type" then
 													if localized.string_match(header, content_type_list[i][2]) == nil then
@@ -5908,7 +5939,7 @@ local function minification(content_type_list)
 												end
 
 												if res.headers ~= nil and localized.type(res.headers) == "table" then
-													for headerName, header in next, res.headers do
+													for headerName, header in localized.next, res.headers do
 														--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
 														localized.ngx_header[headerName] = header
 													end
@@ -5936,7 +5967,7 @@ local function minification(content_type_list)
 							method = map[localized.ngx_var.request_method],
 							body = request_body, --localized.ngx_var.request_body,
 							args = "",
-							headers = req_headers,
+							headers = headers_forward(),
 							})
 							if res then
 								for z=1, #content_type_list[i][6] do
@@ -5945,7 +5976,7 @@ local function minification(content_type_list)
 
 										local content_type_header_match = 0
 										if res.header ~= nil and localized.type(res.header) == "table" then
-											for headerName, header in next, res.header do
+											for headerName, header in localized.next, res.header do
 												--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
 												if localized.string_lower(localized.tostring(headerName)) == "content-type" then
 													if localized.string_match(header, content_type_list[i][2]) == nil then
@@ -5986,7 +6017,7 @@ local function minification(content_type_list)
 												end
 
 												if res.header ~= nil and localized.type(res.header) == "table" then
-													for headerName, header in next, res.header do
+													for headerName, header in localized.next, res.header do
 														--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
 														localized.ngx_header[headerName] = header
 													end
