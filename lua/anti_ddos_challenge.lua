@@ -136,6 +136,7 @@ localized.ngx_OK = localized.ngx.OK --go to content
 localized.ngx_var_http_cf_connecting_ip = localized.ngx_var.http_cf_connecting_ip
 localized.ngx_var_http_x_forwarded_for = localized.ngx_var.http_x_forwarded_for
 localized.ngx_var_remote_addr = localized.ngx_var.remote_addr
+localized.ngx_var_binary_remote_addr = localized.ngx_var_remote_addr --set binary to remote for the sake of logs displaying ips
 localized.ngx_var_http_user_agent = localized.ngx_var.http_user_agent
 localized.ngx_log = localized.ngx.log
 -- https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#nginx-log-level-constants
@@ -192,7 +193,7 @@ localized.anti_ddos_table = {
 		--Rate limiting settings
 		5, --5 second window
 		60, --max 60 requests in 5s
-		600, --600 seconds = 10 minutes block time for ip
+		86400, --86400 seconds = 24 hour block time for ip flooding
 		localized.ngx_HTTP_CLOSE, --444 connection reset 0 bytes per response
 
 		--SlowHTTP / Slowloris settings
@@ -265,7 +266,7 @@ localized.anti_ddos_table = {
 		localized.ngx.shared.ddos_counter, --this zone is for the total number of ips in the list that are currently blocked
 
 		--Unique identifyer to use IP address works well but set this to Auto if you expect proxy traffic like from cloudflare
-		--localized.ngx_var.binary_remote_addr, --if you use binary remote addr and the antiddos shared address is 10m in size you can store 160k ip addresses before you need to increase the memory dedicated
+		--localized.ngx_var_binary_remote_addr, --if you use binary remote addr and the antiddos shared address is 10m in size you can store 160k ip addresses before you need to increase the memory dedicated
 		"auto", --auto is best but use binary above instead if you want
 
 		--Automatic I am Under Attack Mode - authentication puzzle to automatically enable when ddos detected
@@ -330,6 +331,12 @@ localized.anti_ddos_table = {
 
 		1, --0 disable compression 1 enable compression brotli,gzip etc for this domain / path if your under ddos attack the script will turn off gzip since nginx gzip will hog cpu so you dont have to worry about that.
 		1, --0 disable 1 enable - automatically disable compression for all users if ddos attack detected if more than number of IPs end up in the ban list the server will prevent cpu intensive tasks like compression to stay online.
+
+		--Javascript puzzle flood protection
+		--In the event of an attack a user who fails to solve the javascript puzzle after a certain number of times will have their ip blocked
+		localized.ngx.shared.jspuzzle_tracker, --this zone monitors each unique ip and number of times they stack up failing to solve the puzzle
+		50, --50 second window
+		10, --max 10 failures in 50s
 
 	},
 }
@@ -470,7 +477,7 @@ localized.ngx_var_remote_addr --Users IP address
 localized.ngx_var_http_user_agent --use this to protect Tor servers from DDoS
 
 You can combine multiple if you like. You can do so like this.
-local remote_addr = localized.ngx_var_remote_addr .. localized.ngx_var_http_user_agent
+localized.remote_addr = localized.ngx_var_remote_addr .. localized.ngx_var_http_user_agent
 
 remote_addr = "tor" this will mean this script will be functioning for tor users only
 remote_addr = "auto" the script will automatically get the clients IP this is the default it is the smartest and most compatible method with every service proxy etc
@@ -608,9 +615,9 @@ localized.ip_blacklist = {
 --"127.0.0.1/30", --localhost
 --"192.168.0.1", --localhost
 --ASN AS16276 OVH IP ranges Block all OVH Servers
-"107.189.64.0/18","91.90.92.0/24","198.245.48.0/20","185.243.16.0/24","217.182.0.0/16","51.79.128.0/17","103.5.12.0/22","198.27.64.0/18","46.105.200.0/24","51.79.0.0/17","2607:5300::/32","144.217.0.0/16","46.244.32.0/20","46.105.201.0/24","46.105.198.0/24","54.39.0.0/16","46.105.203.0/24","51.81.128.0/17","46.105.0.0/16","51.178.0.0/16","167.114.128.0/18","91.90.88.0/24","8.7.244.0/24","139.99.128.0/17","144.2.32.0/19","51.38.0.0/16","91.90.94.0/24","8.33.128.0/21","8.21.41.0/24","216.32.194.0/24","51.89.0.0/16","5.196.0.0/16","195.110.30.0/23","51.195.0.0/16","2001:41d0::/32","91.90.93.0/24","8.29.224.0/24","167.114.192.0/19","8.24.8.0/21","91.90.90.0/24","167.114.0.0/17","91.121.0.0/16","51.91.0.0/16","139.99.0.0/17","178.32.0.0/15","8.26.94.0/24","51.77.0.0/16","91.90.89.0/24","185.228.97.0/24","151.80.0.0/16","213.251.128.0/18","149.56.0.0/16","37.59.0.0/16","213.186.32.0/19","2402:1f00::/32","193.70.0.0/17","142.44.128.0/17","51.161.0.0/17","54.38.0.0/16","185.228.98.0/24","91.90.88.0/21","216.32.220.0/24","92.222.0.0/16","147.135.128.0/17","142.4.192.0/19","5.135.0.0/16","192.95.0.0/18","46.105.202.0/24","185.12.32.0/23","145.239.0.0/16","213.32.0.0/17","37.187.0.0/16","37.60.48.0/21","198.100.144.0/20","149.202.0.0/16","94.23.0.0/16","167.114.224.0/19","193.109.63.0/24","51.254.0.0/15","91.90.91.0/24","216.32.213.0/24","216.32.218.0/24","8.33.96.0/21","5.39.0.0/17","185.228.96.0/24","164.132.0.0/16","158.69.0.0/16","46.105.199.0/24","8.30.208.0/21","54.37.0.0/16","46.105.204.0/24","2402:1f00:8100::/40","87.98.128.0/17","51.68.0.0/16","37.60.56.0/21","8.20.110.0/24","51.83.0.0/16","185.45.160.0/22","216.32.192.0/24","198.50.128.0/17","205.218.49.0/24","216.32.216.0/24","51.75.0.0/16","195.246.232.0/23","91.90.95.0/24","51.81.0.0/17","2402:1f00:8000::/40","23.92.224.0/19","192.240.152.0/21","91.134.0.0/16","92.246.224.0/19","176.31.0.0/16","79.137.0.0/17","193.104.19.0/24","137.74.0.0/16","192.99.0.0/16","198.27.92.0/24","147.135.0.0/17","8.33.136.0/24","2604:2dc0::/32","8.33.137.0/24","188.165.0.0/16","66.70.128.0/17","8.18.172.0/24","185.228.99.0/24","54.36.0.0/16","8.18.128.0/24",
+--"107.189.64.0/18","91.90.92.0/24","198.245.48.0/20","185.243.16.0/24","217.182.0.0/16","51.79.128.0/17","103.5.12.0/22","198.27.64.0/18","46.105.200.0/24","51.79.0.0/17","2607:5300::/32","144.217.0.0/16","46.244.32.0/20","46.105.201.0/24","46.105.198.0/24","54.39.0.0/16","46.105.203.0/24","51.81.128.0/17","46.105.0.0/16","51.178.0.0/16","167.114.128.0/18","91.90.88.0/24","8.7.244.0/24","139.99.128.0/17","144.2.32.0/19","51.38.0.0/16","91.90.94.0/24","8.33.128.0/21","8.21.41.0/24","216.32.194.0/24","51.89.0.0/16","5.196.0.0/16","195.110.30.0/23","51.195.0.0/16","2001:41d0::/32","91.90.93.0/24","8.29.224.0/24","167.114.192.0/19","8.24.8.0/21","91.90.90.0/24","167.114.0.0/17","91.121.0.0/16","51.91.0.0/16","139.99.0.0/17","178.32.0.0/15","8.26.94.0/24","51.77.0.0/16","91.90.89.0/24","185.228.97.0/24","151.80.0.0/16","213.251.128.0/18","149.56.0.0/16","37.59.0.0/16","213.186.32.0/19","2402:1f00::/32","193.70.0.0/17","142.44.128.0/17","51.161.0.0/17","54.38.0.0/16","185.228.98.0/24","91.90.88.0/21","216.32.220.0/24","92.222.0.0/16","147.135.128.0/17","142.4.192.0/19","5.135.0.0/16","192.95.0.0/18","46.105.202.0/24","185.12.32.0/23","145.239.0.0/16","213.32.0.0/17","37.187.0.0/16","37.60.48.0/21","198.100.144.0/20","149.202.0.0/16","94.23.0.0/16","167.114.224.0/19","193.109.63.0/24","51.254.0.0/15","91.90.91.0/24","216.32.213.0/24","216.32.218.0/24","8.33.96.0/21","5.39.0.0/17","185.228.96.0/24","164.132.0.0/16","158.69.0.0/16","46.105.199.0/24","8.30.208.0/21","54.37.0.0/16","46.105.204.0/24","2402:1f00:8100::/40","87.98.128.0/17","51.68.0.0/16","37.60.56.0/21","8.20.110.0/24","51.83.0.0/16","185.45.160.0/22","216.32.192.0/24","198.50.128.0/17","205.218.49.0/24","216.32.216.0/24","51.75.0.0/16","195.246.232.0/23","91.90.95.0/24","51.81.0.0/17","2402:1f00:8000::/40","23.92.224.0/19","192.240.152.0/21","91.134.0.0/16","92.246.224.0/19","176.31.0.0/16","79.137.0.0/17","193.104.19.0/24","137.74.0.0/16","192.99.0.0/16","198.27.92.0/24","147.135.0.0/17","8.33.136.0/24","2604:2dc0::/32","8.33.137.0/24","188.165.0.0/16","66.70.128.0/17","8.18.172.0/24","185.228.99.0/24","54.36.0.0/16","8.18.128.0/24",
 --ASN AS12876 ONLINE S.A.S. IP ranges
-"62.4.0.0/19","151.115.0.0/18","51.15.0.0/17","163.172.208.0/20","212.129.0.0/18","2001:bc8::/32","212.83.160.0/19","212.47.224.0/19","2001:bc8:1c00::/38","51.158.128.0/17","163.172.0.0/16","212.83.128.0/19","51.158.0.0/15","195.154.0.0/16","51.15.0.0/16","62.210.0.0/16",
+--"62.4.0.0/19","151.115.0.0/18","51.15.0.0/17","163.172.208.0/20","212.129.0.0/18","2001:bc8::/32","212.83.160.0/19","212.47.224.0/19","2001:bc8:1c00::/38","51.158.128.0/17","163.172.0.0/16","212.83.128.0/19","51.158.0.0/15","195.154.0.0/16","51.15.0.0/16","62.210.0.0/16",
 }
 
 --[[
@@ -3022,7 +3029,7 @@ local function anti_ddos()
 						elseif localized.ngx_var_http_x_forwarded_for ~= nil then
 							ip = localized.ngx_var_http_x_forwarded_for
 						else
-							ip = localized.ngx_var.binary_remote_addr
+							ip = localized.ngx_var_binary_remote_addr
 						end
 					end
 
@@ -4276,6 +4283,40 @@ local function check_ips()
 				end
 			end
 			if localized.ip_whitelist_block_mode == 1 then --ip address not matched the above
+				for i=1,#localized.anti_ddos_table do
+					if localized.string_match(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
+						local rate_limit_window = localized.anti_ddos_table[i][8]
+						local block_duration = localized.anti_ddos_table[i][10]
+						local request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
+						local blocked_addr = localized.anti_ddos_table[i][20] or nil
+						local ddos_counter = localized.anti_ddos_table[i][21] or nil
+						local ip = localized.anti_ddos_table[i][22]
+						if ip == "auto" then
+							if localized.ngx_var_http_cf_connecting_ip ~= nil then
+								ip = localized.ngx_var_http_cf_connecting_ip
+							elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+								ip = localized.ngx_var_http_x_forwarded_for
+							else
+								ip = localized.ngx_var_binary_remote_addr
+							end
+						end
+						if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
+							blocked_addr:set(ip, localized.currenttime, block_duration)
+							local incr = ddos_counter:get("blocked_ip") or nil
+							if incr == nil then
+								ddos_counter:set("blocked_ip", 1, rate_limit_window)
+							else
+								local incr = ddos_counter:get("blocked_ip")
+								ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
+							end
+							if localized.anti_ddos_table[i][7] == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP attempt for not being in whitelist : " .. ip )
+							end
+						end
+						break
+					end
+				end
+				
 				return localized.ngx_exit(localized.ngx_HTTP_CLOSE) --deny user access
 			end
 		end
@@ -4293,8 +4334,74 @@ local function check_ips()
 			for i=1,#ip_table do
 				local value = ip_table[i]
 				if value == localized.ip_blacklist_remote_addr then
+					for i=1,#localized.anti_ddos_table do
+						if localized.string_match(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
+							local rate_limit_window = localized.anti_ddos_table[i][8]
+							local block_duration = localized.anti_ddos_table[i][10]
+							local request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
+							local blocked_addr = localized.anti_ddos_table[i][20] or nil
+							local ddos_counter = localized.anti_ddos_table[i][21] or nil
+							local ip = localized.anti_ddos_table[i][22]
+							if ip == "auto" then
+								if localized.ngx_var_http_cf_connecting_ip ~= nil then
+									ip = localized.ngx_var_http_cf_connecting_ip
+								elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+									ip = localized.ngx_var_http_x_forwarded_for
+								else
+									ip = localized.ngx_var_binary_remote_addr
+								end
+							end
+							if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
+								blocked_addr:set(ip, localized.currenttime, block_duration)
+								local incr = ddos_counter:get("blocked_ip") or nil
+								if incr == nil then
+									ddos_counter:set("blocked_ip", 1, rate_limit_window)
+								else
+									local incr = ddos_counter:get("blocked_ip")
+									ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
+								end
+								if localized.anti_ddos_table[i][7] == 1 then
+									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP attempt for being in blacklist : " .. ip )
+								end
+							end
+							break
+						end
+					end
 					return localized.ngx_exit(localized.ngx_HTTP_CLOSE) --deny user access
 				elseif ip_address_in_range(value, localized.ip_blacklist_remote_addr) == true then
+					for i=1,#localized.anti_ddos_table do
+						if localized.string_match(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
+							local rate_limit_window = localized.anti_ddos_table[i][8]
+							local block_duration = localized.anti_ddos_table[i][10]
+							local request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
+							local blocked_addr = localized.anti_ddos_table[i][20] or nil
+							local ddos_counter = localized.anti_ddos_table[i][21] or nil
+							local ip = localized.anti_ddos_table[i][22]
+							if ip == "auto" then
+								if localized.ngx_var_http_cf_connecting_ip ~= nil then
+									ip = localized.ngx_var_http_cf_connecting_ip
+								elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+									ip = localized.ngx_var_http_x_forwarded_for
+								else
+									ip = localized.ngx_var_binary_remote_addr
+								end
+							end
+							if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
+								blocked_addr:set(ip, localized.currenttime, block_duration)
+								local incr = ddos_counter:get("blocked_ip") or nil
+								if incr == nil then
+									ddos_counter:set("blocked_ip", 1, rate_limit_window)
+								else
+									local incr = ddos_counter:get("blocked_ip")
+									ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
+								end
+								if localized.anti_ddos_table[i][7] == 1 then
+									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP attempt for being in blacklist : " .. ip )
+								end
+							end
+							break
+						end
+					end
 					return localized.ngx_exit(localized.ngx_HTTP_CLOSE) --deny user access
 				end
 			end
