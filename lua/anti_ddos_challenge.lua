@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 1.4
+Script Version: 1.5
 
 Copyright Conor McKnight
 
