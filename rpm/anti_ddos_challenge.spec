@@ -66,6 +66,12 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Fri Sep 05 2025 C0nw0nk <C0nw0nk@github> - 1.5-1
+- Fixed log to show IP address.
+- IPs in the block range to get added to shared memory zone if exist
+- IPs in whitelist range to get added to shared memory zone if exist
+- Added Feature javascript authentication puzzle protection users who fail to solve the javascript puzzle more than a certain number of times can be blocked.
+- Added feature ability to run external commands on IP addresses in the block list useful if you want to use iptables to block an address before it even reaches the nginx worker process.
 * Wed Sep 03 2025 C0nw0nk <C0nw0nk@github> - 1.4-1
 - localize next functions
 - Add ability to override ngx.location.capture headers being sent to backends.
