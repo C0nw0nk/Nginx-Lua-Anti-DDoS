@@ -110,6 +110,7 @@ Add this to your HTTP block or it can be in a server or location block depending
 lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone to track requests per each unique user
 lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory where blocked users are put
 lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
+lua_shared_dict jspuzzle_tracker 10m; #Anti-DDoS shared memory zone monitors each unique ip and number of times they stack up failing to solve the puzzle
 
 access_by_lua_file anti_ddos_challenge.lua;
 ```
@@ -125,6 +126,7 @@ http {
 lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone to track requests per each unique user
 lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory where blocked users are put
 lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
+lua_shared_dict jspuzzle_tracker 10m; #Anti-DDoS shared memory zone monitors each unique ip and number of times they stack up failing to solve the puzzle
 
 #nginx config settings etc
 access_by_lua_file anti_ddos_challenge.lua;
@@ -141,6 +143,7 @@ http {
 lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone to track requests per each unique user
 lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory where blocked users are put
 lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
+lua_shared_dict jspuzzle_tracker 10m; #Anti-DDoS shared memory zone monitors each unique ip and number of times they stack up failing to solve the puzzle
 }
 
 server {
@@ -158,6 +161,7 @@ http {
 lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone to track requests per each unique user
 lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory where blocked users are put
 lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
+lua_shared_dict jspuzzle_tracker 10m; #Anti-DDoS shared memory zone monitors each unique ip and number of times they stack up failing to solve the puzzle
 }
 
 location / {
