@@ -335,8 +335,8 @@ localized.anti_ddos_table = {
 		--Javascript puzzle flood protection
 		--In the event of an attack a user who fails to solve the javascript puzzle after a certain number of times will have their ip blocked
 		localized.ngx.shared.jspuzzle_tracker, --this zone monitors each unique ip and number of times they stack up failing to solve the puzzle
-		50, --50 second window
-		10, --max 10 failures in 50s
+		35, --35 second window
+		4, --max 4 failures in 35s
 
 	},
 }
@@ -4283,37 +4283,39 @@ local function check_ips()
 				end
 			end
 			if localized.ip_whitelist_block_mode == 1 then --ip address not matched the above
-				for i=1,#localized.anti_ddos_table do
-					if localized.string_match(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
-						local rate_limit_window = localized.anti_ddos_table[i][8]
-						local block_duration = localized.anti_ddos_table[i][10]
-						local request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
-						local blocked_addr = localized.anti_ddos_table[i][20] or nil
-						local ddos_counter = localized.anti_ddos_table[i][21] or nil
-						local ip = localized.anti_ddos_table[i][22]
-						if ip == "auto" then
-							if localized.ngx_var_http_cf_connecting_ip ~= nil then
-								ip = localized.ngx_var_http_cf_connecting_ip
-							elseif localized.ngx_var_http_x_forwarded_for ~= nil then
-								ip = localized.ngx_var_http_x_forwarded_for
-							else
-								ip = localized.ngx_var_binary_remote_addr
+				if #localized.anti_ddos_table > 0 then
+					for i=1,#localized.anti_ddos_table do
+						if localized.string_match(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
+							local rate_limit_window = localized.anti_ddos_table[i][8]
+							local block_duration = localized.anti_ddos_table[i][10]
+							local request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
+							local blocked_addr = localized.anti_ddos_table[i][20] or nil
+							local ddos_counter = localized.anti_ddos_table[i][21] or nil
+							local ip = localized.anti_ddos_table[i][22]
+							if ip == "auto" then
+								if localized.ngx_var_http_cf_connecting_ip ~= nil then
+									ip = localized.ngx_var_http_cf_connecting_ip
+								elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+									ip = localized.ngx_var_http_x_forwarded_for
+								else
+									ip = localized.ngx_var_binary_remote_addr
+								end
 							end
+							if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
+								blocked_addr:set(ip, localized.currenttime, block_duration)
+								local incr = ddos_counter:get("blocked_ip") or nil
+								if incr == nil then
+									ddos_counter:set("blocked_ip", 1, rate_limit_window)
+								else
+									local incr = ddos_counter:get("blocked_ip")
+									ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
+								end
+								if localized.anti_ddos_table[i][7] == 1 then
+									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP attempt for not being in whitelist : " .. ip )
+								end
+							end
+							break
 						end
-						if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
-							blocked_addr:set(ip, localized.currenttime, block_duration)
-							local incr = ddos_counter:get("blocked_ip") or nil
-							if incr == nil then
-								ddos_counter:set("blocked_ip", 1, rate_limit_window)
-							else
-								local incr = ddos_counter:get("blocked_ip")
-								ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
-							end
-							if localized.anti_ddos_table[i][7] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP attempt for not being in whitelist : " .. ip )
-							end
-						end
-						break
 					end
 				end
 				
@@ -4334,72 +4336,76 @@ local function check_ips()
 			for i=1,#ip_table do
 				local value = ip_table[i]
 				if value == localized.ip_blacklist_remote_addr then
-					for i=1,#localized.anti_ddos_table do
-						if localized.string_match(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
-							local rate_limit_window = localized.anti_ddos_table[i][8]
-							local block_duration = localized.anti_ddos_table[i][10]
-							local request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
-							local blocked_addr = localized.anti_ddos_table[i][20] or nil
-							local ddos_counter = localized.anti_ddos_table[i][21] or nil
-							local ip = localized.anti_ddos_table[i][22]
-							if ip == "auto" then
-								if localized.ngx_var_http_cf_connecting_ip ~= nil then
-									ip = localized.ngx_var_http_cf_connecting_ip
-								elseif localized.ngx_var_http_x_forwarded_for ~= nil then
-									ip = localized.ngx_var_http_x_forwarded_for
-								else
-									ip = localized.ngx_var_binary_remote_addr
+					if #localized.anti_ddos_table > 0 then
+						for i=1,#localized.anti_ddos_table do
+							if localized.string_match(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
+								local rate_limit_window = localized.anti_ddos_table[i][8]
+								local block_duration = localized.anti_ddos_table[i][10]
+								local request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
+								local blocked_addr = localized.anti_ddos_table[i][20] or nil
+								local ddos_counter = localized.anti_ddos_table[i][21] or nil
+								local ip = localized.anti_ddos_table[i][22]
+								if ip == "auto" then
+									if localized.ngx_var_http_cf_connecting_ip ~= nil then
+										ip = localized.ngx_var_http_cf_connecting_ip
+									elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+										ip = localized.ngx_var_http_x_forwarded_for
+									else
+										ip = localized.ngx_var_binary_remote_addr
+									end
 								end
+								if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
+									blocked_addr:set(ip, localized.currenttime, block_duration)
+									local incr = ddos_counter:get("blocked_ip") or nil
+									if incr == nil then
+										ddos_counter:set("blocked_ip", 1, rate_limit_window)
+									else
+										local incr = ddos_counter:get("blocked_ip")
+										ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
+									end
+									if localized.anti_ddos_table[i][7] == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP attempt for being in blacklist : " .. ip )
+									end
+								end
+								break
 							end
-							if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
-								blocked_addr:set(ip, localized.currenttime, block_duration)
-								local incr = ddos_counter:get("blocked_ip") or nil
-								if incr == nil then
-									ddos_counter:set("blocked_ip", 1, rate_limit_window)
-								else
-									local incr = ddos_counter:get("blocked_ip")
-									ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
-								end
-								if localized.anti_ddos_table[i][7] == 1 then
-									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP attempt for being in blacklist : " .. ip )
-								end
-							end
-							break
 						end
 					end
 					return localized.ngx_exit(localized.ngx_HTTP_CLOSE) --deny user access
 				elseif ip_address_in_range(value, localized.ip_blacklist_remote_addr) == true then
-					for i=1,#localized.anti_ddos_table do
-						if localized.string_match(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
-							local rate_limit_window = localized.anti_ddos_table[i][8]
-							local block_duration = localized.anti_ddos_table[i][10]
-							local request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
-							local blocked_addr = localized.anti_ddos_table[i][20] or nil
-							local ddos_counter = localized.anti_ddos_table[i][21] or nil
-							local ip = localized.anti_ddos_table[i][22]
-							if ip == "auto" then
-								if localized.ngx_var_http_cf_connecting_ip ~= nil then
-									ip = localized.ngx_var_http_cf_connecting_ip
-								elseif localized.ngx_var_http_x_forwarded_for ~= nil then
-									ip = localized.ngx_var_http_x_forwarded_for
-								else
-									ip = localized.ngx_var_binary_remote_addr
+					if #localized.anti_ddos_table > 0 then
+						for i=1,#localized.anti_ddos_table do
+							if localized.string_match(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
+								local rate_limit_window = localized.anti_ddos_table[i][8]
+								local block_duration = localized.anti_ddos_table[i][10]
+								local request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
+								local blocked_addr = localized.anti_ddos_table[i][20] or nil
+								local ddos_counter = localized.anti_ddos_table[i][21] or nil
+								local ip = localized.anti_ddos_table[i][22]
+								if ip == "auto" then
+									if localized.ngx_var_http_cf_connecting_ip ~= nil then
+										ip = localized.ngx_var_http_cf_connecting_ip
+									elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+										ip = localized.ngx_var_http_x_forwarded_for
+									else
+										ip = localized.ngx_var_binary_remote_addr
+									end
 								end
+								if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
+									blocked_addr:set(ip, localized.currenttime, block_duration)
+									local incr = ddos_counter:get("blocked_ip") or nil
+									if incr == nil then
+										ddos_counter:set("blocked_ip", 1, rate_limit_window)
+									else
+										local incr = ddos_counter:get("blocked_ip")
+										ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
+									end
+									if localized.anti_ddos_table[i][7] == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP attempt for being in blacklist : " .. ip )
+									end
+								end
+								break
 							end
-							if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
-								blocked_addr:set(ip, localized.currenttime, block_duration)
-								local incr = ddos_counter:get("blocked_ip") or nil
-								if incr == nil then
-									ddos_counter:set("blocked_ip", 1, rate_limit_window)
-								else
-									local incr = ddos_counter:get("blocked_ip")
-									ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
-								end
-								if localized.anti_ddos_table[i][7] == 1 then
-									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP attempt for being in blacklist : " .. ip )
-								end
-							end
-							break
 						end
 					end
 					return localized.ngx_exit(localized.ngx_HTTP_CLOSE) --deny user access
@@ -5155,6 +5161,61 @@ end
 
 if localized.log_users_on_puzzle == 1 then
 	localized.ngx_log(localized.ngx_LOG_TYPE,  localized.log_on_puzzle_text_start .. localized.remote_addr .. localized.log_on_puzzle_text_end)
+end
+
+if #localized.anti_ddos_table > 0 then
+	for i=1,#localized.anti_ddos_table do
+		if localized.string_match(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
+			local rate_limit_window = localized.anti_ddos_table[i][8]
+			local block_duration = localized.anti_ddos_table[i][10]
+			local request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
+			local blocked_addr = localized.anti_ddos_table[i][20] or nil
+			local ddos_counter = localized.anti_ddos_table[i][21] or nil
+			local ip = localized.anti_ddos_table[i][22]
+			local jspuzzle_memory_zone = localized.anti_ddos_table[i][29]
+			local jspuzzle_rate_limit_window = localized.anti_ddos_table[i][30]
+			local jspuzzle_request_limit = localized.anti_ddos_table[i][31]
+			if ip == "auto" then
+				if localized.ngx_var_http_cf_connecting_ip ~= nil then
+					ip = localized.ngx_var_http_cf_connecting_ip
+				elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+					ip = localized.ngx_var_http_x_forwarded_for
+				else
+				ip = localized.ngx_var_binary_remote_addr
+				end
+			end
+			if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil and jspuzzle_memory_zone ~= nil then
+				local key = "r" .. ip --set identifyer as r and ip for to not use up to much memory
+				local count = "" --create locals to use
+
+				count = jspuzzle_memory_zone:get(key) or nil
+				if count == nil then
+					jspuzzle_memory_zone:set(key, 1, jspuzzle_rate_limit_window)
+				else
+					count = jspuzzle_memory_zone:get(key)
+					jspuzzle_memory_zone:set(key, count+1, jspuzzle_rate_limit_window)
+					count = jspuzzle_memory_zone:get(key)
+				end
+				--Rate limit check
+				if count ~= nil then
+					if count > jspuzzle_request_limit then
+						blocked_addr:set(ip, localized.currenttime, block_duration)
+						local incr = ddos_counter:get("blocked_ip") or nil
+						if incr == nil then
+							ddos_counter:set("blocked_ip", 1, rate_limit_window)
+						else
+							local incr = ddos_counter:get("blocked_ip")
+							ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
+						end
+						if localized.anti_ddos_table[i][7] == 1 then
+							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP for exceeding puzzle fail attempt : " .. count .. " - " .. ip )
+						end
+					end
+				end
+			end
+			break
+		end
+	end
 end
 
 --[[
