@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 1.5
+Script Version: 1.6
 
 Copyright Conor McKnight
 
@@ -182,7 +182,7 @@ localized.anti_ddos_table = {
 		--localized.ngx_HTTP_CLOSE, --444 connection reset 0 bytes per response
 
 		--Limit minimum request size to this in bytes requests smaller than this size will be blocked.
-		20, --0 for no minimum limit size in bytes including request headers
+		40, --0 for no minimum limit size in bytes including request headers
 		--limit max request size to this in bytes so 1000 bytes is 1kb you can do 1e+9 = 1GB Gigabyte for large sizes
 		1000000, --0 is unlimited or will fall back to the nginx config value client_max_body_size 1m; https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size
 		--status code to exit with when request size is larger than allowed size
@@ -610,9 +610,12 @@ To find all IP ranges of an ASN use : https://www.enjen.net/asn-blocklist/index.
 localized.ip_whitelist_remote_addr = "auto" --Automatically get the Clients IP address
 --localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr
 localized.ip_whitelist_block_mode = 0 --0 whitelist acts as a bypass to puzzle auth checks 1 is to enforce only allowing whitelisted addresses access other addresses will be blocked.
+localized.ip_whitelist_bypass_flood_protection = 0 --0 IP's in whitelist can still be banned / blocked for DDoS flooding behaviour 1 IP's bypass the flood detection
 localized.ip_whitelist = {
---"127.0.0.1", --localhost
---"192.168.0.1", --localhost
+--"10.0.0.0/8", --localnetwork
+--"172.16.0.0/12", --localnetwork
+--"127.0.0.1/16", --localhost
+--"192.168.0.0/16", --localhost
 --Cloudflare IP's https://www.cloudflare.com/en-gb/ips/ set block mode to 1 and localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr to block all ips other than cloudflare from direct access to your server/sites.
 --"173.245.48.0/20","103.21.244.0/22","103.22.200.0/22","103.31.4.0/22","141.101.64.0/18","108.162.192.0/18","190.93.240.0/20","188.114.96.0/20","197.234.240.0/22","198.41.128.0/17","162.158.0.0/15","104.16.0.0/13","104.24.0.0/14","172.64.0.0/13","131.0.72.0/22","2400:cb00::/32","2606:4700::/32","2803:f800::/32","2405:b500::/32","2405:8100::/32","2a06:98c0::/29","2c0f:f248::/32",
 }
@@ -626,8 +629,6 @@ For the worst Botnet ASN IP's see here : https://www.spamhaus.org/statistics/bot
 ]]
 localized.ip_blacklist_remote_addr = "auto" --Automatically get the Clients IP address
 localized.ip_blacklist = {
---"127.0.0.1/30", --localhost
---"192.168.0.1", --localhost
 --ASN AS16276 OVH IP ranges Block all OVH Servers
 --"107.189.64.0/18","91.90.92.0/24","198.245.48.0/20","185.243.16.0/24","217.182.0.0/16","51.79.128.0/17","103.5.12.0/22","198.27.64.0/18","46.105.200.0/24","51.79.0.0/17","2607:5300::/32","144.217.0.0/16","46.244.32.0/20","46.105.201.0/24","46.105.198.0/24","54.39.0.0/16","46.105.203.0/24","51.81.128.0/17","46.105.0.0/16","51.178.0.0/16","167.114.128.0/18","91.90.88.0/24","8.7.244.0/24","139.99.128.0/17","144.2.32.0/19","51.38.0.0/16","91.90.94.0/24","8.33.128.0/21","8.21.41.0/24","216.32.194.0/24","51.89.0.0/16","5.196.0.0/16","195.110.30.0/23","51.195.0.0/16","2001:41d0::/32","91.90.93.0/24","8.29.224.0/24","167.114.192.0/19","8.24.8.0/21","91.90.90.0/24","167.114.0.0/17","91.121.0.0/16","51.91.0.0/16","139.99.0.0/17","178.32.0.0/15","8.26.94.0/24","51.77.0.0/16","91.90.89.0/24","185.228.97.0/24","151.80.0.0/16","213.251.128.0/18","149.56.0.0/16","37.59.0.0/16","213.186.32.0/19","2402:1f00::/32","193.70.0.0/17","142.44.128.0/17","51.161.0.0/17","54.38.0.0/16","185.228.98.0/24","91.90.88.0/21","216.32.220.0/24","92.222.0.0/16","147.135.128.0/17","142.4.192.0/19","5.135.0.0/16","192.95.0.0/18","46.105.202.0/24","185.12.32.0/23","145.239.0.0/16","213.32.0.0/17","37.187.0.0/16","37.60.48.0/21","198.100.144.0/20","149.202.0.0/16","94.23.0.0/16","167.114.224.0/19","193.109.63.0/24","51.254.0.0/15","91.90.91.0/24","216.32.213.0/24","216.32.218.0/24","8.33.96.0/21","5.39.0.0/17","185.228.96.0/24","164.132.0.0/16","158.69.0.0/16","46.105.199.0/24","8.30.208.0/21","54.37.0.0/16","46.105.204.0/24","2402:1f00:8100::/40","87.98.128.0/17","51.68.0.0/16","37.60.56.0/21","8.20.110.0/24","51.83.0.0/16","185.45.160.0/22","216.32.192.0/24","198.50.128.0/17","205.218.49.0/24","216.32.216.0/24","51.75.0.0/16","195.246.232.0/23","91.90.95.0/24","51.81.0.0/17","2402:1f00:8000::/40","23.92.224.0/19","192.240.152.0/21","91.134.0.0/16","92.246.224.0/19","176.31.0.0/16","79.137.0.0/17","193.104.19.0/24","137.74.0.0/16","192.99.0.0/16","198.27.92.0/24","147.135.0.0/17","8.33.136.0/24","2604:2dc0::/32","8.33.137.0/24","188.165.0.0/16","66.70.128.0/17","8.18.172.0/24","185.228.99.0/24","54.36.0.0/16","8.18.128.0/24",
 --ASN AS12876 ONLINE S.A.S. IP ranges
@@ -760,7 +761,7 @@ I added some examples of bad bots to block access to.
 ]]
 localized.user_agent_blacklist_table = {
 	{
-		"^$",
+		"^%s*$",
 		3,
 	}, --blocks blank / empty user-agents
 	{
@@ -865,6 +866,10 @@ localized.user_agent_whitelist_table = {
 	{
 		"^ia_archiver %(%+http%:%/%/www%.alexa%.com%/site%/help%/webmasters%; crawler%@alexa%.com%)$",
 		2,
+	},
+	{
+		"googlebot",
+		1,
 	},
 ]]
 }
@@ -1851,6 +1856,709 @@ local function get_resp_content_type(forced) --incase content-type header not ye
 end
 --localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Content-Type header is. " .. get_resp_content_type() )
 --get_resp_content_type()
+
+--[[
+Start IP range function
+]]
+local function ip_address_in_range(input_ip, client_connecting_ip)
+	if localized.string_match(input_ip, "/") then --input ip is a subnet
+		--do nothing
+	else
+		return
+	end
+
+	local ip_type = nil
+	if localized.string_match(input_ip, "%:") and localized.string_match(client_connecting_ip, "%:") then --if both input and connecting ip are ipv6 addresses
+		--ipv6
+		ip_type = 1
+	elseif localized.string_match(input_ip, "%.") and localized.string_match(client_connecting_ip, "%.") then --if both input and connecting ip are ipv4 addresses
+		--ipv4
+		ip_type = 2
+	else
+		return
+	end
+	if ip_type == nil then
+		--input and connecting IP one is ipv4 and one is ipv6
+		return
+	end
+
+	if ip_type == 1 then --ipv6
+
+		local function explode(string, divide)
+			if divide == '' then return false end
+			local pos, arr = 0, {}
+			local arr_table_length = 1
+			--for each divider found
+			for st, sp in function() return localized.string_find(string, divide, pos, true) end do
+				arr[arr_table_length] = localized.string_sub(string, pos, st - 1 ) --attach chars left of current divider
+				arr_table_length=arr_table_length+1
+				pos = sp + 1 --jump past current divider
+			end
+				arr[arr_table_length] = localized.string_sub(string, pos) -- Attach chars right of last divider
+				arr_table_length=arr_table_length+1
+			return arr
+		end
+
+		--[[
+		Input IP
+		]]
+		--validate actual ip
+		local a, b, ip, mask = localized.string_find(input_ip, '([%w:]+)/(%d+)')
+
+		--get ip bits
+		local ipbits = explode(ip, ':')
+
+		--now to build an expanded ip
+		local zeroblock
+		--local ipbits_length = #ipbits
+		for i=1,#ipbits do
+			local k = i
+			local v = ipbits[i]
+			--length 0? we're at the :: bit
+			if localized.string_len(v) == 0 then
+				zeroblock = k
+
+				--length not 0 but not 4, prepend 0's
+			elseif localized.string_len(v) < 4 then
+				--local padding = 4 - localized.string_len(v)
+				for i = 1, 4 - localized.string_len(v) do
+					ipbits[k] = 0 .. ipbits[k]
+				end
+			end
+		end
+		if zeroblock and #ipbits < 8 then
+			--remove zeroblock
+			ipbits[zeroblock] = '0000'
+			--local padding = 8 - #ipbits
+
+			for i = 1, 8 - #ipbits do
+				ipbits[zeroblock] = '0000'
+				--ipbits_length=ipbits_length+1
+			end
+		end
+		--[[
+		End Input IP
+		]]
+
+		--[[
+		Client IP
+		]]
+		--validate actual ip
+		local a, b, clientip, mask_client = localized.string_find(client_connecting_ip, '([%w:]+)')
+
+		--get ip bits
+		local ipbits_client = explode(clientip, ':')
+
+		--now to build an expanded ip
+		local zeroblock_client
+		--local ipbits_client_length = #ipbits_client
+		for i=1,#ipbits_client do
+			local k = i
+			local v = ipbits_client[i]
+			--length 0? we're at the :: bit
+			if localized.string_len(v) == 0 then
+				zeroblock_client = k
+
+				--length not 0 but not 4, prepend 0's
+			elseif localized.string_len(v) < 4 then
+				--local padding = 4 - localized.string_len(v)
+				for i = 1, 4 - localized.string_len(v) do
+					ipbits_client[k] = 0 .. ipbits_client[k]
+				end
+			end
+		end
+		if zeroblock_client and #ipbits_client < 8 then
+			--remove zeroblock
+			ipbits_client[zeroblock_client] = '0000'
+			--local padding = 8 - #ipbits_client
+
+			for i = 1, 8 - #ipbits_client do
+				ipbits_client[zeroblock_client] = '0000'
+				--ipbits_client_length=ipbits_client_length+1
+			end
+		end
+		--[[
+		End Client IP
+		]]
+
+		local expanded_ip_count = (ipbits[1] or "0000") .. ':' .. (ipbits[2] or "0000") .. ':' .. (ipbits[3] or "0000") .. ':' .. (ipbits[4] or "0000") .. ':' .. (ipbits[5] or "0000") .. ':' .. (ipbits[6] or "0000") .. ':' .. (ipbits[7] or "0000") .. ':' .. (ipbits[8] or "0000")
+		expanded_ip_count = localized.ngx_re_gsub(expanded_ip_count, ":", "", ngx_re_options)
+
+		local client_connecting_ip_count = (ipbits_client[1] or "0000") .. ':' .. (ipbits_client[2] or "0000") .. ':' .. (ipbits_client[3] or "0000") .. ':' .. (ipbits_client[4] or "0000") .. ':' .. (ipbits_client[5] or "0000") .. ':' .. (ipbits_client[6] or "0000") .. ':' .. (ipbits_client[7] or "0000") .. ':' .. (ipbits_client[8] or "0000")
+		client_connecting_ip_count = localized.ngx_re_gsub(client_connecting_ip_count, ":", "", ngx_re_options)
+
+		--generate wildcard from mask
+		local indent = mask / 4
+
+		expanded_ip_count = localized.string_sub(expanded_ip_count, 0, indent)
+		client_connecting_ip_count = localized.string_sub(client_connecting_ip_count, 0, indent)
+
+		local client_connecting_ip_expanded = localized.ngx_re_gsub(client_connecting_ip_count, "....", "%1:", ngx_re_options)
+		client_connecting_ip_expanded = localized.ngx_re_gsub(client_connecting_ip_count, ":$", "", ngx_re_options)
+		local expanded_ip = localized.ngx_re_gsub(expanded_ip_count, "....", "%1:", ngx_re_options)
+		expanded_ip = localized.ngx_re_gsub(expanded_ip_count, ":$", "", ngx_re_options)
+
+		local wildcardbits = {}
+		local wildcardbits_table_length = 1
+		for i = 0, indent - 1 do
+			wildcardbits[wildcardbits_table_length] = 'f'
+			wildcardbits_table_length=wildcardbits_table_length+1
+		end
+		for i = 0, 31 - indent do
+			wildcardbits[wildcardbits_table_length] = '0'
+			wildcardbits_table_length=wildcardbits_table_length+1
+		end
+		--convert into 8 string array each w/ 4 chars
+		local count, index, wildcard = 1, 1, {}
+		--local wildcardbits_length = #wildcardbits
+		for i=1,#wildcardbits do
+			local k = i
+			local v = wildcardbits[i]
+			if count > 4 then
+				count = 1
+				index = index + 1
+			end
+			if not wildcard[index] then wildcard[index] = '' end
+			wildcard[index] = wildcard[index] .. v
+			count = count + 1
+		end
+
+			--loop each letter in each ipbit group
+			local topip = {}
+			local bottomip = {}
+			--local ipbits_length = #ipbits
+			for i=1,#ipbits do
+				local k = i
+				local v = ipbits[i]
+				local topbit = ''
+				local bottombit = ''
+				for i = 1, 4 do
+					local wild = localized.string_sub(wildcard[k], i, i)
+					local norm = localized.string_sub(v, i, i)
+					if wild == 'f' then
+						topbit = topbit .. norm
+						bottombit = bottombit .. norm
+					else
+						topbit = topbit .. '0'
+						bottombit = bottombit .. 'f'
+					end
+				end
+				topip[k] = topbit
+				bottomip[k] = bottombit
+			end
+
+		--count ips in mask
+		local ipcount = localized.math_pow(2, 128 - mask)
+
+		if expanded_ip == client_connecting_ip_expanded then
+			--localized.ngx_log(localized.ngx_LOG_TYPE,"ipv6 is in range")
+			return true
+		end
+
+		--output
+		--[[
+		localized.ngx_log(localized.ngx_LOG_TYPE,'indent' .. indent)
+		localized.ngx_log(localized.ngx_LOG_TYPE,'client_ip numeric : ' .. client_connecting_ip_count )
+		localized.ngx_log(localized.ngx_LOG_TYPE,'input ip numeric : ' .. expanded_ip_count )
+		localized.ngx_log(localized.ngx_LOG_TYPE,'client_ip : ' .. client_connecting_ip_expanded )
+		localized.ngx_log(localized.ngx_LOG_TYPE,'input ip : ' .. expanded_ip )
+		localized.ngx_log(localized.ngx_LOG_TYPE, '###### INFO ######' )
+		localized.ngx_log(localized.ngx_LOG_TYPE, 'IP in: ' .. ip )
+		localized.ngx_log(localized.ngx_LOG_TYPE, '=> Expanded IP: ' .. (ipbits[1] or "0000") .. ':' .. (ipbits[2] or "0000") .. ':' .. (ipbits[3] or "0000") .. ':' .. (ipbits[4] or "0000") .. ':' .. (ipbits[5] or "0000") .. ':' .. (ipbits[6] or "0000") .. ':' .. (ipbits[7] or "0000") .. ':' .. (ipbits[8] or "0000") )
+		localized.ngx_log(localized.ngx_LOG_TYPE, 'Mask in: /' .. mask )
+		localized.ngx_log(localized.ngx_LOG_TYPE, '=> Mask Wildcard: ' .. (wildcard[1] or "0000") .. ':' .. (wildcard[2] or "0000") .. ':' .. (wildcard[3] or "0000") .. ':' .. (wildcard[4] or "0000") .. ':' .. (wildcard[5] or "0000") .. ':' .. (wildcard[6] or "0000") .. ':' .. (wildcard[7] or "0000") .. ':' .. (wildcard[8] or "0000") )
+		localized.ngx_log(localized.ngx_LOG_TYPE, '\n###### BLOCK ######' )
+		localized.ngx_log(localized.ngx_LOG_TYPE, '#IP\'s: ' .. ipcount )
+		localized.ngx_log(localized.ngx_LOG_TYPE, 'Range Start: ' .. (topip[1] or "0000") .. ':' .. (topip[2] or "0000") .. ':' .. (topip[3] or "0000") .. ':' .. (topip[4] or "0000") .. ':' .. (topip[5] or "0000") .. ':' .. (topip[6] or "0000") .. ':' .. (topip[7] or "0000") .. ':' .. (topip[8] or "0000") )
+		localized.ngx_log(localized.ngx_LOG_TYPE, 'Range End: ' .. (bottomip[1] or "ffff") .. ':' .. (bottomip[2] or "ffff") .. ':' .. (bottomip[3] or "ffff") .. ':' .. (bottomip[4] or "ffff") .. ':' .. (bottomip[5] or "ffff") .. ':' .. (bottomip[6] or "ffff") .. ':' .. (bottomip[7] or "ffff") .. ':' .. (bottomip[8] or "ffff") )
+		]]
+
+	end
+
+	if ip_type == 2 then --ipv4
+
+		local a, b, ip1, ip2, ip3, ip4, mask = localized.string_find(input_ip, '(%d+).(%d+).(%d+).(%d+)/(%d+)')
+		local ip = { localized.tonumber( ip1 ), localized.tonumber( ip2 ), localized.tonumber( ip3 ), localized.tonumber( ip4 ) }
+		local a, b, client_ip1, client_ip2, client_ip3, client_ip4 = localized.string_find(client_connecting_ip, '(%d+).(%d+).(%d+).(%d+)')
+		local client_ip = { localized.tonumber( client_ip1 ), localized.tonumber( client_ip2 ), localized.tonumber( client_ip3 ), localized.tonumber( client_ip4 ) }
+
+		--list masks => wildcard
+		local masks = {
+			[1] = { 127, 255, 255, 255 },
+			[2] = { 63, 255, 255, 255 },
+			[3] = { 31, 255, 255, 255 },
+			[4] = { 15, 255, 255, 255 },
+			[5] = { 7, 255, 255, 255 },
+			[6] = { 3, 255, 255, 255 },
+			[7] = { 1, 255, 255, 255 },
+			[8] = { 0, 255, 255, 255 },
+			[9] = { 0, 127, 255, 255 },
+			[10] = { 0, 63, 255, 255 },
+			[11] = { 0, 31, 255, 255 },
+			[12] = { 0, 15, 255, 255 },
+			[13] = { 0, 7, 255, 255 },
+			[14] = { 0, 3, 255, 255 },
+			[15] = { 0, 1, 255, 255 },
+			[16] = { 0, 0, 255, 255 },
+			[17] = { 0, 0, 127, 255 },
+			[18] = { 0, 0, 63, 255 },
+			[19] = { 0, 0, 31, 255 },
+			[20] = { 0, 0, 15, 255 },
+			[21] = { 0, 0, 7, 255 },
+			[22] = { 0, 0, 3, 255 },
+			[23] = { 0, 0, 1, 255 },
+			[24] = { 0, 0, 0, 255 },
+			[25] = { 0, 0, 0, 127 },
+			[26] = { 0, 0, 0, 63 },
+			[27] = { 0, 0, 0, 31 },
+			[28] = { 0, 0, 0, 15 },
+			[29] = { 0, 0, 0, 7 },
+			[30] = { 0, 0, 0, 3 },
+			[31] = { 0, 0, 0, 1 }
+		}
+
+		--get wildcard
+		local wildcard = masks[localized.tonumber( mask )]
+
+		--number of ips in mask
+		local ipcount = localized.math_pow(2, ( 32 - mask ))
+
+		--network IP (route/bottom IP)
+		local bottomip = {}
+		--local ip_length = #ip
+		for i=1,#ip do
+			local k = i
+			local v = ip[i]
+			--wildcard = 0?
+			if wildcard[k] == 0 then
+				bottomip[k] = v
+			elseif wildcard[k] == 255 then
+				bottomip[k] = 0
+			else
+				local mod = v % (wildcard[k] + 1)
+				bottomip[k] = v - mod
+			end
+		end
+
+		--use network ip + wildcard to get top ip
+		local topip = {}
+		--local bottomip_length = #bottomip
+		for i=1,#bottomip do
+			local k = i
+			local v = bottomip[i]
+			topip[k] = v + wildcard[k]
+		end
+
+		--is input ip = network ip?
+		local isnetworkip = ( ip[1] == bottomip[1] and ip[2] == bottomip[2] and ip[3] == bottomip[3] and ip[4] == bottomip[4] )
+		local isbroadcastip = ( ip[1] == topip[1] and ip[2] == topip[2] and ip[3] == topip[3] and ip[4] == topip[4] )
+
+		local ip1 = localized.tonumber(ip1)
+		local ip2 = localized.tonumber(ip2)
+		local ip3 = localized.tonumber(ip3)
+		local ip4 = localized.tonumber(ip4)
+		local client_ip1 = localized.tonumber(client_ip1)
+		local client_ip2 = localized.tonumber(client_ip2)
+		local client_ip3 = localized.tonumber(client_ip3)
+		local client_ip4 = localized.tonumber(client_ip4)
+		local in_range_low_end1 = localized.tonumber(bottomip[1])
+		local in_range_low_end2 = localized.tonumber(bottomip[2])
+		local in_range_low_end3 = localized.tonumber(bottomip[3])
+		local in_range_low_end4 = localized.tonumber(bottomip[4])
+		local in_range_top_end1 = localized.tonumber(topip[1])
+		local in_range_top_end2 = localized.tonumber(topip[2])
+		local in_range_top_end3 = localized.tonumber(topip[3])
+		local in_range_top_end4 = localized.tonumber(topip[4])
+
+		if localized.tonumber(mask) == 1 then --127, 255, 255, 255
+			if client_ip1 >= in_range_low_end1 --in range low end
+			and client_ip1 <= in_range_top_end1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 2 then --63, 255, 255, 255
+			if client_ip1 >= in_range_low_end1 --in range low end
+			and client_ip1 <= in_range_top_end1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 3 then --31, 255, 255, 255
+			if client_ip1 >= in_range_low_end1 --in range low end
+			and client_ip1 <= in_range_top_end1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 4 then --15, 255, 255, 255
+			if client_ip1 >= in_range_low_end1 --in range low end
+			and client_ip1 <= in_range_top_end1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 5 then --7, 255, 255, 255
+			if client_ip1 >= in_range_low_end1 --in range low end
+			and client_ip1 <= in_range_top_end1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 6 then --3, 255, 255, 255
+			if client_ip1 >= in_range_low_end1 --in range low end
+			and client_ip1 <= in_range_top_end1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 7 then --1, 255, 255, 255
+			if client_ip1 >= in_range_low_end1 --in range low end
+			and client_ip1 <= in_range_top_end1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 8 then --0, 255, 255, 255
+			if ip1 == client_ip1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 9 then --0, 127, 255, 255
+			if ip1 == client_ip1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 10 then --0, 63, 255, 255
+			if ip1 == client_ip1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 11 then --0, 31, 255, 255
+			if ip1 == client_ip1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 12 then --0, 15, 255, 255
+			if ip1 == client_ip1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 13 then --0, 7, 255, 255
+			if ip1 == client_ip1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 14 then --0, 3, 255, 255
+			if ip1 == client_ip1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 15 then --0, 1, 255, 255
+			if ip1 == client_ip1 
+			and client_ip2 >= in_range_low_end2 --in range low end
+			and client_ip2 <= in_range_top_end2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 16 then --0, 0, 255, 255
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 17 then --0, 0, 127, 255
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 18 then --0, 0, 63, 255
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 19 then --0, 0, 31, 255
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 20 then --0, 0, 15, 255
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 21 then --0, 0, 7, 255
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 22 then --0, 0, 3, 255
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 23 then --0, 0, 1, 255
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and client_ip3 >= in_range_low_end3 --in range low end
+			and client_ip3 <= in_range_top_end3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 24 then --0, 0, 0, 255
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and ip3 == client_ip3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 25 then --0, 0, 0, 127
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and ip3 == client_ip3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 26 then --0, 0, 0, 63
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and ip3 == client_ip3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 27 then --0, 0, 0, 31
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and ip3 == client_ip3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 28 then --0, 0, 0, 15
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and ip3 == client_ip3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 29 then --0, 0, 0, 7
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and ip3 == client_ip3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 30 then --0, 0, 0, 3
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and ip3 == client_ip3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+		if localized.tonumber(mask) == 31 then --0, 0, 0, 1
+			if ip1 == client_ip1 
+			and ip2 == client_ip2 
+			and ip3 == client_ip3 
+			and client_ip4 >= in_range_low_end4 --in range low end
+			and client_ip4 <= in_range_top_end4 then --in range top end
+				return true
+			end
+		end
+
+		--output
+		--[[
+		localized.ngx_log(localized.ngx_LOG_TYPE, '###### INFO ######' )
+		localized.ngx_log(localized.ngx_LOG_TYPE, 'IP in: ' .. ip[1] .. '.' .. ip[2] .. '.' .. ip[3] .. '.' .. ip[4]  )
+		localized.ngx_log(localized.ngx_LOG_TYPE, 'Mask in: /' .. mask )
+		localized.ngx_log(localized.ngx_LOG_TYPE, '=> Mask Wildcard: ' .. wildcard[1] .. '.' .. wildcard[2] .. '.' .. wildcard[3] .. '.' .. wildcard[4]  )
+		localized.ngx_log(localized.ngx_LOG_TYPE, '=> in IP is network-ip: ' .. localized.tostring( isnetworkip ) )
+		localized.ngx_log(localized.ngx_LOG_TYPE, '=> in IP is broadcast-ip: ' .. localized.tostring( isbroadcastip ) )
+		localized.ngx_log(localized.ngx_LOG_TYPE, '\n###### BLOCK ######' )
+		localized.ngx_log(localized.ngx_LOG_TYPE, '#IP\'s: ' .. ipcount )
+		localized.ngx_log(localized.ngx_LOG_TYPE, 'Bottom/Network: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] .. '/' .. mask )
+		localized.ngx_log(localized.ngx_LOG_TYPE, 'Top/Broadcast: ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] )
+		localized.ngx_log(localized.ngx_LOG_TYPE, 'Subnet Range: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] .. ' - ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] )
+		localized.ngx_log(localized.ngx_LOG_TYPE, 'Host Range: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] + 1 .. ' - ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] - 1 )
+		]]
+
+	end
+
+end
+--[[
+usage
+if ip_address_in_range("255.255.0.0/17", localized.ngx_var_remote_addr) == true then --ipv4
+	localized.ngx_log(localized.ngx_LOG_TYPE,"IPv4 in range")
+end
+if ip_address_in_range("2a02:0c68::/29", localized.ngx_var_remote_addr) == true then --ipv6
+	localized.ngx_log(localized.ngx_LOG_TYPE,"IPv6 in range")
+end
+]]
+--[[
+End IP range function
+]]
+
+localized.ip_whitelist_flood_checks_count = 0
+local function ip_whitelist_flood_checks(ip_table)
+	if localized.ip_whitelist_flood_checks_count >= 1 then --so we dont run multiple times we serve the cached output instead
+		return localized.ip_whitelist_output_cached
+	end
+	if localized.ip_whitelist_bypass_flood_protection == 1 and #ip_table > 0 then
+		if localized.ip_whitelist_remote_addr == "auto" then
+			if localized.ngx_var_http_cf_connecting_ip ~= nil then
+				localized.ip_whitelist_remote_addr = localized.ngx_var_http_cf_connecting_ip
+			elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+				localized.ip_whitelist_remote_addr = localized.ngx_var_http_x_forwarded_for
+			else
+				localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr
+			end
+		end
+		localized.ip_whitelist_flood_checks_count = localized.ip_whitelist_flood_checks_count+2 --make sure we dont run again
+		for i=1,#ip_table do
+			local value = ip_table[i]
+			if value == localized.ip_whitelist_remote_addr then --if our ip address matches with one in the whitelist
+				localized.ip_whitelist_output_cached = false
+				return false
+			elseif ip_address_in_range(value, localized.ip_whitelist_remote_addr) == true then
+				localized.ip_whitelist_output_cached = false
+				return false
+			end
+		end
+	else
+		localized.ip_whitelist_flood_checks_count = localized.ip_whitelist_flood_checks_count+2 --make sure we dont run again
+	end
+	localized.ip_whitelist_output_cached = true
+	return true
+end
 
 --Anti DDoS function
 local function anti_ddos()
@@ -2932,7 +3640,7 @@ local function anti_ddos()
 	end
 
 	--Rate limit per user
-	local function check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, blocked_addr, ddos_counter, logging)
+	local function check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, ddos_counter, logging)
 		local key = "r" .. ip --set identifyer as r and ip for to not use up to much memory
 		local count, err = "" --create locals to use
 
@@ -2959,11 +3667,8 @@ local function anti_ddos()
 
 		--Rate limit check
 		if count > rate_limit_requests then
-			--Block IP
-			blocked_addr:set(ip, localized.currenttime, block_duration)
-
 			if logging == 1 then
-				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Rate limit exceeded, IP blocked: " .. ip .. " (" .. count .. " requests)")
+				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Rate limit exceeded by IP: " .. ip .. " (" .. count .. " requests)")
 			end
 
 			if shdict then --backwards compatibility for lua
@@ -3047,6 +3752,14 @@ local function anti_ddos()
 						end
 					end
 
+					--[[ --dev test to show to log file each users request count
+					local incr = ddos_counter:get("blocked_ip") or nil
+					if incr ~= nil then
+						local incr = ddos_counter:get("blocked_ip")
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Total Flood requests: " .. incr)
+					end
+					]]
+
 					local blocked_time = blocked_addr:get(ip)
 					if blocked_time then
 						if v[7] == 1 then
@@ -3061,31 +3774,22 @@ local function anti_ddos()
 						return localized.ngx_exit(rate_limit_exit_status)
 					end
 
-					if check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, blocked_addr, ddos_counter, v[7]) then
-						localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
-						return localized.ngx_exit(rate_limit_exit_status)
+					if check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, ddos_counter, v[7]) then
+						if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+							--Block IP
+							blocked_addr:set(ip, localized.currenttime, block_duration)
+							localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+							return localized.ngx_exit(rate_limit_exit_status)
+						end
 					end
 
 					if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table, v[7]) then
-						blocked_addr:set(ip, localized.currenttime, block_duration)
+						if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+							--Block IP
+							blocked_addr:set(ip, localized.currenttime, block_duration)
+						end
 						if v[7] == 1 then
 							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
-						end
-
-						if shdict then --backwards compatibility for lua
-							local incr, err = ddos_counter:incr("blocked_ip", 1, 0, rate_limit_window)
-							if not incr then
-								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] TOTAL IN SHARED error: " .. err)
-							end
-						else --older lua version
-
-							local incr = ddos_counter:get("blocked_ip") or nil
-							if incr == nil then
-								ddos_counter:set("blocked_ip", 1, rate_limit_window)
-							else
-								local incr = ddos_counter:get("blocked_ip")
-								ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
-							end
 						end
 						localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
 						
@@ -3118,7 +3822,10 @@ local function anti_ddos()
 									if localized.type(header_value) ~= "table" then
 										if localized.string_match(localized.string_lower(header_value), localized.string_lower(v[25][i][2])) then
 											if v[25][i][4] > 0 then --add to ban list
-												blocked_addr:set(ip, localized.currenttime, block_duration)
+												if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+													--Block IP
+													blocked_addr:set(ip, localized.currenttime, block_duration)
+												end
 											end
 											localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
 											localized.ngx_exit(v[25][i][3])
@@ -3127,7 +3834,10 @@ local function anti_ddos()
 										for i=1, #header_value do
 											if localized.string_match(localized.string_lower(header_value[i]), localized.string_lower(v[25][i][2])) then
 												if v[25][i][4] > 0 then --add to ban list
-													blocked_addr:set(ip, localized.currenttime, block_duration)
+													if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+														--Block IP
+														blocked_addr:set(ip, localized.currenttime, block_duration)
+													end
 												end
 												localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
 												localized.ngx_exit(v[25][i][3])
@@ -3143,7 +3853,10 @@ local function anti_ddos()
 						for i=1,#v[26] do
 							if localized.string_lower(localized.ngx_var.request_method) == localized.string_lower(v[26][i][1]) then
 								if v[26][i][3] > 0 then
-									blocked_addr:set(ip, localized.currenttime, block_duration)
+									if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+										--Block IP
+										blocked_addr:set(ip, localized.currenttime, block_duration)
+									end
 								end
 								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
 								localized.ngx_exit(v[26][i][2])
@@ -3465,676 +4178,6 @@ query_string_sort()
 End Query String Sort
 ]]
 
---[[
-Start IP range function
-]]
-local function ip_address_in_range(input_ip, client_connecting_ip)
-	if localized.string_match(input_ip, "/") then --input ip is a subnet
-		--do nothing
-	else
-		return
-	end
-
-	local ip_type = nil
-	if localized.string_match(input_ip, "%:") and localized.string_match(client_connecting_ip, "%:") then --if both input and connecting ip are ipv6 addresses
-		--ipv6
-		ip_type = 1
-	elseif localized.string_match(input_ip, "%.") and localized.string_match(client_connecting_ip, "%.") then --if both input and connecting ip are ipv4 addresses
-		--ipv4
-		ip_type = 2
-	else
-		return
-	end
-	if ip_type == nil then
-		--input and connecting IP one is ipv4 and one is ipv6
-		return
-	end
-
-	if ip_type == 1 then --ipv6
-
-		local function explode(string, divide)
-			if divide == '' then return false end
-			local pos, arr = 0, {}
-			local arr_table_length = 1
-			--for each divider found
-			for st, sp in function() return localized.string_find(string, divide, pos, true) end do
-				arr[arr_table_length] = localized.string_sub(string, pos, st - 1 ) --attach chars left of current divider
-				arr_table_length=arr_table_length+1
-				pos = sp + 1 --jump past current divider
-			end
-				arr[arr_table_length] = localized.string_sub(string, pos) -- Attach chars right of last divider
-				arr_table_length=arr_table_length+1
-			return arr
-		end
-
-		--[[
-		Input IP
-		]]
-		--validate actual ip
-		local a, b, ip, mask = localized.string_find(input_ip, '([%w:]+)/(%d+)')
-
-		--get ip bits
-		local ipbits = explode(ip, ':')
-
-		--now to build an expanded ip
-		local zeroblock
-		--local ipbits_length = #ipbits
-		for i=1,#ipbits do
-			local k = i
-			local v = ipbits[i]
-			--length 0? we're at the :: bit
-			if localized.string_len(v) == 0 then
-				zeroblock = k
-
-				--length not 0 but not 4, prepend 0's
-			elseif localized.string_len(v) < 4 then
-				--local padding = 4 - localized.string_len(v)
-				for i = 1, 4 - localized.string_len(v) do
-					ipbits[k] = 0 .. ipbits[k]
-				end
-			end
-		end
-		if zeroblock and #ipbits < 8 then
-			--remove zeroblock
-			ipbits[zeroblock] = '0000'
-			--local padding = 8 - #ipbits
-
-			for i = 1, 8 - #ipbits do
-				ipbits[zeroblock] = '0000'
-				--ipbits_length=ipbits_length+1
-			end
-		end
-		--[[
-		End Input IP
-		]]
-
-		--[[
-		Client IP
-		]]
-		--validate actual ip
-		local a, b, clientip, mask_client = localized.string_find(client_connecting_ip, '([%w:]+)')
-
-		--get ip bits
-		local ipbits_client = explode(clientip, ':')
-
-		--now to build an expanded ip
-		local zeroblock_client
-		--local ipbits_client_length = #ipbits_client
-		for i=1,#ipbits_client do
-			local k = i
-			local v = ipbits_client[i]
-			--length 0? we're at the :: bit
-			if localized.string_len(v) == 0 then
-				zeroblock_client = k
-
-				--length not 0 but not 4, prepend 0's
-			elseif localized.string_len(v) < 4 then
-				--local padding = 4 - localized.string_len(v)
-				for i = 1, 4 - localized.string_len(v) do
-					ipbits_client[k] = 0 .. ipbits_client[k]
-				end
-			end
-		end
-		if zeroblock_client and #ipbits_client < 8 then
-			--remove zeroblock
-			ipbits_client[zeroblock_client] = '0000'
-			--local padding = 8 - #ipbits_client
-
-			for i = 1, 8 - #ipbits_client do
-				ipbits_client[zeroblock_client] = '0000'
-				--ipbits_client_length=ipbits_client_length+1
-			end
-		end
-		--[[
-		End Client IP
-		]]
-
-		local expanded_ip_count = (ipbits[1] or "0000") .. ':' .. (ipbits[2] or "0000") .. ':' .. (ipbits[3] or "0000") .. ':' .. (ipbits[4] or "0000") .. ':' .. (ipbits[5] or "0000") .. ':' .. (ipbits[6] or "0000") .. ':' .. (ipbits[7] or "0000") .. ':' .. (ipbits[8] or "0000")
-		expanded_ip_count = localized.ngx_re_gsub(expanded_ip_count, ":", "", ngx_re_options)
-
-		local client_connecting_ip_count = (ipbits_client[1] or "0000") .. ':' .. (ipbits_client[2] or "0000") .. ':' .. (ipbits_client[3] or "0000") .. ':' .. (ipbits_client[4] or "0000") .. ':' .. (ipbits_client[5] or "0000") .. ':' .. (ipbits_client[6] or "0000") .. ':' .. (ipbits_client[7] or "0000") .. ':' .. (ipbits_client[8] or "0000")
-		client_connecting_ip_count = localized.ngx_re_gsub(client_connecting_ip_count, ":", "", ngx_re_options)
-
-		--generate wildcard from mask
-		local indent = mask / 4
-
-		expanded_ip_count = localized.string_sub(expanded_ip_count, 0, indent)
-		client_connecting_ip_count = localized.string_sub(client_connecting_ip_count, 0, indent)
-
-		local client_connecting_ip_expanded = localized.ngx_re_gsub(client_connecting_ip_count, "....", "%1:", ngx_re_options)
-		client_connecting_ip_expanded = localized.ngx_re_gsub(client_connecting_ip_count, ":$", "", ngx_re_options)
-		local expanded_ip = localized.ngx_re_gsub(expanded_ip_count, "....", "%1:", ngx_re_options)
-		expanded_ip = localized.ngx_re_gsub(expanded_ip_count, ":$", "", ngx_re_options)
-
-		local wildcardbits = {}
-		local wildcardbits_table_length = 1
-		for i = 0, indent - 1 do
-			wildcardbits[wildcardbits_table_length] = 'f'
-			wildcardbits_table_length=wildcardbits_table_length+1
-		end
-		for i = 0, 31 - indent do
-			wildcardbits[wildcardbits_table_length] = '0'
-			wildcardbits_table_length=wildcardbits_table_length+1
-		end
-		--convert into 8 string array each w/ 4 chars
-		local count, index, wildcard = 1, 1, {}
-		--local wildcardbits_length = #wildcardbits
-		for i=1,#wildcardbits do
-			local k = i
-			local v = wildcardbits[i]
-			if count > 4 then
-				count = 1
-				index = index + 1
-			end
-			if not wildcard[index] then wildcard[index] = '' end
-			wildcard[index] = wildcard[index] .. v
-			count = count + 1
-		end
-
-			--loop each letter in each ipbit group
-			local topip = {}
-			local bottomip = {}
-			--local ipbits_length = #ipbits
-			for i=1,#ipbits do
-				local k = i
-				local v = ipbits[i]
-				local topbit = ''
-				local bottombit = ''
-				for i = 1, 4 do
-					local wild = localized.string_sub(wildcard[k], i, i)
-					local norm = localized.string_sub(v, i, i)
-					if wild == 'f' then
-						topbit = topbit .. norm
-						bottombit = bottombit .. norm
-					else
-						topbit = topbit .. '0'
-						bottombit = bottombit .. 'f'
-					end
-				end
-				topip[k] = topbit
-				bottomip[k] = bottombit
-			end
-
-		--count ips in mask
-		local ipcount = localized.math_pow(2, 128 - mask)
-
-		if expanded_ip == client_connecting_ip_expanded then
-			--localized.ngx_log(localized.ngx_LOG_TYPE,"ipv6 is in range")
-			return true
-		end
-
-		--output
-		--[[
-		localized.ngx_log(localized.ngx_LOG_TYPE,'indent' .. indent)
-		localized.ngx_log(localized.ngx_LOG_TYPE,'client_ip numeric : ' .. client_connecting_ip_count )
-		localized.ngx_log(localized.ngx_LOG_TYPE,'input ip numeric : ' .. expanded_ip_count )
-		localized.ngx_log(localized.ngx_LOG_TYPE,'client_ip : ' .. client_connecting_ip_expanded )
-		localized.ngx_log(localized.ngx_LOG_TYPE,'input ip : ' .. expanded_ip )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '###### INFO ######' )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'IP in: ' .. ip )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '=> Expanded IP: ' .. (ipbits[1] or "0000") .. ':' .. (ipbits[2] or "0000") .. ':' .. (ipbits[3] or "0000") .. ':' .. (ipbits[4] or "0000") .. ':' .. (ipbits[5] or "0000") .. ':' .. (ipbits[6] or "0000") .. ':' .. (ipbits[7] or "0000") .. ':' .. (ipbits[8] or "0000") )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'Mask in: /' .. mask )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '=> Mask Wildcard: ' .. (wildcard[1] or "0000") .. ':' .. (wildcard[2] or "0000") .. ':' .. (wildcard[3] or "0000") .. ':' .. (wildcard[4] or "0000") .. ':' .. (wildcard[5] or "0000") .. ':' .. (wildcard[6] or "0000") .. ':' .. (wildcard[7] or "0000") .. ':' .. (wildcard[8] or "0000") )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '\n###### BLOCK ######' )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '#IP\'s: ' .. ipcount )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'Range Start: ' .. (topip[1] or "0000") .. ':' .. (topip[2] or "0000") .. ':' .. (topip[3] or "0000") .. ':' .. (topip[4] or "0000") .. ':' .. (topip[5] or "0000") .. ':' .. (topip[6] or "0000") .. ':' .. (topip[7] or "0000") .. ':' .. (topip[8] or "0000") )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'Range End: ' .. (bottomip[1] or "ffff") .. ':' .. (bottomip[2] or "ffff") .. ':' .. (bottomip[3] or "ffff") .. ':' .. (bottomip[4] or "ffff") .. ':' .. (bottomip[5] or "ffff") .. ':' .. (bottomip[6] or "ffff") .. ':' .. (bottomip[7] or "ffff") .. ':' .. (bottomip[8] or "ffff") )
-		]]
-
-	end
-
-	if ip_type == 2 then --ipv4
-
-		local a, b, ip1, ip2, ip3, ip4, mask = localized.string_find(input_ip, '(%d+).(%d+).(%d+).(%d+)/(%d+)')
-		local ip = { localized.tonumber( ip1 ), localized.tonumber( ip2 ), localized.tonumber( ip3 ), localized.tonumber( ip4 ) }
-		local a, b, client_ip1, client_ip2, client_ip3, client_ip4 = localized.string_find(client_connecting_ip, '(%d+).(%d+).(%d+).(%d+)')
-		local client_ip = { localized.tonumber( client_ip1 ), localized.tonumber( client_ip2 ), localized.tonumber( client_ip3 ), localized.tonumber( client_ip4 ) }
-
-		--list masks => wildcard
-		local masks = {
-			[1] = { 127, 255, 255, 255 },
-			[2] = { 63, 255, 255, 255 },
-			[3] = { 31, 255, 255, 255 },
-			[4] = { 15, 255, 255, 255 },
-			[5] = { 7, 255, 255, 255 },
-			[6] = { 3, 255, 255, 255 },
-			[7] = { 1, 255, 255, 255 },
-			[8] = { 0, 255, 255, 255 },
-			[9] = { 0, 127, 255, 255 },
-			[10] = { 0, 63, 255, 255 },
-			[11] = { 0, 31, 255, 255 },
-			[12] = { 0, 15, 255, 255 },
-			[13] = { 0, 7, 255, 255 },
-			[14] = { 0, 3, 255, 255 },
-			[15] = { 0, 1, 255, 255 },
-			[16] = { 0, 0, 255, 255 },
-			[17] = { 0, 0, 127, 255 },
-			[18] = { 0, 0, 63, 255 },
-			[19] = { 0, 0, 31, 255 },
-			[20] = { 0, 0, 15, 255 },
-			[21] = { 0, 0, 7, 255 },
-			[22] = { 0, 0, 3, 255 },
-			[23] = { 0, 0, 1, 255 },
-			[24] = { 0, 0, 0, 255 },
-			[25] = { 0, 0, 0, 127 },
-			[26] = { 0, 0, 0, 63 },
-			[27] = { 0, 0, 0, 31 },
-			[28] = { 0, 0, 0, 15 },
-			[29] = { 0, 0, 0, 7 },
-			[30] = { 0, 0, 0, 3 },
-			[31] = { 0, 0, 0, 1 }
-		}
-
-		--get wildcard
-		local wildcard = masks[localized.tonumber( mask )]
-
-		--number of ips in mask
-		local ipcount = localized.math_pow(2, ( 32 - mask ))
-
-		--network IP (route/bottom IP)
-		local bottomip = {}
-		--local ip_length = #ip
-		for i=1,#ip do
-			local k = i
-			local v = ip[i]
-			--wildcard = 0?
-			if wildcard[k] == 0 then
-				bottomip[k] = v
-			elseif wildcard[k] == 255 then
-				bottomip[k] = 0
-			else
-				local mod = v % (wildcard[k] + 1)
-				bottomip[k] = v - mod
-			end
-		end
-
-		--use network ip + wildcard to get top ip
-		local topip = {}
-		--local bottomip_length = #bottomip
-		for i=1,#bottomip do
-			local k = i
-			local v = bottomip[i]
-			topip[k] = v + wildcard[k]
-		end
-
-		--is input ip = network ip?
-		local isnetworkip = ( ip[1] == bottomip[1] and ip[2] == bottomip[2] and ip[3] == bottomip[3] and ip[4] == bottomip[4] )
-		local isbroadcastip = ( ip[1] == topip[1] and ip[2] == topip[2] and ip[3] == topip[3] and ip[4] == topip[4] )
-
-		local ip1 = localized.tonumber(ip1)
-		local ip2 = localized.tonumber(ip2)
-		local ip3 = localized.tonumber(ip3)
-		local ip4 = localized.tonumber(ip4)
-		local client_ip1 = localized.tonumber(client_ip1)
-		local client_ip2 = localized.tonumber(client_ip2)
-		local client_ip3 = localized.tonumber(client_ip3)
-		local client_ip4 = localized.tonumber(client_ip4)
-		local in_range_low_end1 = localized.tonumber(bottomip[1])
-		local in_range_low_end2 = localized.tonumber(bottomip[2])
-		local in_range_low_end3 = localized.tonumber(bottomip[3])
-		local in_range_low_end4 = localized.tonumber(bottomip[4])
-		local in_range_top_end1 = localized.tonumber(topip[1])
-		local in_range_top_end2 = localized.tonumber(topip[2])
-		local in_range_top_end3 = localized.tonumber(topip[3])
-		local in_range_top_end4 = localized.tonumber(topip[4])
-
-		if localized.tonumber(mask) == 1 then --127, 255, 255, 255
-			if client_ip1 >= in_range_low_end1 --in range low end
-			and client_ip1 <= in_range_top_end1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 2 then --63, 255, 255, 255
-			if client_ip1 >= in_range_low_end1 --in range low end
-			and client_ip1 <= in_range_top_end1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 3 then --31, 255, 255, 255
-			if client_ip1 >= in_range_low_end1 --in range low end
-			and client_ip1 <= in_range_top_end1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 4 then --15, 255, 255, 255
-			if client_ip1 >= in_range_low_end1 --in range low end
-			and client_ip1 <= in_range_top_end1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 5 then --7, 255, 255, 255
-			if client_ip1 >= in_range_low_end1 --in range low end
-			and client_ip1 <= in_range_top_end1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 6 then --3, 255, 255, 255
-			if client_ip1 >= in_range_low_end1 --in range low end
-			and client_ip1 <= in_range_top_end1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 7 then --1, 255, 255, 255
-			if client_ip1 >= in_range_low_end1 --in range low end
-			and client_ip1 <= in_range_top_end1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 8 then --0, 255, 255, 255
-			if ip1 == client_ip1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 9 then --0, 127, 255, 255
-			if ip1 == client_ip1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 10 then --0, 63, 255, 255
-			if ip1 == client_ip1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 11 then --0, 31, 255, 255
-			if ip1 == client_ip1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 12 then --0, 15, 255, 255
-			if ip1 == client_ip1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 13 then --0, 7, 255, 255
-			if ip1 == client_ip1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 14 then --0, 3, 255, 255
-			if ip1 == client_ip1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 15 then --0, 1, 255, 255
-			if ip1 == client_ip1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 16 then --0, 0, 255, 255
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 17 then --0, 0, 127, 255
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 18 then --0, 0, 63, 255
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 19 then --0, 0, 31, 255
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 20 then --0, 0, 15, 255
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 21 then --0, 0, 7, 255
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 22 then --0, 0, 3, 255
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 23 then --0, 0, 1, 255
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 24 then --0, 0, 0, 255
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and ip3 == client_ip3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 25 then --0, 0, 0, 127
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and ip3 == client_ip3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 26 then --0, 0, 0, 63
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and ip3 == client_ip3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 27 then --0, 0, 0, 31
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and ip3 == client_ip3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 28 then --0, 0, 0, 15
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and ip3 == client_ip3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 29 then --0, 0, 0, 7
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and ip3 == client_ip3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 30 then --0, 0, 0, 3
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and ip3 == client_ip3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 31 then --0, 0, 0, 1
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and ip3 == client_ip3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-
-		--output
-		--[[
-		localized.ngx_log(localized.ngx_LOG_TYPE, '###### INFO ######' )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'IP in: ' .. ip[1] .. '.' .. ip[2] .. '.' .. ip[3] .. '.' .. ip[4]  )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'Mask in: /' .. mask )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '=> Mask Wildcard: ' .. wildcard[1] .. '.' .. wildcard[2] .. '.' .. wildcard[3] .. '.' .. wildcard[4]  )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '=> in IP is network-ip: ' .. localized.tostring( isnetworkip ) )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '=> in IP is broadcast-ip: ' .. localized.tostring( isbroadcastip ) )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '\n###### BLOCK ######' )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '#IP\'s: ' .. ipcount )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'Bottom/Network: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] .. '/' .. mask )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'Top/Broadcast: ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'Subnet Range: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] .. ' - ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'Host Range: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] + 1 .. ' - ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] - 1 )
-		]]
-
-	end
-
-end
---[[
-usage
-if ip_address_in_range("255.255.0.0/17", localized.ngx_var_remote_addr) == true then --ipv4
-	localized.ngx_log(localized.ngx_LOG_TYPE,"IPv4 in range")
-end
-if ip_address_in_range("2a02:0c68::/29", localized.ngx_var_remote_addr) == true then --ipv6
-	localized.ngx_log(localized.ngx_LOG_TYPE,"IPv6 in range")
-end
-]]
---[[
-End IP range function
-]]
-
 local function WAF_Checks()
 --[[WAF Web Application Firewall POST Request arguments filter]]
 local function WAF_Post_Requests()
@@ -4288,6 +4331,85 @@ WAF_URI_Request()
 end
 WAF_Checks()
 
+local function blocked_address_check(log_message, jsval)
+	if #localized.anti_ddos_table > 0 then
+		for i=1,#localized.anti_ddos_table do
+			if localized.string_match(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
+				local rate_limit_window = localized.anti_ddos_table[i][8]
+				local block_duration = localized.anti_ddos_table[i][10]
+				local request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
+				local blocked_addr = localized.anti_ddos_table[i][20] or nil
+				local ddos_counter = localized.anti_ddos_table[i][21] or nil
+				local ip = localized.anti_ddos_table[i][22]
+				if ip == "auto" then
+					if localized.ngx_var_http_cf_connecting_ip ~= nil then
+						ip = localized.ngx_var_http_cf_connecting_ip
+					elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+						ip = localized.ngx_var_http_x_forwarded_for
+					else
+						ip = localized.ngx_var_binary_remote_addr
+					end
+				end
+				if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
+					if jsval ~= nil then
+						local jspuzzle_memory_zone = localized.anti_ddos_table[i][29]
+						local jspuzzle_rate_limit_window = localized.anti_ddos_table[i][30]
+						local jspuzzle_request_limit = localized.anti_ddos_table[i][31]
+						if jspuzzle_memory_zone ~= nil then
+							local key = "r" .. ip --set identifyer as r and ip for to not use up to much memory
+							local count = "" --create locals to use
+
+							count = jspuzzle_memory_zone:get(key) or nil
+							if count == nil then
+								jspuzzle_memory_zone:set(key, 1, jspuzzle_rate_limit_window)
+							else
+								count = jspuzzle_memory_zone:get(key)
+								jspuzzle_memory_zone:set(key, count+1, jspuzzle_rate_limit_window)
+								count = jspuzzle_memory_zone:get(key)
+							end
+							--Rate limit check
+							if count ~= nil then
+								if count > jspuzzle_request_limit then
+									if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+										--Block IP
+										blocked_addr:set(ip, localized.currenttime, block_duration)
+									end
+									local incr = ddos_counter:get("blocked_ip") or nil
+									if incr == nil then
+										ddos_counter:set("blocked_ip", 1, rate_limit_window)
+									else
+										local incr = ddos_counter:get("blocked_ip")
+										ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
+									end
+									if localized.anti_ddos_table[i][7] == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, log_message .. count .. " - " .. ip )
+									end
+								end
+							end
+						end
+					else
+						if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+							--Block IP
+							blocked_addr:set(ip, localized.currenttime, block_duration)
+						end
+						local incr = ddos_counter:get("blocked_ip") or nil
+						if incr == nil then
+							ddos_counter:set("blocked_ip", 1, rate_limit_window)
+						else
+							local incr = ddos_counter:get("blocked_ip")
+							ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
+						end
+						if localized.anti_ddos_table[i][7] == 1 then
+							localized.ngx_log(localized.ngx_LOG_TYPE, log_message .. ip )
+						end
+					end
+				end
+				break
+			end
+		end
+	end
+end
+
 local function check_ips()
 	--function to check if ip address is whitelisted to bypass our auth
 	local function check_ip_whitelist(ip_table)
@@ -4301,42 +4423,7 @@ local function check_ips()
 				end
 			end
 			if localized.ip_whitelist_block_mode == 1 then --ip address not matched the above
-				if #localized.anti_ddos_table > 0 then
-					for i=1,#localized.anti_ddos_table do
-						if localized.string_match(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
-							local rate_limit_window = localized.anti_ddos_table[i][8]
-							local block_duration = localized.anti_ddos_table[i][10]
-							local request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
-							local blocked_addr = localized.anti_ddos_table[i][20] or nil
-							local ddos_counter = localized.anti_ddos_table[i][21] or nil
-							local ip = localized.anti_ddos_table[i][22]
-							if ip == "auto" then
-								if localized.ngx_var_http_cf_connecting_ip ~= nil then
-									ip = localized.ngx_var_http_cf_connecting_ip
-								elseif localized.ngx_var_http_x_forwarded_for ~= nil then
-									ip = localized.ngx_var_http_x_forwarded_for
-								else
-									ip = localized.ngx_var_binary_remote_addr
-								end
-							end
-							if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
-								blocked_addr:set(ip, localized.currenttime, block_duration)
-								local incr = ddos_counter:get("blocked_ip") or nil
-								if incr == nil then
-									ddos_counter:set("blocked_ip", 1, rate_limit_window)
-								else
-									local incr = ddos_counter:get("blocked_ip")
-									ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
-								end
-								if localized.anti_ddos_table[i][7] == 1 then
-									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP attempt for not being in whitelist : " .. ip )
-								end
-							end
-							break
-						end
-					end
-				end
-				
+				blocked_address_check("[Anti-DDoS] Blocked IP attempt for not being in whitelist : ")
 				return localized.ngx_exit(localized.ngx_HTTP_CLOSE) --deny user access
 			end
 		end
@@ -4354,78 +4441,10 @@ local function check_ips()
 			for i=1,#ip_table do
 				local value = ip_table[i]
 				if value == localized.ip_blacklist_remote_addr then
-					if #localized.anti_ddos_table > 0 then
-						for i=1,#localized.anti_ddos_table do
-							if localized.string_match(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
-								local rate_limit_window = localized.anti_ddos_table[i][8]
-								local block_duration = localized.anti_ddos_table[i][10]
-								local request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
-								local blocked_addr = localized.anti_ddos_table[i][20] or nil
-								local ddos_counter = localized.anti_ddos_table[i][21] or nil
-								local ip = localized.anti_ddos_table[i][22]
-								if ip == "auto" then
-									if localized.ngx_var_http_cf_connecting_ip ~= nil then
-										ip = localized.ngx_var_http_cf_connecting_ip
-									elseif localized.ngx_var_http_x_forwarded_for ~= nil then
-										ip = localized.ngx_var_http_x_forwarded_for
-									else
-										ip = localized.ngx_var_binary_remote_addr
-									end
-								end
-								if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
-									blocked_addr:set(ip, localized.currenttime, block_duration)
-									local incr = ddos_counter:get("blocked_ip") or nil
-									if incr == nil then
-										ddos_counter:set("blocked_ip", 1, rate_limit_window)
-									else
-										local incr = ddos_counter:get("blocked_ip")
-										ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
-									end
-									if localized.anti_ddos_table[i][7] == 1 then
-										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP attempt for being in blacklist : " .. ip )
-									end
-								end
-								break
-							end
-						end
-					end
+					blocked_address_check("[Anti-DDoS] Blocked IP attempt for being in blacklist : ")
 					return localized.ngx_exit(localized.ngx_HTTP_CLOSE) --deny user access
 				elseif ip_address_in_range(value, localized.ip_blacklist_remote_addr) == true then
-					if #localized.anti_ddos_table > 0 then
-						for i=1,#localized.anti_ddos_table do
-							if localized.string_match(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
-								local rate_limit_window = localized.anti_ddos_table[i][8]
-								local block_duration = localized.anti_ddos_table[i][10]
-								local request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
-								local blocked_addr = localized.anti_ddos_table[i][20] or nil
-								local ddos_counter = localized.anti_ddos_table[i][21] or nil
-								local ip = localized.anti_ddos_table[i][22]
-								if ip == "auto" then
-									if localized.ngx_var_http_cf_connecting_ip ~= nil then
-										ip = localized.ngx_var_http_cf_connecting_ip
-									elseif localized.ngx_var_http_x_forwarded_for ~= nil then
-										ip = localized.ngx_var_http_x_forwarded_for
-									else
-										ip = localized.ngx_var_binary_remote_addr
-									end
-								end
-								if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
-									blocked_addr:set(ip, localized.currenttime, block_duration)
-									local incr = ddos_counter:get("blocked_ip") or nil
-									if incr == nil then
-										ddos_counter:set("blocked_ip", 1, rate_limit_window)
-									else
-										local incr = ddos_counter:get("blocked_ip")
-										ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
-									end
-									if localized.anti_ddos_table[i][7] == 1 then
-										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP attempt for being in blacklist : " .. ip )
-									end
-								end
-								break
-							end
-						end
-					end
+					blocked_address_check("[Anti-DDoS] Blocked IP attempt for being in blacklist : ")
 					return localized.ngx_exit(localized.ngx_HTTP_CLOSE) --deny user access
 				end
 			end
@@ -5181,60 +5200,7 @@ if localized.log_users_on_puzzle == 1 then
 	localized.ngx_log(localized.ngx_LOG_TYPE,  localized.log_on_puzzle_text_start .. localized.remote_addr .. localized.log_on_puzzle_text_end)
 end
 
-if #localized.anti_ddos_table > 0 then
-	for i=1,#localized.anti_ddos_table do
-		if localized.string_match(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
-			local rate_limit_window = localized.anti_ddos_table[i][8]
-			local block_duration = localized.anti_ddos_table[i][10]
-			local request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
-			local blocked_addr = localized.anti_ddos_table[i][20] or nil
-			local ddos_counter = localized.anti_ddos_table[i][21] or nil
-			local ip = localized.anti_ddos_table[i][22]
-			local jspuzzle_memory_zone = localized.anti_ddos_table[i][29]
-			local jspuzzle_rate_limit_window = localized.anti_ddos_table[i][30]
-			local jspuzzle_request_limit = localized.anti_ddos_table[i][31]
-			if ip == "auto" then
-				if localized.ngx_var_http_cf_connecting_ip ~= nil then
-					ip = localized.ngx_var_http_cf_connecting_ip
-				elseif localized.ngx_var_http_x_forwarded_for ~= nil then
-					ip = localized.ngx_var_http_x_forwarded_for
-				else
-				ip = localized.ngx_var_binary_remote_addr
-				end
-			end
-			if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil and jspuzzle_memory_zone ~= nil then
-				local key = "r" .. ip --set identifyer as r and ip for to not use up to much memory
-				local count = "" --create locals to use
-
-				count = jspuzzle_memory_zone:get(key) or nil
-				if count == nil then
-					jspuzzle_memory_zone:set(key, 1, jspuzzle_rate_limit_window)
-				else
-					count = jspuzzle_memory_zone:get(key)
-					jspuzzle_memory_zone:set(key, count+1, jspuzzle_rate_limit_window)
-					count = jspuzzle_memory_zone:get(key)
-				end
-				--Rate limit check
-				if count ~= nil then
-					if count > jspuzzle_request_limit then
-						blocked_addr:set(ip, localized.currenttime, block_duration)
-						local incr = ddos_counter:get("blocked_ip") or nil
-						if incr == nil then
-							ddos_counter:set("blocked_ip", 1, rate_limit_window)
-						else
-							local incr = ddos_counter:get("blocked_ip")
-							ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
-						end
-						if localized.anti_ddos_table[i][7] == 1 then
-							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP for exceeding puzzle fail attempt : " .. count .. " - " .. ip )
-						end
-					end
-				end
-			end
-			break
-		end
-	end
-end
+blocked_address_check("[Anti-DDoS] Blocked IP for exceeding puzzle fail attempt : ", 1)
 
 --[[
 Build HTML Template
