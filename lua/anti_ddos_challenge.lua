@@ -161,10 +161,10 @@ Shared memory cache
 If you use this make sure you add this to your nginx configuration
 
 http { #inside http block
-	lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone to track requests per each unique user
-	lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory where blocked users are put
+	lua_shared_dict antiddos 70m; #Anti-DDoS shared memory zone to track requests per each unique user
+	lua_shared_dict antiddos_blocked 70m; #Anti-DDoS shared memory where blocked users are put
 	lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
-	lua_shared_dict jspuzzle_tracker 10m; #Anti-DDoS shared memory zone monitors each unique ip and number of times they stack up failing to solve the puzzle
+	lua_shared_dict jspuzzle_tracker 70m; #Anti-DDoS shared memory zone monitors each unique ip and number of times they stack up failing to solve the puzzle
 }
 
 ]]
@@ -256,10 +256,10 @@ localized.anti_ddos_table = {
 		--[[shared memory zones
 		To use this feature put this in your nginx config
 
-		lua_shared_dict antiddos 10m; #Anti-DDoS shared memory zone to track requests per each unique user
-		lua_shared_dict antiddos_blocked 10m; #Anti-DDoS shared memory where blocked users are put
+		lua_shared_dict antiddos 70m; #Anti-DDoS shared memory zone to track requests per each unique user
+		lua_shared_dict antiddos_blocked 70m; #Anti-DDoS shared memory where blocked users are put
 		lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
-		lua_shared_dict jspuzzle_tracker 10m; #Anti-DDoS shared memory zone monitors each unique ip and number of times they stack up failing to solve the puzzle
+		lua_shared_dict jspuzzle_tracker 70m; #Anti-DDoS shared memory zone monitors each unique ip and number of times they stack up failing to solve the puzzle
 
 		10m can store 160,000 ip addresses so 70m would be able to store around 1,000,000 yes 1 million ips :)
 		]]
@@ -336,7 +336,7 @@ localized.anti_ddos_table = {
 
 		--Javascript puzzle flood protection
 		--In the event of an attack a user who fails to solve the javascript puzzle after a certain number of times will have their ip blocked
-		--lua_shared_dict jspuzzle_tracker 10m; #Anti-DDoS shared memory zone monitors each unique ip and number of times they stack up failing to solve the puzzle
+		--lua_shared_dict jspuzzle_tracker 70m; #Anti-DDoS shared memory zone monitors each unique ip and number of times they stack up failing to solve the puzzle
 		localized.ngx.shared.jspuzzle_tracker, --this zone monitors each unique ip and number of times they stack up failing to solve the puzzle
 		35, --35 second window
 		4, --max 4 failures in 35s
@@ -348,7 +348,7 @@ localized.anti_ddos_table = {
 		--"./do_something.sh "..localized.ngx_var_remote_addr.."",
 		--Windows examples
 		--"notepad.exe"
-		--"netsh advfirewall firewall add rule name=\"Block "..localized.ngx_var_remote_addr.."\" protocol=any dir=out remoteip="..localized.ngx_var_remote_addr.." action=block"
+		--"start cmd /c netsh advfirewall firewall add rule name=\"Block "..localized.ngx_var_remote_addr.."\" protocol=any dir=out remoteip="..localized.ngx_var_remote_addr.." action=block",
 		--Default is nil or "" to not do anything
 		nil,
 
@@ -812,7 +812,6 @@ localized.user_agent_blacklist_table = {
 		"AI2Bot",
 		1,
 	},
-	--{"firefox",1,},
 }
 
 --[[
