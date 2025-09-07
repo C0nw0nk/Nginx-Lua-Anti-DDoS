@@ -75,6 +75,15 @@ fi
 - Better setting for shared memory zones
 - Add crawler IP's google bing to whitelist example
 - Fix for cloudflare and proxys solving javascript puzzle make sure they don't override the 503 status and send their own custom error page.
+* Sun Sep 07 2025 C0nw0nk <C0nw0nk@github> - 1.6-1
+- Added Feature localized.ip_whitelist_bypass_flood_protection = 0 --0 IP's in whitelist can still be banned / blocked for DDoS flooding behaviour 1 IP's bypass the flood detection
+- Fixed Rate limit being double
+- Tidy IP checks by using a function
+- Increase default minimum request size from 20 bytes to 40 bytes
+- Improve the default User-Agent block string for empty user-agent to pick up spaces as empty also
+- Better setting for shared memory zones
+- Add crawler IP's google bing to whitelist example
+- Fix for cloudflare and proxys solving javascript puzzle make sure they don't override the 503 status and send their own custom error page.
 * Fri Sep 05 2025 C0nw0nk <C0nw0nk@github> - 1.5-1
 - Fixed log to show IP address.
 - IPs in the block range to get added to shared memory zone if exist
