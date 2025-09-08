@@ -1817,13 +1817,15 @@ This is where things get very complex. ;)
 ]]
 
 --Test proxy header spoofing protection dynamic
+--localized.proxy_header_table = {} --make sure our ip is not in the list
 --localized.ngx_var_http_internal_string = localized.string_sub(localized.tostring(localized), 10) --set http internal header value as random name nobody can guess or spoof
 --localized.ngx_var_http_internal_header_name = localized.ngx_var_http_internal_string --set http internal header name as random name nobody can guess or spoof
 --localized.ngx_var_http_internal = localized.ngx_var["http_"..localized.ngx_var_http_internal_header_name] or nil
 --Test proxy header spoofing protection static
---localized.ngx_var_http_internal_string = "1" --internal bypass header value
---localized.ngx_var_http_internal_header_name = "internal" --internal bypass header name
---localized.ngx_var_http_internal = localized.ngx_var["http_"..localized.ngx_var_http_internal_header_name] or nil
+--localized.ngx_var_http_internal_string = "1"
+localized.ngx_var_http_internal_string = localized.secret --internal bypass header value
+localized.ngx_var_http_internal_header_name = "internal" --internal bypass header name
+localized.ngx_var_http_internal = localized.ngx_var["http_"..localized.ngx_var_http_internal_header_name] or nil
 
 --Test as Tor network
 --localized.host = "localhost.onion"
@@ -3919,8 +3921,8 @@ local function anti_ddos()
 							else --you are not really cloudflare dont pretend you are to bypass flood protection
 								if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
 									blocked_address_check("[Anti-DDoS] (1) Blocked IP for attempting to impersonate cloudflare via header CF-Connecting-IP : ")
-								else
-									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) internal call to bypass IP Block : " .. localized.ngx_var_remote_addr)
+								--else
+									--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) internal call to bypass IP Block : " .. localized.ngx_var_remote_addr)
 								end
 								ip = localized.ngx_var_remote_addr
 							end
@@ -3930,8 +3932,8 @@ local function anti_ddos()
 							else
 								if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
 									blocked_address_check("[Anti-DDoS] (1) Blocked IP for attempting to impersonate proxy via header X-Forwarded-For : ")
-								else
-									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) internal call to bypass IP Block : " .. localized.ngx_var_remote_addr)
+								--else
+									--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) internal call to bypass IP Block : " .. localized.ngx_var_remote_addr)
 								end
 								ip = localized.ngx_var_remote_addr
 							end
