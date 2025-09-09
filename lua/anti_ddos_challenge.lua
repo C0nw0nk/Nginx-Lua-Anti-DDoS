@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 1.6
+Script Version: 1.7
 
 Copyright Conor McKnight
 
@@ -133,8 +133,8 @@ localized.ngx_HTTP_PATCH = localized.ngx.HTTP_PATCH
 localized.ngx_HTTP_TRACE = localized.ngx.HTTP_TRACE
 --localized.ngx_HTTP_CONNECT = localized.ngx.HTTP_CONNECT --does not exist but put here never know in the future
 localized.ngx_OK = localized.ngx.OK --go to content
-localized.ngx_var_http_cf_connecting_ip = localized.ngx_var.http_cf_connecting_ip
-localized.ngx_var_http_x_forwarded_for = localized.ngx_var.http_x_forwarded_for
+localized.ngx_var_http_cf_connecting_ip = localized.ngx_var.http_cf_connecting_ip or nil
+localized.ngx_var_http_x_forwarded_for = localized.ngx_var.http_x_forwarded_for or nil
 localized.ngx_var_remote_addr = localized.ngx_var.remote_addr
 localized.ngx_var_binary_remote_addr = localized.ngx_var_remote_addr --set binary to remote for the sake of logs displaying ips
 localized.ngx_var_http_user_agent = localized.ngx_var.http_user_agent
@@ -195,7 +195,7 @@ localized.anti_ddos_table = {
 		--Rate limiting settings
 		5, --5 second window
 		60, --max 60 requests in 5s
-		86400, --86400 seconds = 24 hour block time for ip flooding
+		86400,--86400, --86400 seconds = 24 hour block time for ip flooding
 		localized.ngx_HTTP_CLOSE, --444 connection reset 0 bytes per response
 
 		--SlowHTTP / Slowloris settings
@@ -348,8 +348,7 @@ localized.anti_ddos_table = {
 		--"iptables -A INPUT -s "..localized.ngx_var_remote_addr.." -j DROP",
 		--"./do_something.sh "..localized.ngx_var_remote_addr.."",
 		--Windows examples
-		--"notepad.exe"
-		--"start cmd /c netsh advfirewall firewall add rule name=\"Block "..localized.ngx_var_remote_addr.."\" protocol=any dir=out remoteip="..localized.ngx_var_remote_addr.." action=block",
+		--"start cmd /c netsh advfirewall firewall add rule name=\"Block In "..localized.ngx_var_remote_addr.."\" protocol=any dir=in remoteip="..localized.ngx_var_remote_addr.." action=block",
 		--Default is nil or "" to not do anything
 		nil,
 
@@ -394,7 +393,7 @@ localized.content_cache = {
 		{ --bypass cache on cookie
 			{
 				".*", --cookie name regex ".*" for any cookie
-				".*", --cookie value ".*" for any value
+				".*",--".*",--".*", --cookie value ".*" for any value
 				0, --0 guest user cache only 1 both guest and logged in user cache useful if logged_in cookie is present then cache key will include cookies
 			},
 			--{"logged_in","1",0,},
@@ -652,9 +651,10 @@ localized.tor = 1 --Allow Tor Users
 --[[
 Unique ID to identify each individual Tor user who connects to the website
 Using their User-Agent as a static variable to latch onto works well.
-localized.ngx_var_http_user_agent --Default
+localized.tor_remote_addr = localized.ngx_var_http_user_agent --Default
+localized.tor_remote_addr = localized.ngx_var_remote_addr .. localized.ngx_var_http_user_agent or ""
 ]]
-localized.tor_remote_addr = localized.ngx_var_http_user_agent or ""
+localized.tor_remote_addr = "auto"
 
 --[[
 X-Tor-Header to be static or Dynamic setting this as dynamic is the best form of security
@@ -1390,6 +1390,22 @@ localized.query_string_remove_args_table = {
 }
 
 --[[
+Security feature to prevent spoofing on the Proxy headers CF-Connecting-IP or X-forwarded-for user-agent.
+For example a smart DDoS attack will send a fake CF-Connecting-IP header or X-Forwarded-For header in their request
+They do this to see if your server will use their real ip or the fake header they provide to you most servers do not even check this I do :)
+Add your ip ranges to the list of who you expect to send you a proxy header.
+Example to test with : curl.exe "http://localhost/" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -H "Accept-Language: en-GB,en;q=0.5" -H "Accept-Encoding: gzip, deflate, br, zstd" -H "DNT: 1" -H "Connection: keep-alive" -H "Cookie: name1=1; name2=2; logged_in=1" -H "Upgrade-Insecure-Requests: 1" -H "Sec-Fetch-Dest: document" -H "Sec-Fetch-Mode: navigate" -H "Sec-Fetch-Site: none" -H "Sec-Fetch-User: ?1" -H "Priority: u=0, i" -H "Pragma: no-cache" -H "Cache-Control: no-cache" -H "User-Agent:testagent1" -H "CF-Connecting-IP: 1" -H "X-Forwarded-For: 1" -H "internal:1"
+]]
+localized.proxy_header_table = {
+"10.0.0.0/8", --localnetwork
+"172.16.0.0/12", --localnetwork
+"127.0.0.1/16", --localhost
+"192.168.0.0/16", --localhost
+--Cloudflare IP's https://www.cloudflare.com/en-gb/ips/
+"173.245.48.0/20","103.21.244.0/22","103.22.200.0/22","103.31.4.0/22","141.101.64.0/18","108.162.192.0/18","190.93.240.0/20","188.114.96.0/20","197.234.240.0/22","198.41.128.0/17","162.158.0.0/15","104.16.0.0/13","104.24.0.0/14","172.64.0.0/13","131.0.72.0/22","2400:cb00::/32","2606:4700::/32","2803:f800::/32","2405:b500::/32","2405:8100::/32","2a06:98c0::/29","2c0f:f248::/32",
+}
+
+--[[
 To restore original visitor IP addresses at your origin web server this will send a request header to your backend application or proxy containing the clients real IP address
 ]]
 localized.send_ip_to_backend_custom_headers = {
@@ -1800,6 +1816,40 @@ This is where things get very complex. ;)
 
 ]]
 
+--[[
+Add to your nginx config http://nginx.org/en/docs/ngx_core_module.html#pcre_jit
+
+pcre_jit on;
+
+The options I enable to make regex cache for performance gains.
+j = enable PCRE JIT compilation
+o = compile-once mode (similar to Perl's /o modifier), to enable the worker-process-level compiled-regex cache
+]]
+localized.ngx_re_options = "jo" --boost regex performance by caching
+
+--internal header protection if the script needs to make a internal call like with the header_append_ip() / localized.send_ip_to_backend_custom_headers function we can track it.
+localized.ngx_var_http_internal_string = "1337"--internal bypass header value
+localized.ngx_var_http_internal_header_name = "internal" --internal bypass header name
+localized.ngx_var_http_internal_header_name = localized.ngx_hmac_sha1(localized.secret .. localized.os_date("%W",localized.os_time_saved), localized.ngx_var_http_internal_header_name) --encrypt this header so nobody can guess it or use it other than internal work calls
+localized.ngx_var_http_internal_header_name = localized.ngx_encode_base64(localized.ngx_var_http_internal_header_name) --wrap encrypted header in base64
+localized.ngx_var_http_internal = localized.ngx_var["http_"..localized.ngx_var_http_internal_header_name] or nil
+localized.ngx_var_http_internal_log = 0
+
+if localized.ngx_var_http_internal_log == 1 then --log the internal request headers
+	if localized.ngx_var_http_internal ~= nil then --2nd layer
+		for headerName, header in localized.next, localized.ngx_req_get_headers() do
+			localized.ngx_log(localized.ngx_LOG_TYPE, " 2nd layer " .. headerName .. " - " .. header )
+		end
+	else --1st layer
+		for headerName, header in localized.next, localized.ngx_req_get_headers() do
+			localized.ngx_log(localized.ngx_LOG_TYPE, " 1st layer " .. headerName .. " - " .. header )
+		end
+	end
+end
+
+--Test as Tor network
+--localized.host = "localhost.onion"
+--localized.URL = localized.scheme .. "://" .. localized.host .. localized.request_uri
 
 --[[
 Begin Required Functions
@@ -1988,10 +2038,10 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		]]
 
 		local expanded_ip_count = (ipbits[1] or "0000") .. ':' .. (ipbits[2] or "0000") .. ':' .. (ipbits[3] or "0000") .. ':' .. (ipbits[4] or "0000") .. ':' .. (ipbits[5] or "0000") .. ':' .. (ipbits[6] or "0000") .. ':' .. (ipbits[7] or "0000") .. ':' .. (ipbits[8] or "0000")
-		expanded_ip_count = localized.ngx_re_gsub(expanded_ip_count, ":", "", ngx_re_options)
+		expanded_ip_count = localized.ngx_re_gsub(expanded_ip_count, ":", "", localized.ngx_re_options)
 
 		local client_connecting_ip_count = (ipbits_client[1] or "0000") .. ':' .. (ipbits_client[2] or "0000") .. ':' .. (ipbits_client[3] or "0000") .. ':' .. (ipbits_client[4] or "0000") .. ':' .. (ipbits_client[5] or "0000") .. ':' .. (ipbits_client[6] or "0000") .. ':' .. (ipbits_client[7] or "0000") .. ':' .. (ipbits_client[8] or "0000")
-		client_connecting_ip_count = localized.ngx_re_gsub(client_connecting_ip_count, ":", "", ngx_re_options)
+		client_connecting_ip_count = localized.ngx_re_gsub(client_connecting_ip_count, ":", "", localized.ngx_re_options)
 
 		--generate wildcard from mask
 		local indent = mask / 4
@@ -1999,10 +2049,10 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		expanded_ip_count = localized.string_sub(expanded_ip_count, 0, indent)
 		client_connecting_ip_count = localized.string_sub(client_connecting_ip_count, 0, indent)
 
-		local client_connecting_ip_expanded = localized.ngx_re_gsub(client_connecting_ip_count, "....", "%1:", ngx_re_options)
-		client_connecting_ip_expanded = localized.ngx_re_gsub(client_connecting_ip_count, ":$", "", ngx_re_options)
-		local expanded_ip = localized.ngx_re_gsub(expanded_ip_count, "....", "%1:", ngx_re_options)
-		expanded_ip = localized.ngx_re_gsub(expanded_ip_count, ":$", "", ngx_re_options)
+		local client_connecting_ip_expanded = localized.ngx_re_gsub(client_connecting_ip_count, "....", "%1:", localized.ngx_re_options)
+		client_connecting_ip_expanded = localized.ngx_re_gsub(client_connecting_ip_count, ":$", "", localized.ngx_re_options)
+		local expanded_ip = localized.ngx_re_gsub(expanded_ip_count, "....", "%1:", localized.ngx_re_options)
+		expanded_ip = localized.ngx_re_gsub(expanded_ip_count, ":$", "", localized.ngx_re_options)
 
 		local wildcardbits = {}
 		local wildcardbits_table_length = 1
@@ -2533,6 +2583,29 @@ end
 End IP range function
 ]]
 
+localized.proxy_header_ip_check_count = 0
+local function proxy_header_ip_check(ip_table)
+	if localized.proxy_header_ip_check_count >= 1 then --so we dont run multiple times we serve the cached output instead
+		return localized.proxy_header_ip_check_cached
+	end
+	if #ip_table > 0 then
+		localized.proxy_header_ip_check_count = localized.proxy_header_ip_check_count+2 --make sure we dont run again
+		for i=1,#ip_table do
+			local value = ip_table[i]
+			if value == localized.ngx_var_remote_addr then --if our ip address matches with one in the whitelist
+				localized.proxy_header_ip_check_cached = true
+				return true
+			elseif ip_address_in_range(value, localized.ngx_var_remote_addr) == true then
+				localized.proxy_header_ip_check_cached = true
+				return true
+			end
+		end
+	end
+	localized.proxy_header_ip_check_count = localized.proxy_header_ip_check_count+2 --make sure we dont run again
+	localized.proxy_header_ip_check_cached = false
+	return false
+end
+
 localized.ip_whitelist_flood_checks_count = 0
 local function ip_whitelist_flood_checks(ip_table)
 	if localized.ip_whitelist_flood_checks_count >= 1 then --so we dont run multiple times we serve the cached output instead
@@ -2541,9 +2614,17 @@ local function ip_whitelist_flood_checks(ip_table)
 	if localized.ip_whitelist_bypass_flood_protection == 1 and #ip_table > 0 then
 		if localized.ip_whitelist_remote_addr == "auto" then
 			if localized.ngx_var_http_cf_connecting_ip ~= nil then
-				localized.ip_whitelist_remote_addr = localized.ngx_var_http_cf_connecting_ip
+				if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
+					localized.ip_whitelist_remote_addr = localized.ngx_var_http_cf_connecting_ip
+				else --you are not really cloudflare dont pretend you are to bypass flood protection
+					localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr
+				end
 			elseif localized.ngx_var_http_x_forwarded_for ~= nil then
-				localized.ip_whitelist_remote_addr = localized.ngx_var_http_x_forwarded_for
+				if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
+					localized.ip_whitelist_remote_addr = localized.ngx_var_http_x_forwarded_for
+				else
+					localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr
+				end
 			else
 				localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr
 			end
@@ -2564,6 +2645,110 @@ local function ip_whitelist_flood_checks(ip_table)
 	end
 	localized.ip_whitelist_output_cached = true
 	return true
+end
+
+localized.blocked_address_check_count = 0
+local function blocked_address_check(log_message, jsval)
+	if localized.blocked_address_check_count > 1 then --so we dont run multiple times
+		return
+	end
+	if #localized.anti_ddos_table > 0 then
+		for i=1,#localized.anti_ddos_table do
+			if localized.string_match(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
+				local rate_limit_window = localized.anti_ddos_table[i][8]
+				local block_duration = localized.anti_ddos_table[i][10]
+				local request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
+				local blocked_addr = localized.anti_ddos_table[i][20] or nil
+				local ddos_counter = localized.anti_ddos_table[i][21] or nil
+				local ip = localized.anti_ddos_table[i][22]
+				if ip == "auto" then
+					if localized.ngx_var_http_cf_connecting_ip ~= nil then
+						if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
+							ip = localized.ngx_var_http_cf_connecting_ip
+						else --you are not really cloudflare dont pretend you are to bypass flood protection
+							--if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
+							--end
+							ip = localized.ngx_var_remote_addr
+						end
+					elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+						if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
+							ip = localized.ngx_var_http_x_forwarded_for
+						else
+							--if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
+							--end
+							ip = localized.ngx_var_remote_addr
+						end
+					else
+						ip = localized.ngx_var_remote_addr
+					end
+				end
+				if localized.string_match(localized.string_lower(localized.host), ".onion") then
+					ip = localized.tor_remote_addr --set ip as what the user wants the tor IP to be
+					if localized.tor_remote_addr == "auto" then
+						ip = localized.ngx_var_remote_addr
+					end
+				end
+				if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
+					if jsval ~= nil then
+						local jspuzzle_memory_zone = localized.anti_ddos_table[i][29]
+						local jspuzzle_rate_limit_window = localized.anti_ddos_table[i][30]
+						local jspuzzle_request_limit = localized.anti_ddos_table[i][31]
+						if jspuzzle_memory_zone ~= nil then
+							local key = "r" .. ip --set identifyer as r and ip for to not use up to much memory
+							local count = "" --create locals to use
+
+							count = jspuzzle_memory_zone:get(key) or nil
+							if count == nil then
+								jspuzzle_memory_zone:set(key, 1, jspuzzle_rate_limit_window)
+							else
+								count = jspuzzle_memory_zone:get(key)
+								jspuzzle_memory_zone:set(key, count+1, jspuzzle_rate_limit_window)
+								count = jspuzzle_memory_zone:get(key)
+							end
+							--Rate limit check
+							if count ~= nil then
+								if count > jspuzzle_request_limit then
+									if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+										--Block IP
+										blocked_addr:set(ip, localized.currenttime, block_duration)
+										localized.blocked_address_check_count = localized.blocked_address_check_count+2
+									end
+									local incr = ddos_counter:get("blocked_ip") or nil
+									if incr == nil then
+										ddos_counter:set("blocked_ip", 1, rate_limit_window)
+									else
+										local incr = ddos_counter:get("blocked_ip")
+										ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
+									end
+									if localized.anti_ddos_table[i][7] == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, log_message .. count .. " - " .. ip)
+									end
+								end
+							end
+						end
+					else
+						if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+							--Block IP
+							blocked_addr:set(ip, localized.currenttime, block_duration)
+							localized.blocked_address_check_count = localized.blocked_address_check_count+2
+						end
+						local incr = ddos_counter:get("blocked_ip") or nil
+						if incr == nil then
+							ddos_counter:set("blocked_ip", 1, rate_limit_window)
+						else
+							local incr = ddos_counter:get("blocked_ip")
+							ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
+						end
+						if localized.anti_ddos_table[i][7] == 1 then
+							localized.ngx_log(localized.ngx_LOG_TYPE, log_message .. ip)
+						end
+					end
+				end
+				break
+			end
+		end
+	end
+	localized.blocked_address_check_count = localized.blocked_address_check_count+2
 end
 
 --Anti DDoS function
@@ -3749,12 +3934,53 @@ local function anti_ddos()
 					local ip = v[22]
 
 					if ip == "auto" then
+						--localized.ngx_log(localized.ngx_LOG_TYPE, "Proxy IP found in whitelist - " .. localized.tostring(proxy_header_ip_check(localized.proxy_header_table)) .. " http_internal = " .. localized.tostring(localized.ngx_var_http_internal)  )
 						if localized.ngx_var_http_cf_connecting_ip ~= nil then
-							ip = localized.ngx_var_http_cf_connecting_ip
+							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
+								ip = localized.ngx_var_http_cf_connecting_ip
+							else --you are not really cloudflare dont pretend you are to bypass flood protection
+								if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then --1st run this nil 2nd run not nil
+									if localized.ngx_var_http_internal_log == 1 then --log the internal request headers
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) here 1 : ")
+									end
+									if localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
+										blocked_address_check("[Anti-DDoS] (1) Blocked IP for attempting to impersonate cloudflare via header CF-Connecting-IP : ")
+									end
+								else
+									if localized.ngx_var_http_internal_log == 1 then --log the internal request headers
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) here 2 : ")
+									end
+									if localized.ngx_var_http_internal_log == 1 and localized.ngx_var_http_internal == nil then --2nd layer
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) internal call to bypass IP Block : " .. localized.ngx_var_remote_addr)
+									end
+								end
+								ip = localized.ngx_var_remote_addr
+							end
 						elseif localized.ngx_var_http_x_forwarded_for ~= nil then
-							ip = localized.ngx_var_http_x_forwarded_for
+							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
+								ip = localized.ngx_var_http_x_forwarded_for
+							else
+								if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
+									if localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
+										blocked_address_check("[Anti-DDoS] (1) Blocked IP for attempting to impersonate proxy via header X-Forwarded-For : ")
+									end
+								else
+									if localized.ngx_var_http_internal_log == 1 and localized.ngx_var_http_internal ~= nil then --2nd layer
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) internal call to bypass IP Block : " .. localized.ngx_var_remote_addr)
+									end
+								end
+								ip = localized.ngx_var_remote_addr
+							end
 						else
-							ip = localized.ngx_var_binary_remote_addr
+							ip = localized.ngx_var_remote_addr
+						end
+					end
+					if localized.string_match(localized.string_lower(localized.host), ".onion") then
+						v[23] = 0
+						v[24] = 0
+						ip = localized.tor_remote_addr --set ip as what the user wants the tor IP to be
+						if localized.tor_remote_addr == "auto" then
+							ip = localized.ngx_var_remote_addr
 						end
 					end
 
@@ -3766,40 +3992,49 @@ local function anti_ddos()
 					end
 					]]
 
-					local blocked_time = blocked_addr:get(ip)
-					if blocked_time then
-						if v[7] == 1 then
-							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP attempt: " .. ip)
-						end
-						localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
-						if v[32] ~= nil and v[32] ~= "" then
-							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. v[32])
-							os.execute(v[32]) --might be a better way than this with io.popen(v[32])
-						end
-
-						return localized.ngx_exit(rate_limit_exit_status)
-					end
-
-					if check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, ddos_counter, v[7]) then
-						if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
-							--Block IP
-							blocked_addr:set(ip, localized.currenttime, block_duration)
+					if localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
+						local blocked_time = blocked_addr:get(ip)
+						if blocked_time then
+							if v[7] == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked IP attempt: " .. ip)
+							end
 							localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+							if v[32] ~= nil and v[32] ~= "" then
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. v[32])
+								os.execute(v[32]) --might be a better way than this with io.popen(v[32])
+							end
+
 							return localized.ngx_exit(rate_limit_exit_status)
 						end
-					end
 
-					if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table, v[7]) then
-						if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
-							--Block IP
-							blocked_addr:set(ip, localized.currenttime, block_duration)
+						if check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, ddos_counter, v[7]) then
+							if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+								--Block IP
+								blocked_addr:set(ip, localized.currenttime, block_duration)
+								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+								return localized.ngx_exit(rate_limit_exit_status)
+							end
 						end
-						if v[7] == 1 then
-							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
-						end
-						localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+
+						if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table, v[7]) then
+							if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+								--Block IP
+								blocked_addr:set(ip, localized.currenttime, block_duration)
+							end
+							if v[7] == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
+							end
+							localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
 						
-						return localized.ngx_exit(slow_limit_exit_status)
+							return localized.ngx_exit(slow_limit_exit_status)
+						end
+						if localized.ngx_var_http_internal_log == 1 then --log the internal request headers
+							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] attempting 1st ")
+						end
+					else
+						if localized.ngx_var_http_internal_log == 1 then --log the internal request headers
+							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] attempting 2nd ")
+						end
 					end
 
 					if v[23] == 1 then
@@ -3890,12 +4125,14 @@ local function anti_ddos()
 					local range_whitelist_blacklist = v[17]
 					local range_table = v[18]
 					--no shared memory set but we can still check and block slowhttp cons without shared memory
-					if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table) then
-						localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
-						if v[7] == 1 then
-							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
+					if localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
+						if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table) then
+							localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+							if v[7] == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
+							end
+							return localized.ngx_exit(slow_limit_exit_status)
 						end
-						return localized.ngx_exit(slow_limit_exit_status)
 					end
 
 					if #v[25] > 0 then --make sure the 24th var is a lua table and has values
@@ -3977,17 +4214,6 @@ local function run_checks() --nested function
 	]]
 
 --[[
-Add to your nginx config http://nginx.org/en/docs/ngx_core_module.html#pcre_jit
-
-pcre_jit on;
-
-The options I enable to make regex cache for performance gains.
-j = enable PCRE JIT compilation
-o = compile-once mode (similar to Perl's /o modifier), to enable the worker-process-level compiled-regex cache
-]]
-local ngx_re_options = "jo" --boost regex performance by caching
-
---[[
 Header Modifications
 ]]
 local function header_modification()
@@ -4016,36 +4242,91 @@ End Header Modifications
 
 --automatically figure out the IP address of the connecting Client
 if localized.remote_addr == "auto" then
-	if localized.ngx_var_http_cf_connecting_ip ~= nil then
-		localized.remote_addr = localized.ngx_var_http_cf_connecting_ip
+if localized.ngx_var_http_cf_connecting_ip ~= nil then
+		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
+			localized.remote_addr = localized.ngx_var_http_cf_connecting_ip
+		else --you are not really cloudflare dont pretend you are to bypass flood protection
+			if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
+				if localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
+					blocked_address_check("[Anti-DDoS] (2) Blocked IP for attempting to impersonate cloudflare via header CF-Connecting-IP : ")
+				end
+			end
+			localized.remote_addr = localized.ngx_var_remote_addr
+		end
 	elseif localized.ngx_var_http_x_forwarded_for ~= nil then
-		localized.remote_addr = localized.ngx_var_http_x_forwarded_for
+		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
+			localized.remote_addr = localized.ngx_var_http_x_forwarded_for
+		else
+			if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
+				if localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
+					blocked_address_check("[Anti-DDoS] (2) Blocked IP for attempting to impersonate proxy via header X-Forwarded-For : ")
+				end
+			end
+			localized.remote_addr = localized.ngx_var_remote_addr
+		end
 	else
 		localized.remote_addr = localized.ngx_var_remote_addr
 	end
 end
 if localized.ip_whitelist_remote_addr == "auto" then
 	if localized.ngx_var_http_cf_connecting_ip ~= nil then
-		localized.ip_whitelist_remote_addr = localized.ngx_var_http_cf_connecting_ip
+		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
+			localized.ip_whitelist_remote_addr = localized.ngx_var_http_cf_connecting_ip
+		else --you are not really cloudflare dont pretend you are to bypass flood protection
+			if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
+				if localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
+					blocked_address_check("[Anti-DDoS] (3) Blocked IP for attempting to impersonate cloudflare via header CF-Connecting-IP : ")
+				end
+			end
+			localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr
+		end
 	elseif localized.ngx_var_http_x_forwarded_for ~= nil then
-		localized.ip_whitelist_remote_addr = localized.ngx_var_http_x_forwarded_for
+		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
+			localized.ip_whitelist_remote_addr = localized.ngx_var_http_x_forwarded_for
+		else
+			if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
+				if localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
+					blocked_address_check("[Anti-DDoS] (3) Blocked IP for attempting to impersonate proxy via header X-Forwarded-For : ")
+				end
+			end
+			localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr
+		end
 	else
 		localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr
 	end
 end
 if localized.ip_blacklist_remote_addr == "auto" then
 	if localized.ngx_var_http_cf_connecting_ip ~= nil then
-		localized.ip_blacklist_remote_addr = localized.ngx_var_http_cf_connecting_ip
+		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
+			localized.ip_blacklist_remote_addr = localized.ngx_var_http_cf_connecting_ip
+		else --you are not really cloudflare dont pretend you are to bypass flood protection
+			if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
+				if localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
+					blocked_address_check("[Anti-DDoS] (4) Blocked IP for attempting to impersonate cloudflare via header CF-Connecting-IP : ")
+				end
+			end
+			localized.ip_blacklist_remote_addr = localized.ngx_var_remote_addr
+		end
 	elseif localized.ngx_var_http_x_forwarded_for ~= nil then
-		localized.ip_blacklist_remote_addr = localized.ngx_var_http_x_forwarded_for
+		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
+			localized.ip_blacklist_remote_addr = localized.ngx_var_http_x_forwarded_for
+		else
+			if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
+				if localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
+					blocked_address_check("[Anti-DDoS] (4) Blocked IP for attempting to impersonate proxy via header X-Forwarded-For : ")
+				end
+			end
+			localized.ip_blacklist_remote_addr = localized.ngx_var_remote_addr
+		end
 	else
 		localized.ip_blacklist_remote_addr = localized.ngx_var_remote_addr
 	end
 end
 
 --[[
-headers to restore original visitor IP addresses at your origin web server
+headers to restore original visitor IP addresses at your origin web server order last
 ]]
+localized.ngx_req_set_header(localized.ngx_var_http_internal_header_name, nil) --remove internal header
 local function header_append_ip()
 	if #localized.send_ip_to_backend_custom_headers > 0 then
 		for i=1,#localized.send_ip_to_backend_custom_headers do --for each host in our table
@@ -4054,8 +4335,11 @@ local function header_append_ip()
 			if localized.string_match(localized.URL, v[1]) then --if our host matches one in the table
 				for first=1,#v[2] do --for each arg in our table
 					local value1 = v[2][first][1]
-					if value1 ~= nil then
+					if localized.ngx_var_http_internal ~= "1" and value1 ~= nil then
 						localized.ngx_req_set_header(value1, localized.remote_addr)
+					end
+					if localized.ngx_var_http_internal_header_name ~= nil and localized.string_lower(value1) == "cf-connecting-ip" or localized.string_lower(value1) == "x-forwarded-for" then
+						localized.ngx_req_set_header(localized.ngx_var_http_internal_header_name, localized.ngx_var_http_internal_string) --mark a way so we know this is a internal run
 					end
 				end
 				break --break out of the for each loop pointless to keep searching the rest since we matched our host
@@ -4063,17 +4347,31 @@ local function header_append_ip()
 		end
 	end
 end
+if localized.ngx_var_http_internal == nil then
 header_append_ip()
+end
+if localized.ngx_var_http_internal ~= nil then --2nd layer
+	if localized.ngx_var_http_internal_log == 1 then
+		localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Internal call back again  : ")
+	end
+	localized.ngx_req_set_header(localized.ngx_var_http_internal_header_name, nil) --remove internal header
+end
 --[[
 End headers to restore original visitor IP addresses at your origin web server
 ]]
 
 --if host of site is a tor website connecting clients will be tor network clients
-if localized.string_match(localized.string_lower(localized.host), ".onion") then
-	localized.remote_addr = "tor"
-end
 if localized.remote_addr == "tor" then
 	localized.remote_addr = localized.tor_remote_addr
+	if localized.tor_remote_addr == "auto" then
+		localized.remote_addr = localized.ngx_var_remote_addr
+	end
+end
+if localized.string_match(localized.string_lower(localized.host), ".onion") then
+	localized.remote_addr = localized.tor_remote_addr --set ip as what the user wants the tor IP to be
+	if localized.tor_remote_addr == "auto" then
+		localized.remote_addr = localized.ngx_var_remote_addr
+	end
 end
 
 --[[
@@ -4337,92 +4635,6 @@ WAF_URI_Request()
 end
 WAF_Checks()
 
-localized.blocked_address_check_count = 0
-local function blocked_address_check(log_message, jsval)
-	if localized.blocked_address_check_count > 1 then --so we dont run multiple times
-		return
-	end
-	if #localized.anti_ddos_table > 0 then
-		for i=1,#localized.anti_ddos_table do
-			if localized.string_match(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
-				local rate_limit_window = localized.anti_ddos_table[i][8]
-				local block_duration = localized.anti_ddos_table[i][10]
-				local request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
-				local blocked_addr = localized.anti_ddos_table[i][20] or nil
-				local ddos_counter = localized.anti_ddos_table[i][21] or nil
-				local ip = localized.anti_ddos_table[i][22]
-				if ip == "auto" then
-					if localized.ngx_var_http_cf_connecting_ip ~= nil then
-						ip = localized.ngx_var_http_cf_connecting_ip
-					elseif localized.ngx_var_http_x_forwarded_for ~= nil then
-						ip = localized.ngx_var_http_x_forwarded_for
-					else
-						ip = localized.ngx_var_binary_remote_addr
-					end
-				end
-				if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
-					if jsval ~= nil then
-						local jspuzzle_memory_zone = localized.anti_ddos_table[i][29]
-						local jspuzzle_rate_limit_window = localized.anti_ddos_table[i][30]
-						local jspuzzle_request_limit = localized.anti_ddos_table[i][31]
-						if jspuzzle_memory_zone ~= nil then
-							local key = "r" .. ip --set identifyer as r and ip for to not use up to much memory
-							local count = "" --create locals to use
-
-							count = jspuzzle_memory_zone:get(key) or nil
-							if count == nil then
-								jspuzzle_memory_zone:set(key, 1, jspuzzle_rate_limit_window)
-							else
-								count = jspuzzle_memory_zone:get(key)
-								jspuzzle_memory_zone:set(key, count+1, jspuzzle_rate_limit_window)
-								count = jspuzzle_memory_zone:get(key)
-							end
-							--Rate limit check
-							if count ~= nil then
-								if count > jspuzzle_request_limit then
-									if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
-										--Block IP
-										blocked_addr:set(ip, localized.currenttime, block_duration)
-										localized.blocked_address_check_count = localized.blocked_address_check_count+2
-									end
-									local incr = ddos_counter:get("blocked_ip") or nil
-									if incr == nil then
-										ddos_counter:set("blocked_ip", 1, rate_limit_window)
-									else
-										local incr = ddos_counter:get("blocked_ip")
-										ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
-									end
-									if localized.anti_ddos_table[i][7] == 1 then
-										localized.ngx_log(localized.ngx_LOG_TYPE, log_message .. count .. " - " .. ip )
-									end
-								end
-							end
-						end
-					else
-						if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
-							--Block IP
-							blocked_addr:set(ip, localized.currenttime, block_duration)
-							localized.blocked_address_check_count = localized.blocked_address_check_count+2
-						end
-						local incr = ddos_counter:get("blocked_ip") or nil
-						if incr == nil then
-							ddos_counter:set("blocked_ip", 1, rate_limit_window)
-						else
-							local incr = ddos_counter:get("blocked_ip")
-							ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
-						end
-						if localized.anti_ddos_table[i][7] == 1 then
-							localized.ngx_log(localized.ngx_LOG_TYPE, log_message .. ip )
-						end
-					end
-				end
-				break
-			end
-		end
-	end
-	localized.blocked_address_check_count = localized.blocked_address_check_count+2
-end
-
 local function check_ips()
 	--function to check if ip address is whitelisted to bypass our auth
 	local function check_ip_whitelist(ip_table)
@@ -4626,9 +4838,9 @@ End Calculate answer Function
 --function to encrypt strings with our secret key / password provided
 local function calculate_signature(str)
 	local output = localized.ngx_encode_base64(localized.ngx_hmac_sha1(localized.secret, str))
-	output = localized.ngx_re_gsub(output, "[+]", "-", ngx_re_options) --Replace + with -
-	output = localized.ngx_re_gsub(output, "[/]", "_", ngx_re_options) --Replace / with _
-	output = localized.ngx_re_gsub(output, "[=]", "", ngx_re_options) --Remove =
+	output = localized.ngx_re_gsub(output, "[+]", "-", localized.ngx_re_options) --Replace + with -
+	output = localized.ngx_re_gsub(output, "[/]", "_", localized.ngx_re_options) --Replace / with _
+	output = localized.ngx_re_gsub(output, "[=]", "", localized.ngx_re_options) --Remove =
 	return output
 end
 --calculate_signature(str)
@@ -4692,12 +4904,12 @@ end
 --for my javascript Hex output
 local function sep(str, patt, re)
 	local rstr = localized.string_gsub(str, patt, "%1%" .. re)
-	--local rstr = localized.ngx_re_gsub(str, patt, "%1%" .. re, ngx_re_options) --this has a major issue no idea why need to investigate more
+	--local rstr = localized.ngx_re_gsub(str, patt, "%1%" .. re, localized.ngx_re_options) --this has a major issue no idea why need to investigate more
 	return localized.string_sub(rstr, 1, #rstr - #re)
 end
 
 local function stringtohex(str)
-	--return localized.ngx_re_gsub(str, ".", function (c) localized.ngx_log(localized.ngx_LOG_TYPE,localized.tostring(c[0])) return localized.string_format('%02X', localized.string_byte(c[0])) end, ngx_re_options) --this has a major issue no idea why need to investigate more
+	--return localized.ngx_re_gsub(str, ".", function (c) localized.ngx_log(localized.ngx_LOG_TYPE,localized.tostring(c[0])) return localized.string_format('%02X', localized.string_byte(c[0])) end, localized.ngx_re_options) --this has a major issue no idea why need to investigate more
 	return localized.string_gsub(str, '.', function (c)
 		return localized.string_format('%02X', localized.string_byte(c))
 	end)
@@ -4849,29 +5061,29 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 end
 --end encrypt_javascript function
 
-local currentdate = "" --make current date a empty var
+localized.currentdate = "" --make current date a empty var
 
 --Make sure our current date is in align with expires_time variable so that the auth page only shows when the cookie expires
 if localized.expire_time <= 60 then --less than equal to one minute
-	currentdate = localized.os_date("%M",localized.os_time_saved) --Current minute
+	localized.currentdate = localized.os_date("%M",localized.os_time_saved) --Current minute
 end
 if localized.expire_time > 60 then --greater than one minute
-	currentdate = localized.os_date("%H",localized.os_time_saved) --Current hour
+	localized.currentdate = localized.os_date("%H",localized.os_time_saved) --Current hour
 end
 if localized.expire_time > 3600 then --greater than one hour
-	currentdate = localized.os_date("%d",localized.os_time_saved) --Current day of the year
+	localized.currentdate = localized.os_date("%d",localized.os_time_saved) --Current day of the year
 end
 if localized.expire_time > 86400 then --greater than one day
-	currentdate = localized.os_date("%W",localized.os_time_saved) --Current week
+	localized.currentdate = localized.os_date("%W",localized.os_time_saved) --Current week
 end
 if localized.expire_time > 6048000 then --greater than one week
-	currentdate = localized.os_date("%m",localized.os_time_saved) --Current month
+	localized.currentdate = localized.os_date("%m",localized.os_time_saved) --Current month
 end
 if localized.expire_time > 2628000 then --greater than one month
-	currentdate = localized.os_date("%Y",localized.os_time_saved) --Current year
+	localized.currentdate = localized.os_date("%Y",localized.os_time_saved) --Current year
 end
 if localized.expire_time > 31536000 then --greater than one year
-	currentdate = localized.os_date("%z",localized.os_time_saved) --Current time zone
+	localized.currentdate = localized.os_date("%z",localized.os_time_saved) --Current time zone
 end
 
 --Auth puzzle status code responses
@@ -4893,18 +5105,18 @@ local cookie_name_encrypted_start_and_end_date_original = localized.cookie_name_
 Start Tor detection
 ]]
 if localized.x_tor_header == 2 then --if x-tor-header is dynamic
-	localized.x_tor_header_name = calculate_signature(localized.tor_remote_addr .. localized.x_tor_header_name .. currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	localized.x_tor_header_name = localized.ngx_re_gsub(localized.x_tor_header_name, "_", "", ngx_re_options) --replace underscore with nothing
-	localized.x_tor_header_name_allowed = calculate_signature(localized.tor_remote_addr .. localized.x_tor_header_name_allowed .. currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	localized.x_tor_header_name_allowed = localized.ngx_re_gsub(localized.x_tor_header_name_allowed, "_", "", ngx_re_options) --replace underscore with nothing
-	localized.x_tor_header_name_blocked = calculate_signature(localized.tor_remote_addr .. localized.x_tor_header_name_blocked .. currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	localized.x_tor_header_name_blocked = localized.ngx_re_gsub(localized.x_tor_header_name_blocked, "_", "", ngx_re_options) --replace underscore with nothing
+	localized.x_tor_header_name = calculate_signature(localized.tor_remote_addr .. localized.x_tor_header_name .. localized.currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
+	localized.x_tor_header_name = localized.ngx_re_gsub(localized.x_tor_header_name, "_", "", localized.ngx_re_options) --replace underscore with nothing
+	localized.x_tor_header_name_allowed = calculate_signature(localized.tor_remote_addr .. localized.x_tor_header_name_allowed .. localized.currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
+	localized.x_tor_header_name_allowed = localized.ngx_re_gsub(localized.x_tor_header_name_allowed, "_", "", localized.ngx_re_options) --replace underscore with nothing
+	localized.x_tor_header_name_blocked = calculate_signature(localized.tor_remote_addr .. localized.x_tor_header_name_blocked .. localized.currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
+	localized.x_tor_header_name_blocked = localized.ngx_re_gsub(localized.x_tor_header_name_blocked, "_", "", localized.ngx_re_options) --replace underscore with nothing
 end
 
 if localized.encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to be encrypted
-	localized.cookie_tor = calculate_signature(localized.tor_remote_addr .. localized.cookie_tor .. currentdate) --encrypt our tor cookie name
-	localized.cookie_tor_value_allow = calculate_signature(localized.tor_remote_addr .. localized.cookie_tor_value_allow .. currentdate) --encrypt our tor cookie value for allow
-	localized.cookie_tor_value_block = calculate_signature(localized.tor_remote_addr .. localized.cookie_tor_value_block .. currentdate) --encrypt our tor cookie value for block
+	localized.cookie_tor = calculate_signature(localized.tor_remote_addr .. localized.cookie_tor .. localized.currentdate) --encrypt our tor cookie name
+	localized.cookie_tor_value_allow = calculate_signature(localized.tor_remote_addr .. localized.cookie_tor_value_allow .. localized.currentdate) --encrypt our tor cookie value for allow
+	localized.cookie_tor_value_block = calculate_signature(localized.tor_remote_addr .. localized.cookie_tor_value_block .. localized.currentdate) --encrypt our tor cookie value for block
 end
 
 --block tor function to block traffic from tor users
@@ -4945,7 +5157,7 @@ End Tor detection
 Authorization / Restricted Access Area Box
 ]]
 if localized.encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to be encrypted
-	localized.authorization_cookie = calculate_signature(localized.remote_addr .. localized.authorization_cookie .. currentdate) --encrypt our auth box session cookie name
+	localized.authorization_cookie = calculate_signature(localized.remote_addr .. localized.authorization_cookie .. localized.currentdate) --encrypt our auth box session cookie name
 end
 
 localized.set_cookies = nil
@@ -4965,7 +5177,7 @@ local function check_authorization(authorization, authorization_dynamic)
 	if localized.authorization == 2 then --Cookie sessions
 		local cookie_name = "cookie_" .. localized.authorization_cookie
 		local cookie_value = localized.ngx_var[cookie_name] or ""
-		expected_cookie_value = calculate_signature(localized.remote_addr .. "authenticate" .. currentdate) --encrypt our expected cookie value
+		expected_cookie_value = calculate_signature(localized.remote_addr .. "authenticate" .. localized.currentdate) --encrypt our expected cookie value
 		if cookie_value == expected_cookie_value then --cookie value client gave us matches what we expect it to be
 			master_exit() --Go to content
 		end
@@ -5018,8 +5230,8 @@ local function check_authorization(authorization, authorization_dynamic)
 		end
 	end
 	if authorization_dynamic == 1 then --dynamic
-		authorization_username = calculate_signature(localized.remote_addr .. "username" .. currentdate) --encrypt username
-		authorization_password = calculate_signature(localized.remote_addr .. "password" .. currentdate) --encrypt password
+		authorization_username = calculate_signature(localized.remote_addr .. "username" .. localized.currentdate) --encrypt username
+		authorization_password = calculate_signature(localized.remote_addr .. "password" .. localized.currentdate) --encrypt password
 		authorization_username = localized.string_sub(authorization_username, 1, localized.authorization_dynamic_length) --change username to set length
 		authorization_password = localized.string_sub(authorization_password, 1, localized.authorization_dynamic_length) --change password to set length
 
@@ -5097,16 +5309,16 @@ local answer = calculate_signature(localized.remote_addr) --create our encrypted
 local JsPuzzleAnswer = calculateAnswer(answer) -- Localize the answer to be used further
 
 if localized.x_auth_header == 2 then --if x-auth-header is dynamic
-	localized.x_auth_header_name = calculate_signature(localized.remote_addr .. localized.x_auth_header_name .. currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	localized.x_auth_header_name = localized.ngx_re_gsub(localized.x_auth_header_name, "_", "", ngx_re_options) --replace underscore with nothing
+	localized.x_auth_header_name = calculate_signature(localized.remote_addr .. localized.x_auth_header_name .. localized.currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
+	localized.x_auth_header_name = localized.ngx_re_gsub(localized.x_auth_header_name, "_", "", localized.ngx_re_options) --replace underscore with nothing
 end
 
 if localized.encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to be encrypted
 	--make the cookies unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots
-	localized.challenge = calculate_signature(localized.remote_addr .. localized.challenge .. currentdate)
-	localized.cookie_name_start_date = calculate_signature(localized.remote_addr .. localized.cookie_name_start_date .. currentdate)
-	localized.cookie_name_end_date = calculate_signature(localized.remote_addr .. localized.cookie_name_end_date .. currentdate)
-	localized.cookie_name_encrypted_start_and_end_date = calculate_signature(localized.remote_addr .. localized.cookie_name_encrypted_start_and_end_date .. currentdate)
+	localized.challenge = calculate_signature(localized.remote_addr .. localized.challenge .. localized.currentdate)
+	localized.cookie_name_start_date = calculate_signature(localized.remote_addr .. localized.cookie_name_start_date .. localized.currentdate)
+	localized.cookie_name_end_date = calculate_signature(localized.remote_addr .. localized.cookie_name_end_date .. localized.currentdate)
+	localized.cookie_name_encrypted_start_and_end_date = calculate_signature(localized.remote_addr .. localized.cookie_name_encrypted_start_and_end_date .. localized.currentdate)
 end
 
 --[[
@@ -5137,11 +5349,11 @@ local function grant_access()
 		if req_headers[localized.x_tor_header_name] == x_tor_header_name_value and req_headers[localized.x_auth_header_name] == JsPuzzleAnswer then --if the header and value are what we expect then the client is legitimate
 			localized.remote_addr = localized.tor_remote_addr --set as our defined static tor variable to use
 			
-			localized.challenge = calculate_signature(localized.remote_addr .. challenge_original .. currentdate) --create our encrypted unique identification for the user visiting the website again. (Stops a double page refresh loop)
+			localized.challenge = calculate_signature(localized.remote_addr .. challenge_original .. localized.currentdate) --create our encrypted unique identification for the user visiting the website again. (Stops a double page refresh loop)
 			answer = calculate_signature(localized.remote_addr) --create our answer again under the new localized.remote_addr (Stops a double page refresh loop)
-			localized.cookie_name_start_date = calculate_signature(localized.remote_addr .. cookie_name_start_date_original .. currentdate) --create our localized.cookie_name_start_date again under the new localized.remote_addr (Stops a double page refresh loop)
-			localized.cookie_name_end_date = calculate_signature(localized.remote_addr .. cookie_name_end_date_original .. currentdate) --create our localized.cookie_name_end_date again under the new localized.remote_addr (Stops a double page refresh loop)
-			localized.cookie_name_encrypted_start_and_end_date = calculate_signature(localized.remote_addr .. cookie_name_encrypted_start_and_end_date_original .. currentdate) --create our localized.cookie_name_encrypted_start_and_end_date again under the new localized.remote_addr (Stops a double page refresh loop)
+			localized.cookie_name_start_date = calculate_signature(localized.remote_addr .. cookie_name_start_date_original .. localized.currentdate) --create our localized.cookie_name_start_date again under the new localized.remote_addr (Stops a double page refresh loop)
+			localized.cookie_name_end_date = calculate_signature(localized.remote_addr .. cookie_name_end_date_original .. localized.currentdate) --create our localized.cookie_name_end_date again under the new localized.remote_addr (Stops a double page refresh loop)
+			localized.cookie_name_encrypted_start_and_end_date = calculate_signature(localized.remote_addr .. cookie_name_encrypted_start_and_end_date_original .. localized.currentdate) --create our localized.cookie_name_encrypted_start_and_end_date again under the new localized.remote_addr (Stops a double page refresh loop)
 
 			localized.set_cookie1 = localized.challenge.."="..answer.."; path=/; expires=" .. localized.ngx_cookie_time(localized.currenttime+localized.expire_time) .. "; Max-Age=" .. localized.expire_time .. ";" --apply our uid cookie incase javascript setting this cookies time stamp correctly has issues
 			localized.set_cookie2 = localized.cookie_name_start_date.."="..localized.currenttime.."; path=/; expires=" .. localized.ngx_cookie_time(localized.currenttime+localized.expire_time) .. "; Max-Age=" .. localized.expire_time .. ";" --start date cookie
@@ -5217,6 +5429,33 @@ end
 
 if localized.log_users_on_puzzle == 1 then
 	localized.ngx_log(localized.ngx_LOG_TYPE,  localized.log_on_puzzle_text_start .. localized.remote_addr .. localized.log_on_puzzle_text_end)
+end
+
+--Fix localized.remote_addr output as what ever IP address the Client is using
+if localized.ngx_var_http_cf_connecting_ip ~= nil then
+	if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
+		localized.remote_addr = localized.ngx_var_http_cf_connecting_ip
+	else --you are not really cloudflare dont pretend you are to bypass flood protection
+		if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
+			if localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
+				blocked_address_check("[Anti-DDoS] (5) Blocked IP for attempting to impersonate cloudflare via header CF-Connecting-IP : ")
+			end
+		end
+		localized.remote_addr = localized.ngx_var_remote_addr
+	end
+elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+	if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
+		localized.remote_addr = localized.ngx_var_http_x_forwarded_for
+	else
+		if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
+			if localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
+			blocked_address_check("[Anti-DDoS] (5) Blocked IP for attempting to impersonate proxy via header X-Forwarded-For : ")
+			end
+		end
+		localized.remote_addr = localized.ngx_var_remote_addr
+	end
+else
+	localized.remote_addr = localized.ngx_var_remote_addr
 end
 
 blocked_address_check("[Anti-DDoS] Blocked IP for exceeding puzzle fail attempt : ", 1)
@@ -5417,15 +5656,6 @@ if localized.credits == 2 then
 localized.ddos_credits = "" --make empty string
 end
 
---Fix localized.remote_addr output as what ever IP address the Client is using
-if localized.ngx_var_http_cf_connecting_ip ~= nil then
-localized.remote_addr = localized.ngx_var_http_cf_connecting_ip
-elseif localized.ngx_var_http_x_forwarded_for ~= nil then
-localized.remote_addr = localized.ngx_var_http_x_forwarded_for
-else
-localized.remote_addr = localized.ngx_var_remote_addr
-end
-
 localized.request_details = [[
 <br>
 <div id="status" style="color:#bd2426;font-size:200%;">
@@ -5538,6 +5768,62 @@ end
 if localized.content_cache ~= nil and #localized.content_cache > 0 then
 
 local function minification(content_type_list)
+
+	local function grab_cookies(cookie_name, cookie_value, guest_value)
+		local cookie_match = 0
+		local guest_or_logged_in = 0
+		local req_headers = localized.ngx_req_get_headers() --get all request headers
+		local cookies = req_headers["cookie"] or "" --for dynamic pages
+		-- strip all Set-Cookie attributes, e.g. "Name=value; Path=/; Max-Age=2592000" => "Name=value"
+		local function strip_attributes(cookie)
+			return localized.string_match(cookie, "[^;]+")
+		end
+		--iterator for use in "for in" loop, works both with strings and tables
+		local function iterate_cookies(cookies)
+			local i = 0
+			return function()
+				i = i+1
+				if localized.type(cookies) == "string" then
+					if i == 1 then return strip_attributes(cookies) end
+					elseif localized.type(cookies) == "table" then
+					if cookies[i] then return strip_attributes(cookies[i]) end
+				end
+			end
+		end
+		--at the first loop iteration separator should be an empty string if client browser send no cookies or "; " otherwise
+		local separator = cookies and "; " or ""
+		for cookie in iterate_cookies(cookies) do
+			cookies = cookies .. separator .. cookie
+			--next separator definitely should be a "; "
+			separator = "; "
+		end
+		local regex_1 = "[^;]+"
+		local regex_2 = "%s*(.*)%s*=%s*(.*)%s*"
+		local _ = localized.string_gsub(cookies, ";"," ; ") --fix semicolons
+		local _ = localized.string_gsub(_, "%s+", "") --remove white space
+		if not localized.string_match(_, ";$") then --if does not end in semicolon
+			_ = _ .. ";" --insert semicolon
+		end
+		for each_cookie in localized.string_gmatch(_, regex_1) do
+			if each_cookie ~= nil then
+				for cookiename, cookievalue in localized.string_gmatch(each_cookie, regex_2) do
+					if cookiename ~= nil and cookievalue ~= nil then
+						if localized.string_match(cookiename, cookie_name ) and localized.string_match(cookievalue, cookie_value ) then
+							--localized.ngx_log(localized.ngx_LOG_TYPE,"name is "..cookiename)
+							--localized.ngx_log(localized.ngx_LOG_TYPE,"value is "..cookievalue)
+							cookie_match = 1
+							if guest_value == 1 then
+								guest_or_logged_in = 1
+							end
+							break --break out since found match
+						end
+					end
+				end
+			end
+		end
+		return cookie_match, guest_or_logged_in
+	end
+
 	for i=1,#content_type_list do
 		if localized.string_match(localized.URL, content_type_list[i][1]) then --if our host matches one in the table
 			if content_type_list[i][10] == 1 then
@@ -5566,16 +5852,7 @@ local function minification(content_type_list)
 				for a=1, #content_type_list[i][8] do
 					local cookie_name = content_type_list[i][8][a][1]
 					local cookie_value = content_type_list[i][8][a][2]
-					local cookie_exist = localized.ngx_var["cookie_" .. cookie_name] or ""
-					if cookie_exist then
-						if localized.string_match(cookie_exist, cookie_value ) then
-							cookie_match = 1
-							if content_type_list[i][8][a][3] == 1 then
-								guest_or_logged_in = 1
-							end
-							break
-						end
-					end
+					cookie_match, guest_or_logged_in = grab_cookies(cookie_name, cookie_value, content_type_list[i][8][a][3])
 				end
 				if cookie_match == 1 then
 					if guest_or_logged_in == 0 then --if guest user cache only then bypass cache for logged in users
