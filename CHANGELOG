@@ -1,3 +1,14 @@
+Version: 1.7
+Date: 2025-09-09
+- Added Security feature to prevent spoofing on the Proxy headers CF-Connecting-IP or X-forwarded-for.
+- For example a smart DDoS attack will send a fake CF-Connecting-IP header or X-Forwarded-For header in their request
+- They do this to see if your server will use their real ip or the fake header they provide to you most servers do not even check this I do :)
+- Example : `curl.exe "http://localhost/" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -H "Accept-Language: en-GB,en;q=0.5" -H "Accept-Encoding: gzip, deflate, br, zstd" -H "DNT: 1" -H "Connection: keep-alive" -H "Cookie: name1=1; name2=2; logged_in=1" -H "Upgrade-Insecure-Requests: 1" -H "Sec-Fetch-Dest: document" -H "Sec-Fetch-Mode: navigate" -H "Sec-Fetch-Site: none" -H "Sec-Fetch-User: ?1" -H "Priority: u=0, i" -H "Pragma: no-cache" -H "Cache-Control: no-cache" -H "User-Agent:testagent1" -H "CF-Connecting-IP: 1" -H "X-Forwarded-For: 1" `
+- Improvements for Tor / Onion network users script should now detect Tor automatically no need to change any settings.
+- Improve Page Caching cookie matching
+- Internal request header tracking encrypted so only the nginx process can use these headers
+- localize and and re-order some vars and functions for better performance and execution ordering
+
 Version: 1.6
 Date: 2025-09-07
 - Added Feature localized.ip_whitelist_bypass_flood_protection = 0 --0 IP's in whitelist can still be banned / blocked for DDoS flooding behaviour 1 IP's bypass the flood detection
