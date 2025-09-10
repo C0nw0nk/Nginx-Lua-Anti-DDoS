@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 1.7
+Script Version: 1.8
 
 Copyright Conor McKnight
 
@@ -195,7 +195,7 @@ localized.anti_ddos_table = {
 		--Rate limiting settings
 		5, --5 second window
 		60, --max 60 requests in 5s
-		86400,--86400, --86400 seconds = 24 hour block time for ip flooding
+		86400, --86400 seconds = 24 hour block time for ip flooding
 		localized.ngx_HTTP_CLOSE, --444 connection reset 0 bytes per response
 
 		--SlowHTTP / Slowloris settings
@@ -393,7 +393,7 @@ localized.content_cache = {
 		{ --bypass cache on cookie
 			{
 				".*", --cookie name regex ".*" for any cookie
-				".*",--".*",--".*", --cookie value ".*" for any value
+				".*", --cookie value ".*" for any value
 				0, --0 guest user cache only 1 both guest and logged in user cache useful if logged_in cookie is present then cache key will include cookies
 			},
 			--{"logged_in","1",0,},
@@ -651,7 +651,6 @@ localized.tor = 1 --Allow Tor Users
 --[[
 Unique ID to identify each individual Tor user who connects to the website
 Using their User-Agent as a static variable to latch onto works well.
-localized.tor_remote_addr = localized.ngx_var_http_user_agent --Default
 localized.tor_remote_addr = localized.ngx_var_remote_addr .. localized.ngx_var_http_user_agent or ""
 ]]
 localized.tor_remote_addr = "auto"
@@ -1832,10 +1831,14 @@ localized.ngx_var_http_internal_string = "1337"--internal bypass header value
 localized.ngx_var_http_internal_header_name = "internal" --internal bypass header name
 localized.ngx_var_http_internal_header_name = localized.ngx_hmac_sha1(localized.secret .. localized.os_date("%W",localized.os_time_saved), localized.ngx_var_http_internal_header_name) --encrypt this header so nobody can guess it or use it other than internal work calls
 localized.ngx_var_http_internal_header_name = localized.ngx_encode_base64(localized.ngx_var_http_internal_header_name) --wrap encrypted header in base64
+localized.ngx_var_http_internal_header_name = localized.ngx_re_gsub(localized.ngx_var_http_internal_header_name, "[+]", "", localized.ngx_re_options) --Replace + with _
+localized.ngx_var_http_internal_header_name = localized.ngx_re_gsub(localized.ngx_var_http_internal_header_name, "[/]", "", localized.ngx_re_options) --Replace / with _
+localized.ngx_var_http_internal_header_name = localized.ngx_re_gsub(localized.ngx_var_http_internal_header_name, "[=]", "", localized.ngx_re_options) --Remove =
 localized.ngx_var_http_internal = localized.ngx_var["http_"..localized.ngx_var_http_internal_header_name] or nil
 localized.ngx_var_http_internal_log = 0
 
 if localized.ngx_var_http_internal_log == 1 then --log the internal request headers
+	localized.ngx_log(localized.ngx_LOG_TYPE, " internal header is - " .. localized.ngx_var_http_internal_header_name )
 	if localized.ngx_var_http_internal ~= nil then --2nd layer
 		for headerName, header in localized.next, localized.ngx_req_get_headers() do
 			localized.ngx_log(localized.ngx_LOG_TYPE, " 2nd layer " .. headerName .. " - " .. header )
@@ -3939,6 +3942,9 @@ local function anti_ddos()
 							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
 								ip = localized.ngx_var_http_cf_connecting_ip
 							else --you are not really cloudflare dont pretend you are to bypass flood protection
+								if localized.ngx_var_http_internal_log == 1 then --log the internal request headers
+									localized.ngx_log(localized.ngx_LOG_TYPE, " we expect these to match - " .. localized.tostring(localized.ngx_var_http_internal) .. " and " .. localized.tostring(localized.ngx_var_http_internal_string) )
+								end
 								if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then --1st run this nil 2nd run not nil
 									if localized.ngx_var_http_internal_log == 1 then --log the internal request headers
 										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) here 1 : ")
