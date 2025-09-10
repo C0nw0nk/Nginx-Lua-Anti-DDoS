@@ -68,6 +68,8 @@ fi
 %changelog
 * Wed Sep 10 2025 C0nw0nk <C0nw0nk@github> - 1.8-1
 - Fix for internal header not matching strip out unwanted chars of encrypted header that caused this bug
+* Wed Sep 10 2025 C0nw0nk <C0nw0nk@github> - 1.8-1
+- Fix for internal header not matching strip out unwanted chars of encrypted header that caused this bug
 * Tue Sep 09 2025 C0nw0nk <C0nw0nk@github> - 1.7-1
 - Added Security feature to prevent spoofing on the Proxy headers CF-Connecting-IP or X-forwarded-for.
 - For example a smart DDoS attack will send a fake CF-Connecting-IP header or X-Forwarded-For header in their request
