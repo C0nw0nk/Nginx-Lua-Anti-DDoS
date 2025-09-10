@@ -2594,6 +2594,7 @@ local function internal_header_setup()
 				local blocked_addr = v[20] or nil
 				--local ddos_counter = v[21] or nil
 				if blocked_addr ~= nil then
+					local block_duration = v[10]
 					local rate_limit_exit_status = v[11]
 					local ip = v[22]
 					if ip == "auto" then
@@ -2618,6 +2619,7 @@ local function internal_header_setup()
 						if v[7] == 1 then
 							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip)
 						end
+						blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
 						localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
 						if v[32] ~= nil and v[32] ~= "" then
 							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. v[32])
@@ -4049,6 +4051,7 @@ local function anti_ddos()
 							if v[7] == 1 then
 								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip)
 							end
+							blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
 							localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
 							if v[32] ~= nil and v[32] ~= "" then
 								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. v[32])
