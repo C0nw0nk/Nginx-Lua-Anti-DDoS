@@ -66,6 +66,12 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Wed Sep 10 2025 C0nw0nk <C0nw0nk@github> - 1.9-1
+- Move Internal headers to a function
+- Do IP blocked/banned checks before anything else no point generating headers if IP has been blocked for flooding
+- Nil vars checks incase user changes a empty table var to a empty string.
+- Fix for tor users authorization box / login box.
+- Extend ban duration on IP's flooding whats the point in letting them access the site on expired time if they are still flooding
 * Wed Sep 10 2025 C0nw0nk <C0nw0nk@github> - 1.8-1
 - Fix for internal header not matching strip out unwanted chars of encrypted header that caused this bug
 * Wed Sep 10 2025 C0nw0nk <C0nw0nk@github> - 1.8-1
