@@ -66,6 +66,12 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Thu Sep 11 2025 C0nw0nk <C0nw0nk@github> - 2.0-1
+- Remove dependancy for ngx.re.gsub tests come back string.gsub is fast enough and performs better overall.
+- Improved cache logs to make more readable/understandable
+- Added extra details to Range, WAF and blocking logs
+- Remove un-needed custom command checks
+- Fix incase user does not want to use shared memory zones the function to obtain users real ip was not present added.
 * Wed Sep 10 2025 C0nw0nk <C0nw0nk@github> - 1.9-1
 - Move Internal headers to a function
 - Do IP blocked/banned checks before anything else no point generating headers if IP has been blocked for flooding
