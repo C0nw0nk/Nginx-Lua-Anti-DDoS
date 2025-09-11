@@ -2606,7 +2606,7 @@ local function internal_header_setup()
 					local blocked_time = blocked_addr:get(ip)
 					if blocked_time then
 						if v[7] == 1 then
-							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip)
+							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) )
 						end
 						blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
 						localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
@@ -3893,7 +3893,7 @@ local function anti_ddos()
 		--Rate limit check
 		if count > rate_limit_requests then
 			if logging == 1 then
-				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Rate limit exceeded by IP: " .. ip .. " (" .. count .. " requests)")
+				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Rate limit exceeded by IP: " .. ip .. " (Max requests = " .. rate_limit_requests.. " client has made (" .. count .. " requests)")
 			end
 
 			if shdict then --backwards compatibility for lua
@@ -4033,7 +4033,7 @@ local function anti_ddos()
 						local blocked_time = blocked_addr:get(ip)
 						if blocked_time then
 							if v[7] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip)
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) )
 							end
 							blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
 							localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
