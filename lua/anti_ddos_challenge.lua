@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 1.9
+Script Version: 2.0
 
 Copyright Conor McKnight
 
@@ -60,7 +60,6 @@ localized.string_format = string.format
 localized.string_byte = string.byte
 localized.bit_bxor = bit.bxor
 localized.ngx = ngx
-localized.ngx_re_gsub = localized.ngx.re.gsub
 localized.ngx_hmac_sha1 = localized.ngx.hmac_sha1
 localized.ngx_encode_base64 = localized.ngx.encode_base64
 localized.ngx_req_get_uri_args = localized.ngx.req.get_uri_args
@@ -209,10 +208,14 @@ localized.anti_ddos_table = {
 		0, --0 blacklist 1 whitelist
 		{ --Range header protection SlowHTTP / Slowloris have a range header attack option this is useful to protect against that
 			--If you set to 0 for blacklist specify each type you want to prevent range headers on like this.
-			--{"text",}, --block range headers on html/css/js pages
+			{"text",}, --block range headers on html/css/js pages
 			--{"image",}, --block range headers on images
 			--{"application",}, --block range headers on applications
 			--{"multipart",}, --block range headers on multipart content
+			{ --all types limit
+				"", --empty for any type
+				10, --Limit occurances block requests with to many 0-5,5-10,10-15,15-30,30-35 multipart/byteranges set to empty string "", to allow any amount
+			},
 
 			--[[
 			--You can also allow range headers on all content types and block multi segment ranges like this
@@ -293,7 +296,6 @@ localized.anti_ddos_table = {
 		},
 
 		{ --Any $request_method that you want to prohibit use this. Most sites legitimate expected request header is GET and POST thats it. Any other header request types you can block.
-			--[[
 			{
 				"HEAD", --https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods#safe_idempotent_and_cacheable_request_methods
 				localized.ngx_HTTP_CLOSE, --close their connection
@@ -329,7 +331,6 @@ localized.anti_ddos_table = {
 				localized.ngx_HTTP_CLOSE, --close their connection
 				1, --1 to add ip to ban list 0 to just send response above close the connection
 			},
-			]]
 		},
 
 		1, --0 disable compression 1 enable compression brotli,gzip etc for this domain / path if your under ddos attack the script will turn off gzip since nginx gzip will hog cpu so you dont have to worry about that.
@@ -1814,17 +1815,6 @@ This is where things get very complex. ;)
 
 ]]
 
---[[
-Add to your nginx config http://nginx.org/en/docs/ngx_core_module.html#pcre_jit
-
-pcre_jit on;
-
-The options I enable to make regex cache for performance gains.
-j = enable PCRE JIT compilation
-o = compile-once mode (similar to Perl's /o modifier), to enable the worker-process-level compiled-regex cache
-]]
-localized.ngx_re_options = "jo" --boost regex performance by caching
-
 --Test as Tor network
 --localized.host = "localhost.onion"
 --localized.URL = localized.scheme .. "://" .. localized.host .. localized.request_uri
@@ -2016,10 +2006,10 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		]]
 
 		local expanded_ip_count = (ipbits[1] or "0000") .. ':' .. (ipbits[2] or "0000") .. ':' .. (ipbits[3] or "0000") .. ':' .. (ipbits[4] or "0000") .. ':' .. (ipbits[5] or "0000") .. ':' .. (ipbits[6] or "0000") .. ':' .. (ipbits[7] or "0000") .. ':' .. (ipbits[8] or "0000")
-		expanded_ip_count = localized.ngx_re_gsub(expanded_ip_count, ":", "", localized.ngx_re_options)
+		expanded_ip_count = localized.string_gsub(expanded_ip_count, ":", "")
 
 		local client_connecting_ip_count = (ipbits_client[1] or "0000") .. ':' .. (ipbits_client[2] or "0000") .. ':' .. (ipbits_client[3] or "0000") .. ':' .. (ipbits_client[4] or "0000") .. ':' .. (ipbits_client[5] or "0000") .. ':' .. (ipbits_client[6] or "0000") .. ':' .. (ipbits_client[7] or "0000") .. ':' .. (ipbits_client[8] or "0000")
-		client_connecting_ip_count = localized.ngx_re_gsub(client_connecting_ip_count, ":", "", localized.ngx_re_options)
+		client_connecting_ip_count = localized.string_gsub(client_connecting_ip_count, ":", "")
 
 		--generate wildcard from mask
 		local indent = mask / 4
@@ -2027,10 +2017,10 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		expanded_ip_count = localized.string_sub(expanded_ip_count, 0, indent)
 		client_connecting_ip_count = localized.string_sub(client_connecting_ip_count, 0, indent)
 
-		local client_connecting_ip_expanded = localized.ngx_re_gsub(client_connecting_ip_count, "....", "%1:", localized.ngx_re_options)
-		client_connecting_ip_expanded = localized.ngx_re_gsub(client_connecting_ip_count, ":$", "", localized.ngx_re_options)
-		local expanded_ip = localized.ngx_re_gsub(expanded_ip_count, "....", "%1:", localized.ngx_re_options)
-		expanded_ip = localized.ngx_re_gsub(expanded_ip_count, ":$", "", localized.ngx_re_options)
+		local client_connecting_ip_expanded = localized.string_gsub(client_connecting_ip_count, "....", "%1:")
+		client_connecting_ip_expanded = localized.string_gsub(client_connecting_ip_count, ":$", "")
+		local expanded_ip = localized.string_gsub(expanded_ip_count, "....", "%1:")
+		expanded_ip = localized.string_gsub(expanded_ip_count, ":$", "")
 
 		local wildcardbits = {}
 		local wildcardbits_table_length = 1
@@ -2550,11 +2540,13 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 end
 --[[
 usage
-if ip_address_in_range("255.255.0.0/17", localized.ngx_var_remote_addr) == true then --ipv4
-	localized.ngx_log(localized.ngx_LOG_TYPE,"IPv4 in range")
-end
-if ip_address_in_range("2a02:0c68::/29", localized.ngx_var_remote_addr) == true then --ipv6
-	localized.ngx_log(localized.ngx_LOG_TYPE,"IPv6 in range")
+if localized.ngx_var_http_internal == nil then --1st layer
+	if ip_address_in_range("127.0.0.0/16", "127.0.0.1") == true then --ipv4
+		localized.ngx_log(localized.ngx_LOG_TYPE,"IPv4 in range")
+	end
+	if ip_address_in_range("2620:0:860:2::/64", "2620:0:860:2:FFFF:FFFF:FFFF:FFFF") == true then --ipv6
+		localized.ngx_log(localized.ngx_LOG_TYPE,"IPv6 in range")
+	end
 end
 ]]
 --[[
@@ -2616,14 +2608,10 @@ local function internal_header_setup()
 					local blocked_time = blocked_addr:get(ip)
 					if blocked_time then
 						if v[7] == 1 then
-							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip)
+							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) )
 						end
 						blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
 						localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
-						if v[32] ~= nil and v[32] ~= "" then
-							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. v[32])
-							os.execute(v[32]) --might be a better way than this with io.popen(v[32])
-						end
 						return localized.ngx_exit(rate_limit_exit_status)
 					end
 				end
@@ -2631,15 +2619,14 @@ local function internal_header_setup()
 			end
 		end
 	end
+	--openresty have a simple version of this https://github.com/openresty/lua-nginx-module?tab=readme-ov-file#ngxreqis_internal but for old versions of nginx with lua i created this so backwards compatibility
 	if localized.proxy_header_table ~= nil and #localized.proxy_header_table > 0 then --only set internal headers when proxy header checks are in use
 		--internal header protection if the script needs to make a internal call like with the header_append_ip() / localized.send_ip_to_backend_custom_headers function we can track it.
 		localized.ngx_var_http_internal_string = "1337"--internal bypass header value
 		localized.ngx_var_http_internal_header_name = "internal" --internal bypass header name
 		localized.ngx_var_http_internal_header_name = localized.ngx_hmac_sha1(localized.secret .. localized.os_date("%W",localized.os_time_saved), localized.ngx_var_http_internal_header_name) --encrypt this header so nobody can guess it or use it other than internal work calls
 		localized.ngx_var_http_internal_header_name = localized.ngx_encode_base64(localized.ngx_var_http_internal_header_name) --wrap encrypted header in base64
-		localized.ngx_var_http_internal_header_name = localized.ngx_re_gsub(localized.ngx_var_http_internal_header_name, "[+]", "", localized.ngx_re_options) --Replace + with _
-		localized.ngx_var_http_internal_header_name = localized.ngx_re_gsub(localized.ngx_var_http_internal_header_name, "[/]", "", localized.ngx_re_options) --Replace / with _
-		localized.ngx_var_http_internal_header_name = localized.ngx_re_gsub(localized.ngx_var_http_internal_header_name, "[=]", "", localized.ngx_re_options) --Remove =
+		localized.ngx_var_http_internal_header_name = localized.string_gsub(localized.ngx_var_http_internal_header_name, "[+/=]", "") --Remove +/=
 		localized.ngx_var_http_internal = localized.ngx_var["http_"..localized.ngx_var_http_internal_header_name] or nil
 		localized.ngx_var_http_internal_log = 0
 
@@ -3007,7 +2994,7 @@ local function anti_ddos()
 											if localized.string_match(localized.ngx_header["content-type"], range_table[i][x]) then
 												if range_whitelist_blacklist == 0 then --0 blacklist 1 whitelist
 													if logging_value == 1 then
-														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blacklist match " .. range_table[i][x] )
+														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Blacklist match " .. range_table[i][x] )
 													end
 													--range header prohibited block request
 													return true
@@ -3023,7 +3010,7 @@ local function anti_ddos()
 											if count and localized.tonumber(count) > 1 then
 												if localized.tonumber(count) > range_table[i][x] then
 													if logging_value == 1 then
-														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Max MultiPart range Occurances exceeded: " .. count )
+														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Max MultiPart range Occurances exceeded: " .. count )
 													end
 													return true
 												end
@@ -3039,13 +3026,13 @@ local function anti_ddos()
 													rcount = rcount+1
 													if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][3]) and localized.tonumber(start_byte) < localized.tonumber(range_table[i][4]) then
 														if logging_value == 1 then
-															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
 														end
 														return true
 													end
 													if end_byte and localized.tonumber(end_byte) > localized.tonumber(range_table[i][3]) and localized.tonumber(end_byte) < localized.tonumber(range_table[i][4]) then
 														if logging_value == 1 then
-															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
+															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
 														end
 														return true
 													end
@@ -3054,7 +3041,7 @@ local function anti_ddos()
 													for start_byte in localized.string_gmatch(_, regex_c) do
 														if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][3]) and localized.tonumber(start_byte) < localized.tonumber(range_table[i][4]) then
 															if logging_value == 1 then
-																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
 															end
 															return true
 														end
@@ -3065,13 +3052,13 @@ local function anti_ddos()
 												if start_byte or end_byte then
 													if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][3]) and localized.tonumber(start_byte) < localized.tonumber(range_table[i][4]) then
 														if logging_value == 1 then
-															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value start = " .. start_byte )
 														end
 														return true
 													end
 													if end_byte and localized.tonumber(end_byte) > localized.tonumber(range_table[i][3]) and localized.tonumber(end_byte) < localized.tonumber(range_table[i][4]) then
 														if logging_value == 1 then
-															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte )
+															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value end = " .. end_byte )
 														end
 														return true
 													end
@@ -3080,7 +3067,7 @@ local function anti_ddos()
 													if start_byte then
 														if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][3]) and localized.tonumber(start_byte) < localized.tonumber(range_table[i][4]) then
 															if logging_value == 1 then
-																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value start = " .. start_byte )
 															end
 															return true
 														end
@@ -3093,7 +3080,7 @@ local function anti_ddos()
 										if range_table[i][x] ~= "" then
 											if not localized.string_match(_, range_table[i][x]) then --string match specified unit or block
 												if logging_value == 1 then
-													localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Not using acceptable Unit type " .. range_table[i][x])
+													localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Not using acceptable Unit type " .. range_table[i][x])
 												end
 												--not using bytes block request not following standards https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Range
 												--curl -H "Range: bits=0-199, 120-200" http://localhost/video.mp4 --output "C:\Videos" -H "User-Agent: testagent"
@@ -3105,7 +3092,7 @@ local function anti_ddos()
 										if range_table[i][x] ~= "" then
 											if localized.string_gsub(_, range_table[i][x], "") ~= "" then
 												if logging_value == 1 then
-													localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range header contains illegal chars " .. _ )
+													localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range header contains illegal chars " .. _ )
 												end
 												return true
 											end
@@ -3120,13 +3107,13 @@ local function anti_ddos()
 													rcount = rcount+1
 													if start_byte and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x]) then
 														if logging_value == 1 then
-															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
 														end
 														return true
 													end
 													if end_byte and localized.tonumber(end_byte) < localized.tonumber(range_table[i][x]) then
 														if logging_value == 1 then
-															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
+															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
 														end
 														return true
 													end
@@ -3135,7 +3122,7 @@ local function anti_ddos()
 													for start_byte in localized.string_gmatch(_, regex_c) do
 														if start_byte and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
 															end
 															return true
 														end
@@ -3146,13 +3133,13 @@ local function anti_ddos()
 												if start_byte or end_byte then
 													if start_byte and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x]) then
 														if logging_value == 1 then
-															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte )
+															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value start = " .. start_byte )
 														end
 														return true
 													end
 													if end_byte and localized.tonumber(end_byte) < localized.tonumber(range_table[i][x]) then
 														if logging_value == 1 then
-															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte )
+															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value end = " .. end_byte )
 														end
 														return true
 													end
@@ -3161,7 +3148,7 @@ local function anti_ddos()
 													if start_byte then
 														if start_byte and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte )
+																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value start = " .. start_byte )
 															end
 															return true
 														end
@@ -3179,13 +3166,13 @@ local function anti_ddos()
 													rcount = rcount+1
 													if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x]) then
 														if logging_value == 1 then
-															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
 														end
 														return true
 													end
 													if end_byte and localized.tonumber(end_byte) > localized.tonumber(range_table[i][x]) then
 														if logging_value == 1 then
-															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
+															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
 														end
 														return true
 													end
@@ -3194,7 +3181,7 @@ local function anti_ddos()
 													for start_byte in localized.string_gmatch(_, regex_c) do
 														if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
 															end
 															return true
 														end
@@ -3205,13 +3192,13 @@ local function anti_ddos()
 												if start_byte or end_byte then
 													if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x]) then
 														if logging_value == 1 then
-															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte )
+															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value start = " .. start_byte )
 														end
 														return true
 													end
 													if end_byte and localized.tonumber(end_byte) > localized.tonumber(range_table[i][x]) then
 														if logging_value == 1 then
-															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte )
+															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value end = " .. end_byte )
 														end
 														return true
 													end
@@ -3220,7 +3207,7 @@ local function anti_ddos()
 													if start_byte then
 														if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte )
+																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value start = " .. start_byte )
 															end
 															return true
 														end
@@ -3243,13 +3230,13 @@ local function anti_ddos()
 																	if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
 																		if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x][z][1]) and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x][z][2]) then
 																			if logging_value == 1 then
-																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
 																			end
 																			return true
 																		end
 																		if end_byte and localized.tonumber(end_byte) > localized.tonumber(range_table[i][x][z][1]) and localized.tonumber(end_byte) < localized.tonumber(range_table[i][x][z][2]) then
 																			if logging_value == 1 then
-																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
+																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
 																			end
 																			return true
 																		end
@@ -3257,13 +3244,13 @@ local function anti_ddos()
 																	if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
 																		if start_byte and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x][z][3]) then
 																			if logging_value == 1 then
-																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
 																			end
 																			return true
 																		end
 																		if end_byte and localized.tonumber(end_byte) < localized.tonumber(range_table[i][x][z][3]) then
 																			if logging_value == 1 then
-																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
+																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
 																			end
 																			return true
 																		end
@@ -3271,13 +3258,13 @@ local function anti_ddos()
 																	if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
 																		if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x][z][4]) then
 																			if logging_value == 1 then
-																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
 																			end
 																			return true
 																		end
 																		if end_byte and localized.tonumber(end_byte) > localized.tonumber(range_table[i][x][z][4]) then
 																			if logging_value == 1 then
-																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
+																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
 																			end
 																			return true
 																		end
@@ -3296,7 +3283,7 @@ local function anti_ddos()
 																		if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
 																			if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x][z][1]) and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x][z][2]) then
 																				if logging_value == 1 then
-																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
 																				end
 																				return true
 																			end
@@ -3304,7 +3291,7 @@ local function anti_ddos()
 																		if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
 																			if start_byte and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x][z][3]) then
 																				if logging_value == 1 then
-																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
 																				end
 																				return true
 																			end
@@ -3312,7 +3299,7 @@ local function anti_ddos()
 																		if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
 																			if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x][z][4]) then
 																				if logging_value == 1 then
-																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
 																				end
 																				return true
 																			end
@@ -3331,13 +3318,13 @@ local function anti_ddos()
 																	if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
 																		if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x][z][1]) and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x][z][2]) then
 																			if logging_value == 1 then
-																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value start = " .. start_byte )
 																			end
 																			return true
 																		end
 																		if end_byte and localized.tonumber(end_byte) > localized.tonumber(range_table[i][x][z][1]) and localized.tonumber(end_byte) < localized.tonumber(range_table[i][x][z][2]) then
 																			if logging_value == 1 then
-																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte )
+																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value end = " .. end_byte )
 																			end
 																			return true
 																		end
@@ -3345,13 +3332,13 @@ local function anti_ddos()
 																	if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
 																		if start_byte and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x][z][3]) then
 																			if logging_value == 1 then
-																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
+																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
 																			end
 																			return true
 																		end
 																		if end_byte and localized.tonumber(end_byte) < localized.tonumber(range_table[i][x][z][3]) then
 																			if logging_value == 1 then
-																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. z)
+																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value end = " .. end_byte .. " occurance: " .. z)
 																			end
 																			return true
 																		end
@@ -3359,13 +3346,13 @@ local function anti_ddos()
 																	if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
 																		if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x][z][4]) then
 																			if logging_value == 1 then
-																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. z)
+																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value start = " .. start_byte .. " occurance: " .. z)
 																			end
 																			return true
 																		end
 																		if end_byte and localized.tonumber(end_byte) > localized.tonumber(range_table[i][x][z][4]) then
 																			if logging_value == 1 then
-																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. z)
+																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value end = " .. end_byte .. " occurance: " .. z)
 																			end
 																			return true
 																		end
@@ -3382,7 +3369,7 @@ local function anti_ddos()
 																	if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
 																		if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x][z][1]) and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x][z][2]) then
 																			if logging_value == 1 then
-																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value start = " .. start_byte )
 																			end
 																			return true
 																		end
@@ -3390,7 +3377,7 @@ local function anti_ddos()
 																	if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
 																		if start_byte and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x][z][3]) then
 																			if logging_value == 1 then
-																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
+																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
 																			end
 																			return true
 																		end
@@ -3398,7 +3385,7 @@ local function anti_ddos()
 																	if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
 																		if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x][z][4]) then
 																			if logging_value == 1 then
-																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. z)
+																				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value start = " .. start_byte .. " occurance: " .. z)
 																			end
 																			return true
 																		end
@@ -3420,7 +3407,7 @@ local function anti_ddos()
 								--localized.ngx_log(localized.ngx_LOG_TYPE, " Whitelist Match " .. range_whitelist_blacklist )
 							else
 								if logging_value == 1 then
-									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range provided not in Whitelist " .. range_whitelist_blacklist )
+									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range provided not in Whitelist " .. range_whitelist_blacklist )
 								end
 								return true
 							end
@@ -3452,7 +3439,7 @@ local function anti_ddos()
 												if localized.string_match(localized.ngx_header["content-type"], range_table[i][x]) then
 													if range_whitelist_blacklist == 0 then --0 blacklist 1 whitelist
 														if logging_value == 1 then
-															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blacklist match " .. range_table[i][x] )
+															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Blacklist match " .. range_table[i][x] )
 														end
 														--range header prohibited block request
 														return true
@@ -3468,7 +3455,7 @@ local function anti_ddos()
 												if count and localized.tonumber(count) > 1 then
 													if localized.tonumber(count) > range_table[i][x] then
 														if logging_value == 1 then
-															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Max MultiPart range Occurances exceeded: " .. count )
+															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Max MultiPart range Occurances exceeded: " .. count )
 														end
 														return true
 													end
@@ -3484,13 +3471,13 @@ local function anti_ddos()
 														rcount = rcount+1
 														if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][3]) and localized.tonumber(start_byte) < localized.tonumber(range_table[i][4]) then
 															if logging_value == 1 then
-																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
 															end
 															return true
 														end
 														if end_byte and localized.tonumber(end_byte) > localized.tonumber(range_table[i][3]) and localized.tonumber(end_byte) < localized.tonumber(range_table[i][4]) then
 															if logging_value == 1 then
-																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
+																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
 															end
 															return true
 														end
@@ -3499,7 +3486,7 @@ local function anti_ddos()
 														for start_byte in localized.string_gmatch(_, regex_c) do
 															if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][3]) and localized.tonumber(start_byte) < localized.tonumber(range_table[i][4]) then
 																if logging_value == 1 then
-																	localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+																	localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
 																end
 																return true
 															end
@@ -3510,13 +3497,13 @@ local function anti_ddos()
 													if start_byte or end_byte then
 														if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][3]) and localized.tonumber(start_byte) < localized.tonumber(range_table[i][4]) then
 															if logging_value == 1 then
-																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value start = " .. start_byte )
 															end
 															return true
 														end
 														if end_byte and localized.tonumber(end_byte) > localized.tonumber(range_table[i][3]) and localized.tonumber(end_byte) < localized.tonumber(range_table[i][4]) then
 															if logging_value == 1 then
-																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte )
+																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value end = " .. end_byte )
 															end
 															return true
 														end
@@ -3525,7 +3512,7 @@ local function anti_ddos()
 														if start_byte then
 															if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][3]) and localized.tonumber(start_byte) < localized.tonumber(range_table[i][4]) then
 																if logging_value == 1 then
-																	localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+																	localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value start = " .. start_byte )
 																end
 																return true
 															end
@@ -3538,7 +3525,7 @@ local function anti_ddos()
 											if range_table[i][x] ~= "" then
 												if not localized.string_match(_, range_table[i][x]) then --string match specified unit or block
 													if logging_value == 1 then
-														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Not using acceptable Unit type " .. range_table[i][x])
+														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Not using acceptable Unit type " .. range_table[i][x])
 													end
 													--not using bytes block request not following standards https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Range
 													--curl -H "Range: bits=0-199, 120-200" http://localhost/video.mp4 --output "C:\Videos" -H "User-Agent: testagent"
@@ -3550,7 +3537,7 @@ local function anti_ddos()
 											if range_table[i][x] ~= "" then
 												if localized.string_gsub(_, range_table[i][x], "") ~= "" then
 													if logging_value == 1 then
-														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range header contains illegal chars " .. _ )
+														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range header contains illegal chars " .. _ )
 													end
 													return true
 												end
@@ -3565,13 +3552,13 @@ local function anti_ddos()
 														rcount = rcount+1
 														if start_byte and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
 															end
 															return true
 														end
 														if end_byte and localized.tonumber(end_byte) < localized.tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
+																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
 															end
 															return true
 														end
@@ -3580,7 +3567,7 @@ local function anti_ddos()
 														for start_byte in localized.string_gmatch(_, regex_c) do
 															if start_byte and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x]) then
 																if logging_value == 1 then
-																	localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+																	localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
 																end
 																return true
 															end
@@ -3591,13 +3578,13 @@ local function anti_ddos()
 													if start_byte or end_byte then
 														if start_byte and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte )
+																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value start = " .. start_byte )
 															end
 															return true
 														end
 														if end_byte and localized.tonumber(end_byte) < localized.tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte )
+																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value end = " .. end_byte )
 															end
 															return true
 														end
@@ -3606,7 +3593,7 @@ local function anti_ddos()
 														if start_byte then
 															if start_byte and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x]) then
 																if logging_value == 1 then
-																	localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte )
+																	localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value start = " .. start_byte )
 																end
 																return true
 															end
@@ -3624,13 +3611,13 @@ local function anti_ddos()
 														rcount = rcount+1
 														if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
 															end
 															return true
 														end
 														if end_byte and localized.tonumber(end_byte) > localized.tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
+																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
 															end
 															return true
 														end
@@ -3639,7 +3626,7 @@ local function anti_ddos()
 														for start_byte in localized.string_gmatch(_, regex_c) do
 															if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x]) then
 																if logging_value == 1 then
-																	localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+																	localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
 																end
 																return true
 															end
@@ -3650,13 +3637,13 @@ local function anti_ddos()
 													if start_byte or end_byte then
 														if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte )
+																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value start = " .. start_byte )
 															end
 															return true
 														end
 														if end_byte and localized.tonumber(end_byte) > localized.tonumber(range_table[i][x]) then
 															if logging_value == 1 then
-																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte )
+																localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value end = " .. end_byte )
 															end
 															return true
 														end
@@ -3665,7 +3652,7 @@ local function anti_ddos()
 														if start_byte then
 															if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x]) then
 																if logging_value == 1 then
-																	localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte )
+																	localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value start = " .. start_byte )
 																end
 																return true
 															end
@@ -3688,13 +3675,13 @@ local function anti_ddos()
 																		if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
 																			if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x][z][1]) and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x][z][2]) then
 																				if logging_value == 1 then
-																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
 																				end
 																				return true
 																			end
 																			if end_byte and localized.tonumber(end_byte) > localized.tonumber(range_table[i][x][z][1]) and localized.tonumber(end_byte) < localized.tonumber(range_table[i][x][z][2]) then
 																				if logging_value == 1 then
-																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
+																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value end = " .. end_byte .. " occurance: " .. rcount)
 																				end
 																				return true
 																			end
@@ -3702,13 +3689,13 @@ local function anti_ddos()
 																		if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
 																			if start_byte and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x][z][3]) then
 																				if logging_value == 1 then
-																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
 																				end
 																				return true
 																			end
 																			if end_byte and localized.tonumber(end_byte) < localized.tonumber(range_table[i][x][z][3]) then
 																				if logging_value == 1 then
-																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
+																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value end = " .. end_byte .. " occurance: " .. rcount)
 																				end
 																				return true
 																			end
@@ -3716,13 +3703,13 @@ local function anti_ddos()
 																		if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
 																			if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x][z][4]) then
 																				if logging_value == 1 then
-																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
 																				end
 																				return true
 																			end
 																			if end_byte and localized.tonumber(end_byte) > localized.tonumber(range_table[i][x][z][4]) then
 																				if logging_value == 1 then
-																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
+																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value end = " .. end_byte .. " occurance: " .. rcount)
 																				end
 																				return true
 																			end
@@ -3741,7 +3728,7 @@ local function anti_ddos()
 																			if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
 																				if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x][z][1]) and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x][z][2]) then
 																					if logging_value == 1 then
-																						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
+																						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value start = " .. start_byte .. " occurance: " .. rcount)
 																					end
 																					return true
 																				end
@@ -3749,7 +3736,7 @@ local function anti_ddos()
 																			if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
 																				if start_byte and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x][z][3]) then
 																					if logging_value == 1 then
-																						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
+																						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value start = " .. start_byte .. " occurance: " .. rcount)
 																					end
 																					return true
 																				end
@@ -3757,7 +3744,7 @@ local function anti_ddos()
 																			if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
 																				if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x][z][4]) then
 																					if logging_value == 1 then
-																						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
+																						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value start = " .. start_byte .. " occurance: " .. rcount)
 																					end
 																					return true
 																				end
@@ -3776,13 +3763,13 @@ local function anti_ddos()
 																		if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
 																			if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x][z][1]) and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x][z][2]) then
 																				if logging_value == 1 then
-																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value start = " .. start_byte )
 																				end
 																				return true
 																			end
 																			if end_byte and localized.tonumber(end_byte) > localized.tonumber(range_table[i][x][z][1]) and localized.tonumber(end_byte) < localized.tonumber(range_table[i][x][z][2]) then
 																				if logging_value == 1 then
-																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value end = " .. end_byte )
+																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value end = " .. end_byte )
 																				end
 																				return true
 																			end
@@ -3790,13 +3777,13 @@ local function anti_ddos()
 																		if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
 																			if start_byte and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x][z][3]) then
 																				if logging_value == 1 then
-																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
+																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
 																				end
 																				return true
 																			end
 																			if end_byte and localized.tonumber(end_byte) < localized.tonumber(range_table[i][x][z][3]) then
 																				if logging_value == 1 then
-																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value end = " .. end_byte .. " occurance: " .. z)
+																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value end = " .. end_byte .. " occurance: " .. z)
 																				end
 																				return true
 																			end
@@ -3804,13 +3791,13 @@ local function anti_ddos()
 																		if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
 																			if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x][z][4]) then
 																				if logging_value == 1 then
-																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. z)
+																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value start = " .. start_byte .. " occurance: " .. z)
 																				end
 																				return true
 																			end
 																			if end_byte and localized.tonumber(end_byte) > localized.tonumber(range_table[i][x][z][4]) then
 																				if logging_value == 1 then
-																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value end = " .. end_byte .. " occurance: " .. z)
+																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value end = " .. end_byte .. " occurance: " .. z)
 																				end
 																				return true
 																			end
@@ -3827,7 +3814,7 @@ local function anti_ddos()
 																		if range_table[i][x][z][1] and range_table[i][x][z][2] ~= "" then
 																			if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x][z][1]) and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x][z][2]) then
 																				if logging_value == 1 then
-																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range within min and max value start = " .. start_byte )
+																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range within min and max value start = " .. start_byte )
 																				end
 																				return true
 																			end
@@ -3835,7 +3822,7 @@ local function anti_ddos()
 																		if range_table[i][x][z][3] and range_table[i][x][z][3] ~= "" then
 																			if start_byte and localized.tonumber(start_byte) < localized.tonumber(range_table[i][x][z][3]) then
 																				if logging_value == 1 then
-																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
+																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range Less Than value start = " .. start_byte .. " occurance: " .. z)
 																				end
 																				return true
 																			end
@@ -3843,7 +3830,7 @@ local function anti_ddos()
 																		if range_table[i][x][z][4] and range_table[i][x][z][4] ~= "" then
 																			if start_byte and localized.tonumber(start_byte) > localized.tonumber(range_table[i][x][z][4]) then
 																				if logging_value == 1 then
-																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range More Than value start = " .. start_byte .. " occurance: " .. z)
+																					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range More Than value start = " .. start_byte .. " occurance: " .. z)
 																				end
 																				return true
 																			end
@@ -3865,7 +3852,7 @@ local function anti_ddos()
 									--localized.ngx_log(localized.ngx_LOG_TYPE, " Whitelist Match " .. range_whitelist_blacklist )
 								else
 									if logging_value == 1 then
-										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Range provided not in Whitelist " .. range_whitelist_blacklist )
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Range provided not in Whitelist " .. range_whitelist_blacklist )
 									end
 									return true
 								end
@@ -3908,7 +3895,7 @@ local function anti_ddos()
 		--Rate limit check
 		if count > rate_limit_requests then
 			if logging == 1 then
-				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Rate limit exceeded by IP: " .. ip .. " (" .. count .. " requests)")
+				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Rate limit exceeded by IP: " .. ip .. " (Max requests = " .. rate_limit_requests.. " client has made (" .. count .. " requests)")
 			end
 
 			if shdict then --backwards compatibility for lua
@@ -4040,7 +4027,7 @@ local function anti_ddos()
 					local incr = ddos_counter:get("blocked_ip") or nil
 					if incr ~= nil then
 						local incr = ddos_counter:get("blocked_ip")
-						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Total Flood requests: " .. incr)
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Total number of IP's in block list : " .. incr)
 					end
 					]]
 
@@ -4048,12 +4035,14 @@ local function anti_ddos()
 						local blocked_time = blocked_addr:get(ip)
 						if blocked_time then
 							if v[7] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip)
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) )
 							end
 							blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
 							localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
 							if v[32] ~= nil and v[32] ~= "" then
-								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. v[32])
+								if v[7] == 1 then
+									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. v[32])
+								end
 								os.execute(v[32]) --might be a better way than this with io.popen(v[32])
 							end
 
@@ -4094,7 +4083,7 @@ local function anti_ddos()
 						local total_requests = ddos_counter:get("blocked_ip") or 0
 						if total_requests >= v[24] then --Automatically enable I am Under Attack Mode
 							if v[7] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Total Flood requests: " .. total_requests)
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Total number of IP's in block list : " .. total_requests)
 							end
 							--Automatic Detection of DDoS
 							--Disable GZIP to prevent GZIP memory bomb and CPU consumption attacks.
@@ -4117,6 +4106,9 @@ local function anti_ddos()
 										if localized.string_match(localized.string_lower(header_value), localized.string_lower(v[25][i][2])) then
 											if v[25][i][4] > 0 then --add to ban list
 												if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+													if v[7] == 1 then
+														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked sending prohibited header : " .. localized.string_lower(header_value) .. " - " .. ip)
+													end
 													--Block IP
 													blocked_addr:set(ip, localized.currenttime, block_duration)
 												end
@@ -4129,6 +4121,9 @@ local function anti_ddos()
 											if localized.string_match(localized.string_lower(header_value[i]), localized.string_lower(v[25][i][2])) then
 												if v[25][i][4] > 0 then --add to ban list
 													if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+														if v[7] == 1 then
+															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked sending prohibited header : " .. localized.string_lower(header_value[i]) .. " - " .. ip)
+														end
 														--Block IP
 														blocked_addr:set(ip, localized.currenttime, block_duration)
 													end
@@ -4148,6 +4143,9 @@ local function anti_ddos()
 							if localized.string_lower(localized.ngx_var.request_method) == localized.string_lower(v[26][i][1]) then
 								if v[26][i][3] > 0 then
 									if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+										if v[7] == 1 then
+											localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked using prohibited Request Method : " .. localized.ngx_var.request_method .. " - " .. ip)
+										end
 										--Block IP
 										blocked_addr:set(ip, localized.currenttime, block_duration)
 									end
@@ -4177,6 +4175,35 @@ local function anti_ddos()
 					local slow_limit_exit_status = v[16]
 					local range_whitelist_blacklist = v[17]
 					local range_table = v[18]
+					local ip = v[22]
+
+					if ip == "auto" then
+						--localized.ngx_log(localized.ngx_LOG_TYPE, "Proxy IP found in whitelist - " .. localized.tostring(proxy_header_ip_check(localized.proxy_header_table)) .. " http_internal = " .. localized.tostring(localized.ngx_var_http_internal)  )
+						if localized.ngx_var_http_cf_connecting_ip ~= nil then
+							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
+								ip = localized.ngx_var_http_cf_connecting_ip
+							else --you are not really cloudflare dont pretend you are to bypass flood protection
+								ip = localized.ngx_var_remote_addr
+							end
+						elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
+								ip = localized.ngx_var_http_x_forwarded_for
+							else
+								ip = localized.ngx_var_remote_addr
+							end
+						else
+							ip = localized.ngx_var_remote_addr
+						end
+					end
+					if localized.string_match(localized.string_lower(localized.host), ".onion") then
+						v[23] = 0
+						v[24] = 0
+						ip = localized.tor_remote_addr --set ip as what the user wants the tor IP to be
+						if localized.tor_remote_addr == "auto" then
+							ip = localized.ngx_var_remote_addr
+						end
+					end
+
 					--no shared memory set but we can still check and block slowhttp cons without shared memory
 					if localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
 						if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table) then
@@ -4198,12 +4225,18 @@ local function anti_ddos()
 								if header_value then
 									if localized.type(header_value) ~= "table" then
 										if localized.string_match(localized.string_lower(header_value), localized.string_lower(t[2])) then
+											if v[7] == 1 then
+												localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked sending prohibited header : " .. localized.string_lower(header_value) .. " - " .. ip)
+											end
 											localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
 											localized.ngx_exit(t[3])
 										end
 									else
 										for i=1, #header_value do
 											if localized.string_match(localized.string_lower(header_value[i]), localized.string_lower(t[2])) then
+												if v[7] == 1 then
+													localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked sending prohibited header : " .. localized.string_lower(header_value[i]) .. " - " .. ip)
+												end
 												localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
 												localized.ngx_exit(t[3])
 											end
@@ -4217,6 +4250,9 @@ local function anti_ddos()
 					if #v[26] > 0 then
 						for i=1,#v[26] do
 							if localized.string_lower(localized.ngx_var.request_method) == localized.string_lower(v[26][i][1]) then
+								if v[7] == 1 then
+									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked using prohibited Request Method : " .. localized.ngx_var.request_method .. " - " .. ip)
+								end
 								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
 								localized.ngx_exit(v[26][i][2])
 							end
@@ -4233,7 +4269,9 @@ local function anti_ddos()
 		end
 	end
 end
+if localized.ngx_var_http_internal == nil then --1st layer
 anti_ddos()
+end
 
 -- Random seed generator
 local function getRandomSeed()
@@ -4288,7 +4326,9 @@ local function header_modification()
 		end
 	end
 end
+if localized.ngx_var_http_internal == nil then --1st layer
 header_modification()
+end
 --[[
 End Header Modifications
 ]]
@@ -4577,6 +4617,7 @@ local function WAF_Post_Requests()
 						arguement2 = 1
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST args prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
 						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 					end
 				end
@@ -4617,6 +4658,7 @@ local function WAF_Header_Requests()
 						arguement2 = 1
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
 						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 					end
 				end
@@ -4657,6 +4699,7 @@ local function WAF_query_string_Request()
 						arguement2 = 1
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Query String prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
 						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 					end
 				end
@@ -4686,6 +4729,7 @@ local function WAF_URI_Request()
 			local v = localized.WAF_URI_Request_table[i]
 			if localized.string_match(localized.URL, v[1]) then --if our host matches one in the table
 				if localized.string_match(args, v[2]) then
+					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request URI prohibited : " .. localized.URL .. " - IP : " .. localized.remote_addr)
 					return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 				end
 			end
@@ -4711,6 +4755,7 @@ local function check_ips()
 			end
 			if localized.ip_whitelist_block_mode == 1 then --ip address not matched the above
 				blocked_address_check("[Anti-DDoS] Blocked IP attempt for not being in whitelist : ")
+				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked IP not in whitelist IP : " .. localized.ip_whitelist_remote_addr)
 				return localized.ngx_exit(localized.ngx_HTTP_CLOSE) --deny user access
 			end
 		end
@@ -4729,9 +4774,11 @@ local function check_ips()
 				local value = ip_table[i]
 				if value == localized.ip_blacklist_remote_addr then
 					blocked_address_check("[Anti-DDoS] Blocked IP attempt for being in blacklist : ")
+					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked IP in blacklist - " .. value .. " -" .. " IP : " .. localized.ip_blacklist_remote_addr)
 					return localized.ngx_exit(localized.ngx_HTTP_CLOSE) --deny user access
 				elseif ip_address_in_range(value, localized.ip_blacklist_remote_addr) == true then
 					blocked_address_check("[Anti-DDoS] Blocked IP attempt for being in blacklist : ")
+					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked IP in blacklist - " .. value .. " -" .. " IP : " .. localized.ip_blacklist_remote_addr)
 					return localized.ngx_exit(localized.ngx_HTTP_CLOSE) --deny user access
 				end
 			end
@@ -4768,6 +4815,7 @@ local function check_user_agents()
 							user_agent_blacklist_var = localized.string_lower(user_agent_blacklist_var)
 						end
 						if localized.string_match(user_agent_blacklist_var, value[1])then
+							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] User-Agent Blocked - " .. user_agent_blacklist_var .. " -" .. " IP : " .. localized.remote_addr)
 							return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 						end
 					end
@@ -4787,6 +4835,7 @@ local function check_user_agents()
 								user_agent_blacklist_var[x] = localized.string_lower(user_agent_blacklist_var[x])
 							end
 							if localized.string_match(user_agent_blacklist_var[x], value[1])then
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] User-Agent Blocked - " .. user_agent_blacklist_var[x] .. " -" .. " IP : " .. localized.remote_addr)
 								return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 							end
 						end
@@ -4900,9 +4949,7 @@ End Calculate answer Function
 --function to encrypt strings with our secret key / password provided
 local function calculate_signature(str)
 	local output = localized.ngx_encode_base64(localized.ngx_hmac_sha1(localized.secret, str))
-	output = localized.ngx_re_gsub(output, "[+]", "-", localized.ngx_re_options) --Replace + with -
-	output = localized.ngx_re_gsub(output, "[/]", "_", localized.ngx_re_options) --Replace / with _
-	output = localized.ngx_re_gsub(output, "[=]", "", localized.ngx_re_options) --Remove =
+	output = localized.string_gsub(output, "[+/=]", "") --Remove +/=
 	return output
 end
 --calculate_signature(str)
@@ -4966,12 +5013,10 @@ end
 --for my javascript Hex output
 local function sep(str, patt, re)
 	local rstr = localized.string_gsub(str, patt, "%1%" .. re)
-	--local rstr = localized.ngx_re_gsub(str, patt, "%1%" .. re, localized.ngx_re_options) --this has a major issue no idea why need to investigate more
 	return localized.string_sub(rstr, 1, #rstr - #re)
 end
 
 local function stringtohex(str)
-	--return localized.ngx_re_gsub(str, ".", function (c) localized.ngx_log(localized.ngx_LOG_TYPE,localized.tostring(c[0])) return localized.string_format('%02X', localized.string_byte(c[0])) end, localized.ngx_re_options) --this has a major issue no idea why need to investigate more
 	return localized.string_gsub(str, '.', function (c)
 		return localized.string_format('%02X', localized.string_byte(c))
 	end)
@@ -5168,11 +5213,11 @@ Start Tor detection
 ]]
 if localized.x_tor_header == 2 then --if x-tor-header is dynamic
 	localized.x_tor_header_name = calculate_signature(localized.tor_remote_addr .. localized.x_tor_header_name .. localized.currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	localized.x_tor_header_name = localized.ngx_re_gsub(localized.x_tor_header_name, "_", "", localized.ngx_re_options) --replace underscore with nothing
+	localized.x_tor_header_name = localized.string_gsub(localized.x_tor_header_name, "_", "") --replace underscore with nothing
 	localized.x_tor_header_name_allowed = calculate_signature(localized.tor_remote_addr .. localized.x_tor_header_name_allowed .. localized.currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	localized.x_tor_header_name_allowed = localized.ngx_re_gsub(localized.x_tor_header_name_allowed, "_", "", localized.ngx_re_options) --replace underscore with nothing
+	localized.x_tor_header_name_allowed = localized.string_gsub(localized.x_tor_header_name_allowed, "_", "") --replace underscore with nothing
 	localized.x_tor_header_name_blocked = calculate_signature(localized.tor_remote_addr .. localized.x_tor_header_name_blocked .. localized.currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	localized.x_tor_header_name_blocked = localized.ngx_re_gsub(localized.x_tor_header_name_blocked, "_", "", localized.ngx_re_options) --replace underscore with nothing
+	localized.x_tor_header_name_blocked = localized.string_gsub(localized.x_tor_header_name_blocked, "_", "") --replace underscore with nothing
 end
 
 if localized.encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to be encrypted
@@ -5382,7 +5427,7 @@ local JsPuzzleAnswer = calculateAnswer(answer) -- Localize the answer to be used
 
 if localized.x_auth_header == 2 then --if x-auth-header is dynamic
 	localized.x_auth_header_name = calculate_signature(localized.remote_addr .. localized.x_auth_header_name .. localized.currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	localized.x_auth_header_name = localized.ngx_re_gsub(localized.x_auth_header_name, "_", "", localized.ngx_re_options) --replace underscore with nothing
+	localized.x_auth_header_name = localized.string_gsub(localized.x_auth_header_name, "_", "") --replace underscore with nothing
 end
 
 if localized.encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to be encrypted
@@ -5619,9 +5664,6 @@ Javascript Puzzle for web browser to solve do not touch this unless you understa
 --Simple static Javascript puzzle where every request all year round the question and answer would be the same pretty predictable for bots.
 --localized.JavascriptPuzzleVars = [[22 + 22]] --44
 --local JavascriptPuzzleVars_answer = "44" --if this does not equal the equation above you will find access to your site will be blocked make sure you can do maths!?
-
---Make our Javascript puzzle a little bit more dynamic than the static equation above it will change every 24 hours :) I made this because the static one is pretty poor security compared to this but this can be improved allot though.
---TODO: IMPROVE THIS!
 
 --Improved the script
 --Moved the script to be able to use answer (ip+signature string)
@@ -6225,7 +6267,7 @@ local function minification(content_type_list)
 													end
 
 													if content_type_list[i][5] == 1 then
-														localized.ngx_log(localized.ngx_LOG_TYPE, " Page not yet cached or ttl has expired so putting into cache " )
+														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Cache] Page not yet cached or ttl has expired so putting into cache key : " .. key )
 													end
 													localized.ngx_header.content_type = content_type_list[i][2]
 													if content_type_list[i][10] == 1 then
@@ -6319,7 +6361,7 @@ local function minification(content_type_list)
 													end
 
 													if content_type_list[i][5] == 1 then
-														localized.ngx_log(localized.ngx_LOG_TYPE, " Page not yet cached or ttl has expired so putting into cache " )
+														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Cache] Page not yet cached or ttl has expired so putting into cache key : " .. key )
 													end
 													localized.ngx_header.content_type = content_type_list[i][2]
 													if content_type_list[i][10] == 1 then
@@ -6365,7 +6407,7 @@ local function minification(content_type_list)
 							localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
 
 							if content_type_list[i][5] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE, " Served from cache " )
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Cache] Served from cache key : " .. key )
 							end
 
 							local output_minified = cached:get(key)
