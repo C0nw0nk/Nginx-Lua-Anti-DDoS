@@ -416,7 +416,6 @@ localized.content_cache = {
 			--{"(/%*[^*]*%*/)", "",}, -- Example: this /*will*/ remove /*comments*/ (result: this remove)
 			--{"<style>(.*)%/%*(.*)%*%/(.*)</style>", "<style>%1%3</style>",},
 			--{"<script>(.*)%/%*(.*)%*%/(.*)</script>", "<script>%1%3</script>",},
-			--{"%s%s+", "",}, --remove blank characters from html
 			--{"[ \t]+$", "",}, --remove break lines (execution order of regex matters keep this last)
 			--{"<!%-%-[^%[]-->", "",},
 			--{"%s%s+", " ",},
@@ -1896,6 +1895,13 @@ end
 Start IP range function
 ]]
 local function ip_address_in_range(input_ip, client_connecting_ip)
+	--if client_connecting_ip ~= nil then
+		--localized.ngx_log(localized.ngx_LOG_TYPE, "client_connecting_ip " .. client_connecting_ip )
+	--end
+	--if input_ip ~= nil then
+		--localized.ngx_log(localized.ngx_LOG_TYPE, "input_ip " .. input_ip )
+	--end
+
 	if localized.string_match(input_ip, "/") then --input ip is a subnet
 		--do nothing
 	else
@@ -2621,10 +2627,6 @@ local function internal_header_setup()
 						end
 						blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
 						localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
-						if v[32] ~= nil and v[32] ~= "" then
-							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. v[32])
-							os.execute(v[32]) --might be a better way than this with io.popen(v[32])
-						end
 						return localized.ngx_exit(rate_limit_exit_status)
 					end
 				end
@@ -4041,7 +4043,7 @@ local function anti_ddos()
 					local incr = ddos_counter:get("blocked_ip") or nil
 					if incr ~= nil then
 						local incr = ddos_counter:get("blocked_ip")
-						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Total Flood requests: " .. incr)
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Total number of IP's in block list : " .. incr)
 					end
 					]]
 
@@ -4054,7 +4056,9 @@ local function anti_ddos()
 							blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
 							localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
 							if v[32] ~= nil and v[32] ~= "" then
-								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. v[32])
+								if v[7] == 1 then
+									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. v[32])
+								end
 								os.execute(v[32]) --might be a better way than this with io.popen(v[32])
 							end
 
@@ -4095,7 +4099,7 @@ local function anti_ddos()
 						local total_requests = ddos_counter:get("blocked_ip") or 0
 						if total_requests >= v[24] then --Automatically enable I am Under Attack Mode
 							if v[7] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Total Flood requests: " .. total_requests)
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Total number of IP's in block list : " .. total_requests)
 							end
 							--Automatic Detection of DDoS
 							--Disable GZIP to prevent GZIP memory bomb and CPU consumption attacks.
@@ -4118,6 +4122,9 @@ local function anti_ddos()
 										if localized.string_match(localized.string_lower(header_value), localized.string_lower(v[25][i][2])) then
 											if v[25][i][4] > 0 then --add to ban list
 												if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+													if v[7] == 1 then
+														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked sending prohibited header : " .. localized.string_lower(header_value) .. " - " .. ip)
+													end
 													--Block IP
 													blocked_addr:set(ip, localized.currenttime, block_duration)
 												end
@@ -4130,6 +4137,9 @@ local function anti_ddos()
 											if localized.string_match(localized.string_lower(header_value[i]), localized.string_lower(v[25][i][2])) then
 												if v[25][i][4] > 0 then --add to ban list
 													if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+														if v[7] == 1 then
+															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked sending prohibited header : " .. localized.string_lower(header_value[i]) .. " - " .. ip)
+														end
 														--Block IP
 														blocked_addr:set(ip, localized.currenttime, block_duration)
 													end
@@ -4149,6 +4159,9 @@ local function anti_ddos()
 							if localized.string_lower(localized.ngx_var.request_method) == localized.string_lower(v[26][i][1]) then
 								if v[26][i][3] > 0 then
 									if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+										if v[7] == 1 then
+											localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked using prohibited Request Method : " .. localized.ngx_var.request_method .. " - " .. ip)
+										end
 										--Block IP
 										blocked_addr:set(ip, localized.currenttime, block_duration)
 									end
@@ -4178,6 +4191,35 @@ local function anti_ddos()
 					local slow_limit_exit_status = v[16]
 					local range_whitelist_blacklist = v[17]
 					local range_table = v[18]
+					local ip = v[22]
+
+					if ip == "auto" then
+						--localized.ngx_log(localized.ngx_LOG_TYPE, "Proxy IP found in whitelist - " .. localized.tostring(proxy_header_ip_check(localized.proxy_header_table)) .. " http_internal = " .. localized.tostring(localized.ngx_var_http_internal)  )
+						if localized.ngx_var_http_cf_connecting_ip ~= nil then
+							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
+								ip = localized.ngx_var_http_cf_connecting_ip
+							else --you are not really cloudflare dont pretend you are to bypass flood protection
+								ip = localized.ngx_var_remote_addr
+							end
+						elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
+								ip = localized.ngx_var_http_x_forwarded_for
+							else
+								ip = localized.ngx_var_remote_addr
+							end
+						else
+							ip = localized.ngx_var_remote_addr
+						end
+					end
+					if localized.string_match(localized.string_lower(localized.host), ".onion") then
+						v[23] = 0
+						v[24] = 0
+						ip = localized.tor_remote_addr --set ip as what the user wants the tor IP to be
+						if localized.tor_remote_addr == "auto" then
+							ip = localized.ngx_var_remote_addr
+						end
+					end
+
 					--no shared memory set but we can still check and block slowhttp cons without shared memory
 					if localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
 						if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table) then
@@ -4199,12 +4241,18 @@ local function anti_ddos()
 								if header_value then
 									if localized.type(header_value) ~= "table" then
 										if localized.string_match(localized.string_lower(header_value), localized.string_lower(t[2])) then
+											if v[7] == 1 then
+												localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked sending prohibited header : " .. localized.string_lower(header_value) .. " - " .. ip)
+											end
 											localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
 											localized.ngx_exit(t[3])
 										end
 									else
 										for i=1, #header_value do
 											if localized.string_match(localized.string_lower(header_value[i]), localized.string_lower(t[2])) then
+												if v[7] == 1 then
+													localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked sending prohibited header : " .. localized.string_lower(header_value[i]) .. " - " .. ip)
+												end
 												localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
 												localized.ngx_exit(t[3])
 											end
@@ -4218,6 +4266,9 @@ local function anti_ddos()
 					if #v[26] > 0 then
 						for i=1,#v[26] do
 							if localized.string_lower(localized.ngx_var.request_method) == localized.string_lower(v[26][i][1]) then
+								if v[7] == 1 then
+									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked using prohibited Request Method : " .. localized.ngx_var.request_method .. " - " .. ip)
+								end
 								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
 								localized.ngx_exit(v[26][i][2])
 							end
@@ -5620,9 +5671,6 @@ Javascript Puzzle for web browser to solve do not touch this unless you understa
 --Simple static Javascript puzzle where every request all year round the question and answer would be the same pretty predictable for bots.
 --localized.JavascriptPuzzleVars = [[22 + 22]] --44
 --local JavascriptPuzzleVars_answer = "44" --if this does not equal the equation above you will find access to your site will be blocked make sure you can do maths!?
-
---Make our Javascript puzzle a little bit more dynamic than the static equation above it will change every 24 hours :) I made this because the static one is pretty poor security compared to this but this can be improved allot though.
---TODO: IMPROVE THIS!
 
 --Improved the script
 --Moved the script to be able to use answer (ip+signature string)
