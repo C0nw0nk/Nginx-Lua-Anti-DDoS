@@ -4629,6 +4629,7 @@ local function WAF_Post_Requests()
 						arguement2 = 1
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST args prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
 						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 					end
 				end
@@ -4669,6 +4670,7 @@ local function WAF_Header_Requests()
 						arguement2 = 1
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
 						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 					end
 				end
@@ -4709,6 +4711,7 @@ local function WAF_query_string_Request()
 						arguement2 = 1
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Query String prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
 						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 					end
 				end
@@ -4738,6 +4741,7 @@ local function WAF_URI_Request()
 			local v = localized.WAF_URI_Request_table[i]
 			if localized.string_match(localized.URL, v[1]) then --if our host matches one in the table
 				if localized.string_match(args, v[2]) then
+					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request URI prohibited : " .. localized.URL .. " - IP : " .. localized.remote_addr)
 					return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 				end
 			end
@@ -4763,6 +4767,7 @@ local function check_ips()
 			end
 			if localized.ip_whitelist_block_mode == 1 then --ip address not matched the above
 				blocked_address_check("[Anti-DDoS] Blocked IP attempt for not being in whitelist : ")
+				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked IP not in whitelist IP : " .. localized.ip_whitelist_remote_addr)
 				return localized.ngx_exit(localized.ngx_HTTP_CLOSE) --deny user access
 			end
 		end
@@ -4781,9 +4786,11 @@ local function check_ips()
 				local value = ip_table[i]
 				if value == localized.ip_blacklist_remote_addr then
 					blocked_address_check("[Anti-DDoS] Blocked IP attempt for being in blacklist : ")
+					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked IP in blacklist - " .. value .. " -" .. " IP : " .. localized.ip_blacklist_remote_addr)
 					return localized.ngx_exit(localized.ngx_HTTP_CLOSE) --deny user access
 				elseif ip_address_in_range(value, localized.ip_blacklist_remote_addr) == true then
 					blocked_address_check("[Anti-DDoS] Blocked IP attempt for being in blacklist : ")
+					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked IP in blacklist - " .. value .. " -" .. " IP : " .. localized.ip_blacklist_remote_addr)
 					return localized.ngx_exit(localized.ngx_HTTP_CLOSE) --deny user access
 				end
 			end
@@ -4820,6 +4827,7 @@ local function check_user_agents()
 							user_agent_blacklist_var = localized.string_lower(user_agent_blacklist_var)
 						end
 						if localized.string_match(user_agent_blacklist_var, value[1])then
+							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] User-Agent Blocked - " .. user_agent_blacklist_var .. " -" .. " IP : " .. localized.remote_addr)
 							return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 						end
 					end
@@ -4839,6 +4847,7 @@ local function check_user_agents()
 								user_agent_blacklist_var[x] = localized.string_lower(user_agent_blacklist_var[x])
 							end
 							if localized.string_match(user_agent_blacklist_var[x], value[1])then
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] User-Agent Blocked - " .. user_agent_blacklist_var[x] .. " -" .. " IP : " .. localized.remote_addr)
 								return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 							end
 						end
