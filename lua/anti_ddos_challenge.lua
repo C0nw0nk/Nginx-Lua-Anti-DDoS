@@ -1895,13 +1895,6 @@ end
 Start IP range function
 ]]
 local function ip_address_in_range(input_ip, client_connecting_ip)
-	--if client_connecting_ip ~= nil then
-		--localized.ngx_log(localized.ngx_LOG_TYPE, "client_connecting_ip " .. client_connecting_ip )
-	--end
-	--if input_ip ~= nil then
-		--localized.ngx_log(localized.ngx_LOG_TYPE, "input_ip " .. input_ip )
-	--end
-
 	if localized.string_match(input_ip, "/") then --input ip is a subnet
 		--do nothing
 	else
