@@ -1,3 +1,11 @@
+Version: 2.0
+Date: 2025-09-11
+- Remove dependancy for ngx.re.gsub tests come back string.gsub is fast enough and performs better overall.
+- Improved cache logs to make more readable/understandable
+- Added extra details to Range, WAF and blocking logs
+- Remove un-needed custom command checks
+- Fix incase user does not want to use shared memory zones the function to obtain users real ip was not present added.
+
 Version: 1.9
 Date: 2025-09-10
 - Move Internal headers to a function
