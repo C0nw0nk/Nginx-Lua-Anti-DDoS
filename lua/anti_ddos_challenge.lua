@@ -60,7 +60,6 @@ localized.string_format = string.format
 localized.string_byte = string.byte
 localized.bit_bxor = bit.bxor
 localized.ngx = ngx
-localized.ngx_re_gsub = localized.ngx.re.gsub
 localized.ngx_hmac_sha1 = localized.ngx.hmac_sha1
 localized.ngx_encode_base64 = localized.ngx.encode_base64
 localized.ngx_req_get_uri_args = localized.ngx.req.get_uri_args
@@ -1814,17 +1813,6 @@ This is where things get very complex. ;)
 
 ]]
 
---[[
-Add to your nginx config http://nginx.org/en/docs/ngx_core_module.html#pcre_jit
-
-pcre_jit on;
-
-The options I enable to make regex cache for performance gains.
-j = enable PCRE JIT compilation
-o = compile-once mode (similar to Perl's /o modifier), to enable the worker-process-level compiled-regex cache
-]]
-localized.ngx_re_options = "jo" --boost regex performance by caching
-
 --Test as Tor network
 --localized.host = "localhost.onion"
 --localized.URL = localized.scheme .. "://" .. localized.host .. localized.request_uri
@@ -2016,10 +2004,10 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		]]
 
 		local expanded_ip_count = (ipbits[1] or "0000") .. ':' .. (ipbits[2] or "0000") .. ':' .. (ipbits[3] or "0000") .. ':' .. (ipbits[4] or "0000") .. ':' .. (ipbits[5] or "0000") .. ':' .. (ipbits[6] or "0000") .. ':' .. (ipbits[7] or "0000") .. ':' .. (ipbits[8] or "0000")
-		expanded_ip_count = localized.ngx_re_gsub(expanded_ip_count, ":", "", localized.ngx_re_options)
+		expanded_ip_count = localized.string_gsub(expanded_ip_count, ":", "")
 
 		local client_connecting_ip_count = (ipbits_client[1] or "0000") .. ':' .. (ipbits_client[2] or "0000") .. ':' .. (ipbits_client[3] or "0000") .. ':' .. (ipbits_client[4] or "0000") .. ':' .. (ipbits_client[5] or "0000") .. ':' .. (ipbits_client[6] or "0000") .. ':' .. (ipbits_client[7] or "0000") .. ':' .. (ipbits_client[8] or "0000")
-		client_connecting_ip_count = localized.ngx_re_gsub(client_connecting_ip_count, ":", "", localized.ngx_re_options)
+		client_connecting_ip_count = localized.string_gsub(client_connecting_ip_count, ":", "")
 
 		--generate wildcard from mask
 		local indent = mask / 4
@@ -2027,10 +2015,10 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		expanded_ip_count = localized.string_sub(expanded_ip_count, 0, indent)
 		client_connecting_ip_count = localized.string_sub(client_connecting_ip_count, 0, indent)
 
-		local client_connecting_ip_expanded = localized.ngx_re_gsub(client_connecting_ip_count, "....", "%1:", localized.ngx_re_options)
-		client_connecting_ip_expanded = localized.ngx_re_gsub(client_connecting_ip_count, ":$", "", localized.ngx_re_options)
-		local expanded_ip = localized.ngx_re_gsub(expanded_ip_count, "....", "%1:", localized.ngx_re_options)
-		expanded_ip = localized.ngx_re_gsub(expanded_ip_count, ":$", "", localized.ngx_re_options)
+		local client_connecting_ip_expanded = localized.string_gsub(client_connecting_ip_count, "....", "%1:")
+		client_connecting_ip_expanded = localized.string_gsub(client_connecting_ip_count, ":$", "")
+		local expanded_ip = localized.string_gsub(expanded_ip_count, "....", "%1:")
+		expanded_ip = localized.string_gsub(expanded_ip_count, ":$", "")
 
 		local wildcardbits = {}
 		local wildcardbits_table_length = 1
@@ -2550,11 +2538,13 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 end
 --[[
 usage
-if ip_address_in_range("255.255.0.0/17", localized.ngx_var_remote_addr) == true then --ipv4
-	localized.ngx_log(localized.ngx_LOG_TYPE,"IPv4 in range")
-end
-if ip_address_in_range("2a02:0c68::/29", localized.ngx_var_remote_addr) == true then --ipv6
-	localized.ngx_log(localized.ngx_LOG_TYPE,"IPv6 in range")
+if localized.ngx_var_http_internal == nil then --1st layer
+	if ip_address_in_range("127.0.0.0/16", "127.0.0.1") == true then --ipv4
+		localized.ngx_log(localized.ngx_LOG_TYPE,"IPv4 in range")
+	end
+	if ip_address_in_range("2620:0:860:2::/64", "2620:0:860:2:FFFF:FFFF:FFFF:FFFF") == true then --ipv6
+		localized.ngx_log(localized.ngx_LOG_TYPE,"IPv6 in range")
+	end
 end
 ]]
 --[[
@@ -2627,15 +2617,14 @@ local function internal_header_setup()
 			end
 		end
 	end
+	--openresty have a simple version of this https://github.com/openresty/lua-nginx-module?tab=readme-ov-file#ngxreqis_internal but for old versions of nginx with lua i created this so backwards compatibility
 	if localized.proxy_header_table ~= nil and #localized.proxy_header_table > 0 then --only set internal headers when proxy header checks are in use
 		--internal header protection if the script needs to make a internal call like with the header_append_ip() / localized.send_ip_to_backend_custom_headers function we can track it.
 		localized.ngx_var_http_internal_string = "1337"--internal bypass header value
 		localized.ngx_var_http_internal_header_name = "internal" --internal bypass header name
 		localized.ngx_var_http_internal_header_name = localized.ngx_hmac_sha1(localized.secret .. localized.os_date("%W",localized.os_time_saved), localized.ngx_var_http_internal_header_name) --encrypt this header so nobody can guess it or use it other than internal work calls
 		localized.ngx_var_http_internal_header_name = localized.ngx_encode_base64(localized.ngx_var_http_internal_header_name) --wrap encrypted header in base64
-		localized.ngx_var_http_internal_header_name = localized.ngx_re_gsub(localized.ngx_var_http_internal_header_name, "[+]", "", localized.ngx_re_options) --Replace + with _
-		localized.ngx_var_http_internal_header_name = localized.ngx_re_gsub(localized.ngx_var_http_internal_header_name, "[/]", "", localized.ngx_re_options) --Replace / with _
-		localized.ngx_var_http_internal_header_name = localized.ngx_re_gsub(localized.ngx_var_http_internal_header_name, "[=]", "", localized.ngx_re_options) --Remove =
+		localized.ngx_var_http_internal_header_name = localized.string_gsub(localized.ngx_var_http_internal_header_name, "[+/=]", "") --Remove +/=
 		localized.ngx_var_http_internal = localized.ngx_var["http_"..localized.ngx_var_http_internal_header_name] or nil
 		localized.ngx_var_http_internal_log = 0
 
@@ -4278,7 +4267,9 @@ local function anti_ddos()
 		end
 	end
 end
+if localized.ngx_var_http_internal == nil then --1st layer
 anti_ddos()
+end
 
 -- Random seed generator
 local function getRandomSeed()
@@ -4333,7 +4324,9 @@ local function header_modification()
 		end
 	end
 end
+if localized.ngx_var_http_internal == nil then --1st layer
 header_modification()
+end
 --[[
 End Header Modifications
 ]]
@@ -4954,9 +4947,7 @@ End Calculate answer Function
 --function to encrypt strings with our secret key / password provided
 local function calculate_signature(str)
 	local output = localized.ngx_encode_base64(localized.ngx_hmac_sha1(localized.secret, str))
-	output = localized.ngx_re_gsub(output, "[+]", "-", localized.ngx_re_options) --Replace + with -
-	output = localized.ngx_re_gsub(output, "[/]", "_", localized.ngx_re_options) --Replace / with _
-	output = localized.ngx_re_gsub(output, "[=]", "", localized.ngx_re_options) --Remove =
+	output = localized.string_gsub(output, "[+/=]", "") --Remove +/=
 	return output
 end
 --calculate_signature(str)
@@ -5020,12 +5011,10 @@ end
 --for my javascript Hex output
 local function sep(str, patt, re)
 	local rstr = localized.string_gsub(str, patt, "%1%" .. re)
-	--local rstr = localized.ngx_re_gsub(str, patt, "%1%" .. re, localized.ngx_re_options) --this has a major issue no idea why need to investigate more
 	return localized.string_sub(rstr, 1, #rstr - #re)
 end
 
 local function stringtohex(str)
-	--return localized.ngx_re_gsub(str, ".", function (c) localized.ngx_log(localized.ngx_LOG_TYPE,localized.tostring(c[0])) return localized.string_format('%02X', localized.string_byte(c[0])) end, localized.ngx_re_options) --this has a major issue no idea why need to investigate more
 	return localized.string_gsub(str, '.', function (c)
 		return localized.string_format('%02X', localized.string_byte(c))
 	end)
@@ -5222,11 +5211,11 @@ Start Tor detection
 ]]
 if localized.x_tor_header == 2 then --if x-tor-header is dynamic
 	localized.x_tor_header_name = calculate_signature(localized.tor_remote_addr .. localized.x_tor_header_name .. localized.currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	localized.x_tor_header_name = localized.ngx_re_gsub(localized.x_tor_header_name, "_", "", localized.ngx_re_options) --replace underscore with nothing
+	localized.x_tor_header_name = localized.string_gsub(localized.x_tor_header_name, "_", "") --replace underscore with nothing
 	localized.x_tor_header_name_allowed = calculate_signature(localized.tor_remote_addr .. localized.x_tor_header_name_allowed .. localized.currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	localized.x_tor_header_name_allowed = localized.ngx_re_gsub(localized.x_tor_header_name_allowed, "_", "", localized.ngx_re_options) --replace underscore with nothing
+	localized.x_tor_header_name_allowed = localized.string_gsub(localized.x_tor_header_name_allowed, "_", "") --replace underscore with nothing
 	localized.x_tor_header_name_blocked = calculate_signature(localized.tor_remote_addr .. localized.x_tor_header_name_blocked .. localized.currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	localized.x_tor_header_name_blocked = localized.ngx_re_gsub(localized.x_tor_header_name_blocked, "_", "", localized.ngx_re_options) --replace underscore with nothing
+	localized.x_tor_header_name_blocked = localized.string_gsub(localized.x_tor_header_name_blocked, "_", "") --replace underscore with nothing
 end
 
 if localized.encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to be encrypted
@@ -5436,7 +5425,7 @@ local JsPuzzleAnswer = calculateAnswer(answer) -- Localize the answer to be used
 
 if localized.x_auth_header == 2 then --if x-auth-header is dynamic
 	localized.x_auth_header_name = calculate_signature(localized.remote_addr .. localized.x_auth_header_name .. localized.currentdate) --make the header unique to the client and for todays date encrypted so every 24 hours this will change and can't be guessed by bots gsub because header bug with underscores so underscore needs to be removed
-	localized.x_auth_header_name = localized.ngx_re_gsub(localized.x_auth_header_name, "_", "", localized.ngx_re_options) --replace underscore with nothing
+	localized.x_auth_header_name = localized.string_gsub(localized.x_auth_header_name, "_", "") --replace underscore with nothing
 end
 
 if localized.encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to be encrypted
@@ -6276,7 +6265,7 @@ local function minification(content_type_list)
 													end
 
 													if content_type_list[i][5] == 1 then
-														localized.ngx_log(localized.ngx_LOG_TYPE, " Page not yet cached or ttl has expired so putting into cache " )
+														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Cache] Page not yet cached or ttl has expired so putting into cache key : " .. key )
 													end
 													localized.ngx_header.content_type = content_type_list[i][2]
 													if content_type_list[i][10] == 1 then
@@ -6370,7 +6359,7 @@ local function minification(content_type_list)
 													end
 
 													if content_type_list[i][5] == 1 then
-														localized.ngx_log(localized.ngx_LOG_TYPE, " Page not yet cached or ttl has expired so putting into cache " )
+														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Cache] Page not yet cached or ttl has expired so putting into cache key : " .. key )
 													end
 													localized.ngx_header.content_type = content_type_list[i][2]
 													if content_type_list[i][10] == 1 then
@@ -6416,7 +6405,7 @@ local function minification(content_type_list)
 							localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
 
 							if content_type_list[i][5] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE, " Served from cache " )
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Cache] Served from cache key : " .. key )
 							end
 
 							local output_minified = cached:get(key)
