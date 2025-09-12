@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 2.0
+Script Version: 2.1
 
 Copyright Conor McKnight
 
@@ -1818,6 +1818,11 @@ This is where things get very complex. ;)
 --Test as Tor network
 --localized.host = "localhost.onion"
 --localized.URL = localized.scheme .. "://" .. localized.host .. localized.request_uri
+
+if localized.secret == " enigma" then --if its still default and unchanged by user
+	localized.secret = localized.secret .. localized.os_date("%W",localized.os_time_saved) --make more dynamic than default hopefully nobody does try to use default in production
+	--you dont want this to change to frequently every time you change your secret key you will see users on a javascript puzzle page will need to pass auth again
+end
 
 --[[
 Begin Required Functions
@@ -4269,9 +4274,9 @@ local function anti_ddos()
 		end
 	end
 end
-if localized.ngx_var_http_internal == nil then --1st layer
+--if localized.ngx_var_http_internal == nil then --1st layer
 anti_ddos()
-end
+--end
 
 -- Random seed generator
 local function getRandomSeed()
@@ -4326,9 +4331,9 @@ local function header_modification()
 		end
 	end
 end
-if localized.ngx_var_http_internal == nil then --1st layer
+--if localized.ngx_var_http_internal == nil then --1st layer
 header_modification()
-end
+--end
 --[[
 End Header Modifications
 ]]
