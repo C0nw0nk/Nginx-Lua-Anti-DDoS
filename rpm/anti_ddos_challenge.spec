@@ -66,6 +66,9 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Fri Sep 12 2025 C0nw0nk <C0nw0nk@github> - 2.1-1
+- Fix for users seeing javascript authentication puzzle i forgot to null out a line when doing tests.
+- Added a check on default secret key or password just incase a user has not changed it from default
 * Thu Sep 11 2025 C0nw0nk <C0nw0nk@github> - 2.0-1
 - Remove dependancy for ngx.re.gsub tests come back string.gsub is fast enough and performs better overall.
 - Improved cache logs to make more readable/understandable
