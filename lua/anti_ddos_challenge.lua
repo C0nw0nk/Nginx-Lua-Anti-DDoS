@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 2.1
+Script Version: 2.2
 
 Copyright Conor McKnight
 
@@ -886,7 +886,7 @@ This will NOT use Javascript to authenticate users trying to access your site in
 1 = Enabled Browser Sessions (You will see the box again when you restart browser)
 2 = Enabled Cookie session (You won't see the box again until the localized.expire_time you set passes)
 ]]
-localized.authorization = 0
+localized.authorization = 1
 
 --[[
 authorization domains / file paths to protect / restrict access to
@@ -901,7 +901,7 @@ If we should show the client seeing the box what login they can use (Tor website
 1 = Display login details
 ]]
 localized.authorization_paths = {
-	--[[
+	--[[]]
 	{
 		1, --show auth box on this path
 		"localhost.*/ddos.*", --regex paths i recommend having the domain in there too
@@ -917,7 +917,7 @@ localized.authorization_paths = {
 		".com/admin.*", --regex paths i recommend having the domain in there too
 		0, --do NOT display username/password
 	},
-	]]
+	--[[]]
 	--[[
 	{ --Show on All sites and paths
 		1, --show auth box on this path
@@ -966,16 +966,16 @@ This feature allows you to intercept incomming client POST data read their POST 
 Highly usefull for protecting your web application and backends from attacks zero day exploits and hacking attempts from hackers and bots.
 ]]
 localized.WAF_POST_Request_table = {
---[[
+--[[]]
 	{
 		"^task$", --match post data in requests with value task
 		".*", --matching any
 	},
 	{
-		"^name1$", --regex match
-		"^.*y$", --regex or exact match
+		"^name3$", --regex match
+		"^.*$", --regex or exact match
 	},
-]]
+--[[]]
 }
 
 --[[
@@ -986,7 +986,7 @@ You can use this to block exploits in request headers such as malicious cookies 
 Header exploits in requests they might send such as SQL info to inject into sites highly useful for blocking SQLi and many other attack types
 ]]
 localized.WAF_Header_Request_table = {
---[[
+--[[]]
 	{
 		"^foo$", --match header name
 		".*", --matching any value
@@ -999,7 +999,7 @@ localized.WAF_Header_Request_table = {
 		"^cookie$", --Block a Cookie Exploit
 		".*SNaPjpCNuf9RYfAfiPQgklMGpOY.*",
 	},
-]]
+--[[]]
 }
 
 --[[
@@ -1016,7 +1016,7 @@ localized.WAF_query_string_Request_table = {
 		.php?=PHPE9568F35-D428-11d2-A769-00AA001ACF42
 		.php?=PHPE9568F36-D428-11d2-A769-00AA001ACF42
 	]]
-	--[[
+	--[[]]
 	{
 		"^.*$", --match any name
 		"^PHP.*$", --matching any value
@@ -1029,7 +1029,7 @@ localized.WAF_query_string_Request_table = {
 		"base64%_decode", --regex match name
 		"^.*$", --regex or exact match value
 	},
-	]]
+	--[[]]
 	--[[
 		File injection protection
 	]]
@@ -1828,6 +1828,54 @@ end
 Begin Required Functions
 ]]
 
+--I made this function because string find / match can be slow so i can speed it up for basic regex examples / matches
+--And it allows me to add more to the list easier rather than individually for each usage of string find / match
+local function faster_than_match(match) --tested via 100,000,000 times in a for loop super fast
+	--localized.ngx_log(localized.ngx_LOG_TYPE, " url to match : " .. localized.URL .. " - input :" .. match)
+	if match == ".*"
+	or match == "^.*$"
+	or match == "*."
+	or match == "."
+	or match == "*"
+	or match == ""
+	or match == " "
+	--[[
+	or match == localized.URL
+	or match == localized.URL .. "$"
+	or match == "^" .. localized.URL
+	or match == "^" .. localized.URL .. "$"
+	or match == localized.request_uri
+	or match == localized.request_uri .. "$"
+	or match == "^" .. localized.request_uri
+	or match == "^" .. localized.request_uri .. "$"
+	or match == localized.host
+	or match == localized.host .. "$"
+	or match == "^" .. localized.host
+	or match == "^" .. localized.host .. "$"
+	or match == localized.scheme .. "://" .. localized.host
+	or match == localized.scheme .. "://" .. localized.host .. "$"
+	or match == "^" .. localized.scheme .. "://" .. localized.host .. "$"
+	or match == "^" .. localized.scheme .. "://" .. localized.host
+	or match == localized.scheme .. "://" .. localized.host .. "/"
+	or match == localized.scheme .. "://" .. localized.host .. "/$"
+	or match == "^" .. localized.scheme .. "://" .. localized.host .. "/$"
+	or match == "^" .. localized.scheme .. "://" .. localized.host .. "/"
+	or match == localized.scheme .. "://" .. localized.host .. localized.request_uri
+	or match == localized.scheme .. "://" .. localized.host .. localized.request_uri .."$"
+	or match == "^" .. localized.scheme .. "://" .. localized.host .. localized.request_uri .. "$"
+	or match == "^" .. localized.scheme .. "://" .. localized.host .. localized.request_uri
+	]]
+	or match == nil then
+		return true
+	else
+		return false
+	end
+end
+--Example both do the same thing just mine is faster
+--localized.var = "hello world"
+--for i=1, 1e8 do if localized.string_match(localized.var, ".*") then end end--slow
+--for i=1, 1e8 do if faster_than_match(localized.var) then end end--fast
+
 localized.get_resp_content_type_counter = 0
 local function get_resp_content_type(forced) --incase content-type header not yet exists grab it
 	local resp_content_type = nil
@@ -1890,17 +1938,17 @@ end
 Start IP range function
 ]]
 local function ip_address_in_range(input_ip, client_connecting_ip)
-	if localized.string_match(input_ip, "/") then --input ip is a subnet
+	if localized.string_find(input_ip, "/") then --input ip is a subnet
 		--do nothing
 	else
 		return
 	end
 
 	local ip_type = nil
-	if localized.string_match(input_ip, "%:") and localized.string_match(client_connecting_ip, "%:") then --if both input and connecting ip are ipv6 addresses
+	if localized.string_find(input_ip, "%:") and localized.string_find(client_connecting_ip, "%:") then --if both input and connecting ip are ipv6 addresses
 		--ipv6
 		ip_type = 1
-	elseif localized.string_match(input_ip, "%.") and localized.string_match(client_connecting_ip, "%.") then --if both input and connecting ip are ipv4 addresses
+	elseif localized.string_find(input_ip, "%.") and localized.string_find(client_connecting_ip, "%.") then --if both input and connecting ip are ipv4 addresses
 		--ipv4
 		ip_type = 2
 	else
@@ -2585,7 +2633,7 @@ local function internal_header_setup()
 	if localized.anti_ddos_table ~= nil and #localized.anti_ddos_table > 0 then --do ip block checks before we bother generating headers
 		for i=1,#localized.anti_ddos_table do --for each host/path in our table
 			local v = localized.anti_ddos_table[i]
-			if localized.string_match(localized.URL, v[1]) then --if our host matches one in the table
+			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
 				--local request_limit = v[19] or nil --What ever memory space your server has set / defined for this to use
 				local blocked_addr = v[20] or nil
 				--local ddos_counter = v[21] or nil
@@ -2699,7 +2747,7 @@ local function blocked_address_check(log_message, jsval)
 	end
 	if localized.anti_ddos_table ~= nil and #localized.anti_ddos_table > 0 then
 		for i=1,#localized.anti_ddos_table do
-			if localized.string_match(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
+			if faster_than_match(localized.anti_ddos_table[i][1]) or localized.string_find(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
 				local rate_limit_window = localized.anti_ddos_table[i][8]
 				local block_duration = localized.anti_ddos_table[i][10]
 				local request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
@@ -2723,7 +2771,7 @@ local function blocked_address_check(log_message, jsval)
 						ip = localized.ngx_var_remote_addr
 					end
 				end
-				if localized.string_match(localized.string_lower(localized.host), ".onion") then
+				if localized.string_find(localized.string_lower(localized.host), ".onion") then
 					ip = localized.tor_remote_addr --set ip as what the user wants the tor IP to be
 					if localized.tor_remote_addr == "auto" then
 						ip = localized.ngx_var_remote_addr
@@ -2877,7 +2925,7 @@ local function anti_ddos()
 					local keep_alive = req_headers["keep-alive"]
 					if keep_alive then
 						if localized.type(keep_alive) ~= "table" then
-							if keep_alive and localized.string_match(keep_alive, "timeout%s*=%s*(%-?%d+)") then
+							if keep_alive and localized.string_find(keep_alive, "timeout%s*=%s*(%-?%d+)") then
 								local timeout = localized.tonumber(localized.string_match(keep_alive, "timeout%s*=%s*(%-?%d+)"))
 								if timeout and timeout > connection_header_timeout then --if they send header to try to keep connection alive for more than set time
 									if logging_value == 1 then
@@ -2886,7 +2934,7 @@ local function anti_ddos()
 									return true
 								end
 							end
-							if keep_alive and localized.string_match(keep_alive, "max%s*=%s*(%-?%d+)") then
+							if keep_alive and localized.string_find(keep_alive, "max%s*=%s*(%-?%d+)") then
 								local max_keepalive = localized.tonumber(localized.string_match(keep_alive, "max%s*=%s*(%-?%d+)"))
 								if max_keepalive and max_keepalive > connection_header_max_conns then --if they send header to set max connections to a ridiculous number
 									if logging_value == 1 then
@@ -2897,7 +2945,7 @@ local function anti_ddos()
 							end
 						else
 							for i=1, #keep_alive do
-								if keep_alive[i] and localized.string_match(keep_alive[i], "timeout%s*=%s*(%-?%d+)") then
+								if keep_alive[i] and localized.string_find(keep_alive[i], "timeout%s*=%s*(%-?%d+)") then
 									local timeout = localized.tonumber(localized.string_match(keep_alive[i], "timeout%s*=%s*(%-?%d+)"))
 									if timeout and timeout > connection_header_timeout then --if they send header to try to keep connection alive for more than set time
 										if logging_value == 1 then
@@ -2906,7 +2954,7 @@ local function anti_ddos()
 										return true
 									end
 								end
-								if keep_alive[i] and localized.string_match(keep_alive[i], "max%s*=%s*(%-?%d+)") then
+								if keep_alive[i] and localized.string_find(keep_alive[i], "max%s*=%s*(%-?%d+)") then
 									local max_keepalive = localized.tonumber(localized.string_match(keep_alive[i], "max%s*=%s*(%-?%d+)"))
 									if max_keepalive and max_keepalive > connection_header_max_conns then --if they send header to set max connections to a ridiculous number
 										if logging_value == 1 then
@@ -2925,7 +2973,7 @@ local function anti_ddos()
 						local keep_alive = req_headers["keep-alive"]
 						if keep_alive then
 							if localized.type(keep_alive) ~= "table" then
-								if keep_alive and localized.string_match(keep_alive, "timeout%s*=%s*(%-?%d+)") then
+								if keep_alive and localized.string_find(keep_alive, "timeout%s*=%s*(%-?%d+)") then
 									local timeout = localized.tonumber(localized.string_match(keep_alive, "timeout%s*=%s*(%-?%d+)"))
 									if timeout and timeout > connection_header_timeout then --if they send header to try to keep connection alive for more than set time
 										if logging_value == 1 then
@@ -2934,7 +2982,7 @@ local function anti_ddos()
 										return true
 									end
 								end
-								if keep_alive and localized.string_match(keep_alive, "max%s*=%s*(%-?%d+)") then
+								if keep_alive and localized.string_find(keep_alive, "max%s*=%s*(%-?%d+)") then
 									local max_keepalive = localized.tonumber(localized.string_match(keep_alive, "max%s*=%s*(%-?%d+)"))
 									if max_keepalive and max_keepalive > connection_header_max_conns then --if they send header to set max connections to a ridiculous number
 										if logging_value == 1 then
@@ -2945,7 +2993,7 @@ local function anti_ddos()
 								end
 							else
 								for i=1, #keep_alive do
-									if keep_alive[i] and localized.string_match(keep_alive[i], "timeout%s*=%s*(%-?%d+)") then
+									if keep_alive[i] and localized.string_find(keep_alive[i], "timeout%s*=%s*(%-?%d+)") then
 										local timeout = localized.tonumber(localized.string_match(keep_alive[i], "timeout%s*=%s*(%-?%d+)"))
 										if timeout and timeout > connection_header_timeout then --if they send header to try to keep connection alive for more than set time
 											if logging_value == 1 then
@@ -2954,7 +3002,7 @@ local function anti_ddos()
 											return true
 										end
 									end
-									if keep_alive[i] and localized.string_match(keep_alive[i], "max%s*=%s*(%-?%d+)") then
+									if keep_alive[i] and localized.string_find(keep_alive[i], "max%s*=%s*(%-?%d+)") then
 										local max_keepalive = localized.tonumber(localized.string_match(keep_alive[i], "max%s*=%s*(%-?%d+)"))
 										if max_keepalive and max_keepalive > connection_header_max_conns then --if they send header to set max connections to a ridiculous number
 											if logging_value == 1 then
@@ -2987,7 +3035,7 @@ local function anti_ddos()
 						local regex_c = "%s*(%-?%d+)%s*[^,]+" --single start segment comma seperated
 						local _, count = localized.string_gsub(range, ","," , ") --fix commas
 						local _ = localized.string_gsub(_, "%s+", "") --remove white space
-						if not localized.string_match(_, ",$") then --if does not end in comma
+						if not localized.string_find(_, ",$") then --if does not end in comma
 							_ = _ .. "," --insert comma
 						end
 						local _, count = localized.string_gsub(_, ","," , ") --recount now that range is fixed
@@ -2996,7 +3044,7 @@ local function anti_ddos()
 								for x=1,#range_table[i] do
 									if x == 1 then
 										if range_table[i][x] ~= "" then
-											if localized.string_match(localized.ngx_header["content-type"], range_table[i][x]) then
+											if localized.string_find(localized.ngx_header["content-type"], range_table[i][x]) then
 												if range_whitelist_blacklist == 0 then --0 blacklist 1 whitelist
 													if logging_value == 1 then
 														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Blacklist match " .. range_table[i][x] )
@@ -3083,7 +3131,7 @@ local function anti_ddos()
 									end
 									if x == 5 then
 										if range_table[i][x] ~= "" then
-											if not localized.string_match(_, range_table[i][x]) then --string match specified unit or block
+											if not localized.string_find(_, range_table[i][x]) then --string match specified unit or block
 												if logging_value == 1 then
 													localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Not using acceptable Unit type " .. range_table[i][x])
 												end
@@ -3432,7 +3480,7 @@ local function anti_ddos()
 							local regex_c = "%s*(%-?%d+)%s*[^,]+" --single start segment comma seperated
 							local _, count = localized.string_gsub(range[i], ","," , ") --fix commas
 							local _ = localized.string_gsub(_, "%s+", "") --remove white space
-							if not localized.string_match(_, ",$") then --if does not end in comma
+							if not localized.string_find(_, ",$") then --if does not end in comma
 								_ = _ .. "," --insert comma
 							end
 							local _, count = localized.string_gsub(_, ","," , ") --recount now that range is fixed
@@ -3441,7 +3489,7 @@ local function anti_ddos()
 									for x=1,#range_table[i] do
 										if x == 1 then
 											if range_table[i][x] ~= "" then
-												if localized.string_match(localized.ngx_header["content-type"], range_table[i][x]) then
+												if localized.string_find(localized.ngx_header["content-type"], range_table[i][x]) then
 													if range_whitelist_blacklist == 0 then --0 blacklist 1 whitelist
 														if logging_value == 1 then
 															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Blacklist match " .. range_table[i][x] )
@@ -3528,7 +3576,7 @@ local function anti_ddos()
 										end --end 4
 										if x == 5 then
 											if range_table[i][x] ~= "" then
-												if not localized.string_match(_, range_table[i][x]) then --string match specified unit or block
+												if not localized.string_find(_, range_table[i][x]) then --string match specified unit or block
 													if logging_value == 1 then
 														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Not using acceptable Unit type " .. range_table[i][x])
 													end
@@ -3930,7 +3978,7 @@ local function anti_ddos()
 	if localized.anti_ddos_table ~= nil and #localized.anti_ddos_table > 0 then
 		for i=1,#localized.anti_ddos_table do --for each host/path in our table
 			local v = localized.anti_ddos_table[i]
-			if localized.string_match(localized.URL, v[1]) then --if our host matches one in the table
+			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
 				if v[2] >= 1 then --limit keep alive ip
 					if localized.tonumber(localized.ngx_var_connection_requests) >= v[2] then
 						if v[7] == 1 then
@@ -4019,7 +4067,7 @@ local function anti_ddos()
 							ip = localized.ngx_var_remote_addr
 						end
 					end
-					if localized.string_match(localized.string_lower(localized.host), ".onion") then
+					if localized.string_find(localized.string_lower(localized.host), ".onion") then
 						v[23] = 0
 						v[24] = 0
 						ip = localized.tor_remote_addr --set ip as what the user wants the tor IP to be
@@ -4108,7 +4156,7 @@ local function anti_ddos()
 								local header_value = req_headers[localized.tostring(table_head_val)] or ""
 								if header_value then
 									if localized.type(header_value) ~= "table" then
-										if localized.string_match(localized.string_lower(header_value), localized.string_lower(v[25][i][2])) then
+										if localized.string_find(localized.string_lower(header_value), localized.string_lower(v[25][i][2])) then
 											if v[25][i][4] > 0 then --add to ban list
 												if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
 													if v[7] == 1 then
@@ -4123,7 +4171,7 @@ local function anti_ddos()
 										end
 									else
 										for i=1, #header_value do
-											if localized.string_match(localized.string_lower(header_value[i]), localized.string_lower(v[25][i][2])) then
+											if localized.string_find(localized.string_lower(header_value[i]), localized.string_lower(v[25][i][2])) then
 												if v[25][i][4] > 0 then --add to ban list
 													if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
 														if v[7] == 1 then
@@ -4200,7 +4248,7 @@ local function anti_ddos()
 							ip = localized.ngx_var_remote_addr
 						end
 					end
-					if localized.string_match(localized.string_lower(localized.host), ".onion") then
+					if localized.string_find(localized.string_lower(localized.host), ".onion") then
 						v[23] = 0
 						v[24] = 0
 						ip = localized.tor_remote_addr --set ip as what the user wants the tor IP to be
@@ -4229,7 +4277,7 @@ local function anti_ddos()
 								local header_value = req_headers[localized.tostring(table_head_val)] or ""
 								if header_value then
 									if localized.type(header_value) ~= "table" then
-										if localized.string_match(localized.string_lower(header_value), localized.string_lower(t[2])) then
+										if localized.string_find(localized.string_lower(header_value), localized.string_lower(t[2])) then
 											if v[7] == 1 then
 												localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked sending prohibited header : " .. localized.string_lower(header_value) .. " - " .. ip)
 											end
@@ -4238,7 +4286,7 @@ local function anti_ddos()
 										end
 									else
 										for i=1, #header_value do
-											if localized.string_match(localized.string_lower(header_value[i]), localized.string_lower(t[2])) then
+											if localized.string_find(localized.string_lower(header_value[i]), localized.string_lower(t[2])) then
 												if v[7] == 1 then
 													localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked sending prohibited header : " .. localized.string_lower(header_value[i]) .. " - " .. ip)
 												end
@@ -4316,7 +4364,7 @@ local function header_modification()
 	if localized.custom_headers ~= nil and #localized.custom_headers > 0 then
 		for i=1,#localized.custom_headers do --for each host in our table
 			local v = localized.custom_headers[i]
-			if localized.string_match(localized.URL, v[1]) then --if our host matches one in the table
+			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
 				for first=1,#v[2] do --for each arg in our table
 					local value1 = v[2][first][1]
 					local value2 = v[2][first][2]
@@ -4432,7 +4480,7 @@ local function header_append_ip()
 		for i=1,#localized.send_ip_to_backend_custom_headers do --for each host in our table
 			--local v = custom_headers[i]
 			local v = localized.send_ip_to_backend_custom_headers[i]
-			if localized.string_match(localized.URL, v[1]) then --if our host matches one in the table
+			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
 				for first=1,#v[2] do --for each arg in our table
 					local value1 = v[2][first][1]
 					if localized.ngx_var_http_internal ~= "1" and value1 ~= nil then
@@ -4470,7 +4518,7 @@ if localized.remote_addr == "tor" then
 		localized.tor_remote_addr = localized.ngx_var_remote_addr
 	end
 end
-if localized.string_match(localized.string_lower(localized.host), ".onion") then
+if localized.string_find(localized.string_lower(localized.host), ".onion") then
 	localized.remote_addr = localized.tor_remote_addr --set ip as what the user wants the tor IP to be
 	if localized.tor_remote_addr == "auto" then
 		localized.remote_addr = localized.ngx_var_remote_addr
@@ -4491,7 +4539,7 @@ local function query_string_remove_args()
 
 		for i=1,#localized.query_string_remove_args_table do --for each host in our table
 			local v = localized.query_string_remove_args_table[i]
-			if localized.string_match(localized.URL, v[1]) then --if our host matches one in the table
+			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
 				for i=1,#v[2] do --for each arg in our table
 					local value = v[2][i]
 					args[value] = nil --remove the arguement from the args table
@@ -4534,7 +4582,7 @@ local function query_string_expected_args_only()
 
 		for i=1,#localized.query_string_expected_args_only_table do --for each host in our table
 			local v = localized.query_string_expected_args_only_table[i]
-			if localized.string_match(localized.URL, v[1]) then --if our host matches one in the table
+			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
 				for key, value in localized.next, args do
 					if has_value(v[2], localized.tostring(key)) == false then
 						args[key] = nil --remove the arguement from the args table
@@ -4565,7 +4613,7 @@ local function query_string_sort()
 
 		for i=1,#localized.query_string_sort_table do --for each host in our table
 			local v = localized.query_string_sort_table[i]
-			if localized.string_match(localized.URL, v[1]) then --if our host matches one in the table
+			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
 				if v[2] == 1 then --run query string sort
 					allow_site = 2 --run query string sort
 				end
@@ -4615,10 +4663,10 @@ local function WAF_Post_Requests()
 					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
 					local args_name = localized.tostring(key) or "" --variable to store POST data argument name
 					local args_value = localized.tostring(value) or "" --variable to store POST data argument value
-					if localized.string_match(args_name, argument_name) then --if the argument name in my table matches the one in the POST request
+					if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the POST request
 						arguement1 = 1
 					end
-					if localized.string_match(args_value, argument_value) then --if the argument value in my table matches the one the POST request
+					if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the POST request
 						arguement2 = 1
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
@@ -4656,10 +4704,10 @@ local function WAF_Header_Requests()
 					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
 					local args_name = localized.tostring(key) or "" --variable to store Header data argument name
 					local args_value = localized.tostring(localized.ngx_req_get_headers()[args_name]) or ""
-					if localized.string_match(args_name, argument_name) then --if the argument name in my table matches the one in the request
+					if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
 						arguement1 = 1
 					end
-					if localized.string_match(args_value, argument_value) then --if the argument value in my table matches the one the request
+					if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
 						arguement2 = 1
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
@@ -4697,10 +4745,10 @@ local function WAF_query_string_Request()
 					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
 					local args_name = localized.tostring(key) or "" --variable to store query string data argument name
 					local args_value = localized.tostring(localized.ngx_req_get_uri_args()[args_name]) or "" --variable to store query string data argument value
-					if localized.string_match(args_name, argument_name) then --if the argument name in my table matches the one in the request
+					if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
 						arguement1 = 1
 					end
-					if localized.string_match(args_value, argument_value) then --if the argument value in my table matches the one the request
+					if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
 						arguement2 = 1
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
@@ -4732,8 +4780,8 @@ local function WAF_URI_Request()
 
 		for i=1,#localized.WAF_URI_Request_table do --for each host in our table
 			local v = localized.WAF_URI_Request_table[i]
-			if localized.string_match(localized.URL, v[1]) then --if our host matches one in the table
-				if localized.string_match(args, v[2]) then
+			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
+				if localized.string_find(args, v[2]) then
 					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request URI prohibited : " .. localized.URL .. " - IP : " .. localized.remote_addr)
 					return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 				end
@@ -4819,7 +4867,7 @@ local function check_user_agents()
 						if value[2] == 4 then --regex lower case insensative
 							user_agent_blacklist_var = localized.string_lower(user_agent_blacklist_var)
 						end
-						if localized.string_match(user_agent_blacklist_var, value[1])then
+						if faster_than_match(value[1]) or localized.string_find(user_agent_blacklist_var, value[1])then
 							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] User-Agent Blocked - " .. user_agent_blacklist_var .. " -" .. " IP : " .. localized.remote_addr)
 							return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 						end
@@ -4839,7 +4887,7 @@ local function check_user_agents()
 							if value[2] == 4 then --regex lower case insensative
 								user_agent_blacklist_var[x] = localized.string_lower(user_agent_blacklist_var[x])
 							end
-							if localized.string_match(user_agent_blacklist_var[x], value[1])then
+							if faster_than_match(value[1]) or localized.string_find(user_agent_blacklist_var[x], value[1])then
 								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] User-Agent Blocked - " .. user_agent_blacklist_var[x] .. " -" .. " IP : " .. localized.remote_addr)
 								return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 							end
@@ -4872,7 +4920,7 @@ local function check_user_agents()
 						if value[2] == 4 then --regex lower case insensative
 							user_agent_whitelist_var = localized.string_lower(user_agent_whitelist_var)
 						end
-						if localized.string_match(user_agent_whitelist_var, value[1])then
+						if faster_than_match(value[1]) or localized.string_find(user_agent_whitelist_var, value[1])then
 							return master_exit() --Go to content
 						end
 					end
@@ -4891,7 +4939,7 @@ local function check_user_agents()
 							if value[2] == 4 then --regex lower case insensative
 								user_agent_whitelist_var[x] = localized.string_lower(user_agent_whitelist_var[x])
 							end
-							if localized.string_match(user_agent_whitelist_var[x], value[1])then
+							if faster_than_match(value[1]) or localized.string_find(user_agent_whitelist_var[x], value[1])then
 								return master_exit() --Go to content
 							end
 						end
@@ -5284,7 +5332,7 @@ local function check_authorization(authorization, authorization_dynamic)
 		return
 	end
 
-	if localized.authorization ~= 0 and localized.string_match(localized.string_lower(localized.host), ".onion") then
+	if localized.authorization ~= 0 and localized.string_find(localized.string_lower(localized.host), ".onion") then
 		localized.authorization = 2
 		localized.remote_addr = localized.tor_remote_addr --set for compatibility with Tor Clients
 	end
@@ -5304,7 +5352,7 @@ local function check_authorization(authorization, authorization_dynamic)
 	if localized.authorization_paths ~= nil and #localized.authorization_paths > 0 then
 		for i=1,#localized.authorization_paths do --for each host in our table
 			local v = localized.authorization_paths[i]
-			if localized.string_match(localized.URL, v[2]) then --if our host matches one in the table
+			if faster_than_match(v[2]) or localized.string_find(localized.URL, v[2]) then --if our host matches one in the table
 				if v[1] == 1 then --Showbox
 					allow_site = 1 --showbox
 				end
@@ -5401,7 +5449,7 @@ local function check_master_switch()
 		if localized.master_switch_custom_hosts ~= nil and #localized.master_switch_custom_hosts > 0 then
 			for i=1,#localized.master_switch_custom_hosts do --for each host in our table
 				local v = localized.master_switch_custom_hosts[i]
-				if localized.string_match(localized.URL, v[2]) then --if our host matches one in the table
+				if faster_than_match(v[2]) or localized.string_find(localized.URL, v[2]) then --if our host matches one in the table
 					if v[1] == 1 then --run auth
 						allow_site = 2 --run auth checks
 					end
@@ -5920,14 +5968,14 @@ local function minification(content_type_list)
 		local regex_2 = "%s*(.*)%s*=%s*(.*)%s*"
 		local _ = localized.string_gsub(cookies, ";"," ; ") --fix semicolons
 		local _ = localized.string_gsub(_, "%s+", "") --remove white space
-		if not localized.string_match(_, ";$") then --if does not end in semicolon
+		if not localized.string_find(_, ";$") then --if does not end in semicolon
 			_ = _ .. ";" --insert semicolon
 		end
 		for each_cookie in localized.string_gmatch(_, regex_1) do
 			if each_cookie ~= nil then
 				for cookiename, cookievalue in localized.string_gmatch(each_cookie, regex_2) do
 					if cookiename ~= nil and cookievalue ~= nil then
-						if localized.string_match(cookiename, cookie_name ) and localized.string_match(cookievalue, cookie_value ) then
+						if localized.string_find(cookiename, cookie_name ) and localized.string_find(cookievalue, cookie_value ) then
 							--localized.ngx_log(localized.ngx_LOG_TYPE,"name is "..cookiename)
 							--localized.ngx_log(localized.ngx_LOG_TYPE,"value is "..cookievalue)
 							cookie_match = 1
@@ -5944,7 +5992,7 @@ local function minification(content_type_list)
 	end
 
 	for i=1,#content_type_list do
-		if localized.string_match(localized.URL, content_type_list[i][1]) then --if our host matches one in the table
+		if faster_than_match(content_type_list[i][1]) or localized.string_find(localized.URL, content_type_list[i][1]) then --if our host matches one in the table
 			if content_type_list[i][10] == 1 then
 				localized.ngx_header["X-Cache-Status"] = "MISS"
 			end
@@ -5989,7 +6037,7 @@ local function minification(content_type_list)
 			end
 			if content_type_list[i][9] ~= "" then
 				for a=1, #content_type_list[i][9] do
-					if localized.string_match(localized.request_uri, content_type_list[i][9][a] ) then
+					if faster_than_match(content_type_list[i][9][a]) or localized.string_find(localized.request_uri, content_type_list[i][9][a] ) then
 						request_uri_match = 1
 						break
 					end
@@ -6234,7 +6282,7 @@ local function minification(content_type_list)
 												for headerName, header in localized.next, res.headers do
 													--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
 													if localized.string_lower(localized.tostring(headerName)) == "content-type" then
-														if localized.string_match(header, content_type_list[i][2]) == nil then
+														if faster_than_match(content_type_list[i][2]) or localized.string_find(header, content_type_list[i][2]) == nil then
 															--goto end_for_loop
 															content_type_header_match = 1
 														end
@@ -6328,7 +6376,7 @@ local function minification(content_type_list)
 												for headerName, header in localized.next, res.header do
 													--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
 													if localized.string_lower(localized.tostring(headerName)) == "content-type" then
-														if localized.string_match(header, content_type_list[i][2]) == nil then
+														if faster_than_match(content_type_list[i][2]) or localized.string_find(header, content_type_list[i][2]) == nil then
 															--goto end_for_loop
 															content_type_header_match = 1
 														end
@@ -6408,7 +6456,7 @@ local function minification(content_type_list)
 
 					else --if content_type_cache == nil then
 
-						if content_type_cache and localized.string_match(content_type_cache, content_type_list[i][2]) then
+						if content_type_cache and localized.string_find(content_type_cache, content_type_list[i][2]) then
 							localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
 
 							if content_type_list[i][5] == 1 then
@@ -6468,7 +6516,7 @@ local function minification(content_type_list)
 											for headerName, header in localized.next, res.headers do
 												--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
 												if localized.string_lower(localized.tostring(headerName)) == "content-type" then
-													if localized.string_match(header, content_type_list[i][2]) == nil then
+													if faster_than_match(content_type_list[i][2]) or localized.string_find(header, content_type_list[i][2]) == nil then
 														--goto end_for_loop
 														content_type_header_match = 1
 													end
@@ -6546,7 +6594,7 @@ local function minification(content_type_list)
 											for headerName, header in localized.next, res.header do
 												--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
 												if localized.string_lower(localized.tostring(headerName)) == "content-type" then
-													if localized.string_match(header, content_type_list[i][2]) == nil then
+													if faster_than_match(content_type_list[i][2]) or localized.string_find(header, content_type_list[i][2]) == nil then
 														--goto end_for_loop
 														content_type_header_match = 1
 													end
