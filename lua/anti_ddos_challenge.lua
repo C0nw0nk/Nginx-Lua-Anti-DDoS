@@ -886,7 +886,7 @@ This will NOT use Javascript to authenticate users trying to access your site in
 1 = Enabled Browser Sessions (You will see the box again when you restart browser)
 2 = Enabled Cookie session (You won't see the box again until the localized.expire_time you set passes)
 ]]
-localized.authorization = 1
+localized.authorization = 0
 
 --[[
 authorization domains / file paths to protect / restrict access to
@@ -901,7 +901,7 @@ If we should show the client seeing the box what login they can use (Tor website
 1 = Display login details
 ]]
 localized.authorization_paths = {
-	--[[]]
+	--[[
 	{
 		1, --show auth box on this path
 		"localhost.*/ddos.*", --regex paths i recommend having the domain in there too
@@ -917,7 +917,7 @@ localized.authorization_paths = {
 		".com/admin.*", --regex paths i recommend having the domain in there too
 		0, --do NOT display username/password
 	},
-	--[[]]
+	]]
 	--[[
 	{ --Show on All sites and paths
 		1, --show auth box on this path
@@ -966,7 +966,7 @@ This feature allows you to intercept incomming client POST data read their POST 
 Highly usefull for protecting your web application and backends from attacks zero day exploits and hacking attempts from hackers and bots.
 ]]
 localized.WAF_POST_Request_table = {
---[[]]
+--[[
 	{
 		"^task$", --match post data in requests with value task
 		".*", --matching any
@@ -975,7 +975,7 @@ localized.WAF_POST_Request_table = {
 		"^name3$", --regex match
 		"^.*$", --regex or exact match
 	},
---[[]]
+]]
 }
 
 --[[
@@ -986,7 +986,7 @@ You can use this to block exploits in request headers such as malicious cookies 
 Header exploits in requests they might send such as SQL info to inject into sites highly useful for blocking SQLi and many other attack types
 ]]
 localized.WAF_Header_Request_table = {
---[[]]
+--[[
 	{
 		"^foo$", --match header name
 		".*", --matching any value
@@ -999,7 +999,7 @@ localized.WAF_Header_Request_table = {
 		"^cookie$", --Block a Cookie Exploit
 		".*SNaPjpCNuf9RYfAfiPQgklMGpOY.*",
 	},
---[[]]
+]]
 }
 
 --[[
@@ -1016,7 +1016,7 @@ localized.WAF_query_string_Request_table = {
 		.php?=PHPE9568F35-D428-11d2-A769-00AA001ACF42
 		.php?=PHPE9568F36-D428-11d2-A769-00AA001ACF42
 	]]
-	--[[]]
+	--[[
 	{
 		"^.*$", --match any name
 		"^PHP.*$", --matching any value
@@ -1029,7 +1029,7 @@ localized.WAF_query_string_Request_table = {
 		"base64%_decode", --regex match name
 		"^.*$", --regex or exact match value
 	},
-	--[[]]
+	]]
 	--[[
 		File injection protection
 	]]
