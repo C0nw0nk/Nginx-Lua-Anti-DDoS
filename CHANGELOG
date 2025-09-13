@@ -1,3 +1,10 @@
+Version: 2.2
+Date: 2025-09-13
+- String.find is faster than string match so use string.find where possible
+- Improve speed of wildcard matches by not using string.find or string.match and using a custom function
+- Performance improvement with logs
+- Make sure users set custom commands get run on blocks
+
 Version: 2.1
 Date: 2025-09-12
 - Fix for users seeing javascript authentication puzzle i forgot to null out a line when doing tests.
