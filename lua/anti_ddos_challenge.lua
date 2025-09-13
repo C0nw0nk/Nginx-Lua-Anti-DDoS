@@ -2649,7 +2649,7 @@ local function internal_header_setup()
 							--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
 						end
 						blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
-						localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+						--localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip --this can slow down nginx tested via 100,000,000 requests nulled out on the block pages
 						return localized.ngx_exit(rate_limit_exit_status)
 					end
 					--end real ip
@@ -2678,7 +2678,7 @@ local function internal_header_setup()
 							--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
 							end
 						blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
-						localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+						--localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip --this can slow down nginx tested via 100,000,000 requests nulled out on the block pages
 						return localized.ngx_exit(rate_limit_exit_status)
 					end
 				end
@@ -4118,7 +4118,7 @@ local function anti_ddos()
 								--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
 							end
 							blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
-							localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+							--localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip --this can slow down nginx tested via 100,000,000 requests nulled out on the block pages
 							if v[32] ~= nil and v[32] ~= "" then
 								if v[7] == 1 then
 									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. v[32])
