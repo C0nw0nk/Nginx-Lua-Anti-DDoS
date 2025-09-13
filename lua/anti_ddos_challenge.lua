@@ -2640,6 +2640,19 @@ local function internal_header_setup()
 				if blocked_addr ~= nil then
 					local block_duration = v[10]
 					local rate_limit_exit_status = v[11]
+					--start real ip block
+					local ip = localized.ngx_var_remote_addr
+					local blocked_time = blocked_addr:get(ip) --if for some reason their real ip is in the block list block them else fall back to other checks
+					if blocked_time then
+						if v[7] == 1 then
+							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL )
+							--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+						end
+						blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
+						localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+						return localized.ngx_exit(rate_limit_exit_status)
+					end
+					--end real ip
 					local ip = v[22]
 					if ip == "auto" then
 						if localized.ngx_var_http_cf_connecting_ip ~= nil then
@@ -2661,8 +2674,9 @@ local function internal_header_setup()
 					local blocked_time = blocked_addr:get(ip)
 					if blocked_time then
 						if v[7] == 1 then
-							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) )
-						end
+							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL )
+							--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+							end
 						blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
 						localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
 						return localized.ngx_exit(rate_limit_exit_status)
@@ -2800,6 +2814,12 @@ local function blocked_address_check(log_message, jsval)
 									if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
 										--Block IP
 										blocked_addr:set(ip, localized.currenttime, block_duration)
+										if localized.anti_ddos_table[i][32] ~= nil and localized.anti_ddos_table[i][32] ~= "" then
+											if localized.anti_ddos_table[i][7] == 1 then
+												localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. localized.anti_ddos_table[i][32])
+											end
+											os.execute(localized.anti_ddos_table[i][32]) --might be a better way than this with io.popen(localized.anti_ddos_table[i][32])
+										end
 										localized.blocked_address_check_count = localized.blocked_address_check_count+2
 									end
 									local incr = ddos_counter:get("blocked_ip") or nil
@@ -2819,6 +2839,12 @@ local function blocked_address_check(log_message, jsval)
 						if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
 							--Block IP
 							blocked_addr:set(ip, localized.currenttime, block_duration)
+							if localized.anti_ddos_table[i][32] ~= nil and localized.anti_ddos_table[i][32] ~= "" then
+								if localized.anti_ddos_table[i][7] == 1 then
+									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. localized.anti_ddos_table[i][32])
+								end
+								os.execute(localized.anti_ddos_table[i][32]) --might be a better way than this with io.popen(localized.anti_ddos_table[i][32])
+							end
 							localized.blocked_address_check_count = localized.blocked_address_check_count+2
 						end
 						local incr = ddos_counter:get("blocked_ip") or nil
@@ -4088,7 +4114,8 @@ local function anti_ddos()
 						local blocked_time = blocked_addr:get(ip)
 						if blocked_time then
 							if v[7] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) )
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL )
+								--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
 							end
 							blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
 							localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
@@ -4106,6 +4133,12 @@ local function anti_ddos()
 							if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
 								--Block IP
 								blocked_addr:set(ip, localized.currenttime, block_duration)
+								if v[32] ~= nil and v[32] ~= "" then
+									if v[7] == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. v[32])
+									end
+									os.execute(v[32]) --might be a better way than this with io.popen(v[32])
+								end
 								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
 								return localized.ngx_exit(rate_limit_exit_status)
 							end
@@ -4115,6 +4148,12 @@ local function anti_ddos()
 							if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
 								--Block IP
 								blocked_addr:set(ip, localized.currenttime, block_duration)
+								if v[32] ~= nil and v[32] ~= "" then
+									if v[7] == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. v[32])
+									end
+									os.execute(v[32]) --might be a better way than this with io.popen(v[32])
+								end
 							end
 							if v[7] == 1 then
 								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
