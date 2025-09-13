@@ -353,6 +353,10 @@ localized.anti_ddos_table = {
 		--Default is nil or "" to not do anything
 		nil,
 
+		--Protection from excessive log writes when under attack
+		--This depends on the value in your Automatic I am Under Attack Mode setting by default its 100 ips if more than that logging stops i suggest leave at default
+		1, --0 will continue to log 1 disable writting to log file when under attack to prevent disk I/O usage denial of service
+
 	},
 }
 
@@ -2636,17 +2640,30 @@ local function internal_header_setup()
 			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
 				--local request_limit = v[19] or nil --What ever memory space your server has set / defined for this to use
 				local blocked_addr = v[20] or nil
-				--local ddos_counter = v[21] or nil
-				if blocked_addr ~= nil then
+				local ddos_counter = v[21] or nil
+				if blocked_addr ~= nil and ddos_counter ~= nil then
 					local block_duration = v[10]
 					local rate_limit_exit_status = v[11]
+
+					local total_requests = ddos_counter:get("blocked_ip") or 0
+					if v[33] == 1 then
+						if total_requests > v[24] then --Automatically enable I am Under Attack Mode so disable logging
+							v[7] = 0 --disable logging to prevent denil of service from excessive log file writes using up disk I/O
+						end
+					end
+
 					--start real ip block
 					local ip = localized.ngx_var_remote_addr
 					local blocked_time = blocked_addr:get(ip) --if for some reason their real ip is in the block list block them else fall back to other checks
 					if blocked_time then
 						if v[7] == 1 then
-							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL )
-							--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+							if v[23] == 1 then
+								local total_requests = ddos_counter:get("blocked_ip") or 0
+								if total_requests < v[24] then --Less than required amount to trigger Automatically enable I am Under Attack Mode so enable logging
+									--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL )
+									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+								end
+							end
 						end
 						blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
 						--localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip --this can slow down nginx tested via 100,000,000 requests nulled out on the block pages
@@ -2674,9 +2691,14 @@ local function internal_header_setup()
 					local blocked_time = blocked_addr:get(ip)
 					if blocked_time then
 						if v[7] == 1 then
-							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL )
-							--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+							if v[23] == 1 then
+								local total_requests = ddos_counter:get("blocked_ip") or 0
+								if total_requests < v[24] then --Less than required amount to trigger Automatically enable I am Under Attack Mode so enable logging
+									--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL )
+									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+								end
 							end
+						end
 						blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
 						--localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip --this can slow down nginx tested via 100,000,000 requests nulled out on the block pages
 						return localized.ngx_exit(rate_limit_exit_status)
@@ -2824,10 +2846,10 @@ local function blocked_address_check(log_message, jsval)
 									end
 									local incr = ddos_counter:get("blocked_ip") or nil
 									if incr == nil then
-										ddos_counter:set("blocked_ip", 1, rate_limit_window)
+										ddos_counter:set("blocked_ip", 1, block_duration)
 									else
 										local incr = ddos_counter:get("blocked_ip")
-										ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
+										ddos_counter:set("blocked_ip", incr+1, block_duration)
 									end
 									if localized.anti_ddos_table[i][7] == 1 then
 										localized.ngx_log(localized.ngx_LOG_TYPE, log_message .. count .. " - " .. ip)
@@ -2849,10 +2871,10 @@ local function blocked_address_check(log_message, jsval)
 						end
 						local incr = ddos_counter:get("blocked_ip") or nil
 						if incr == nil then
-							ddos_counter:set("blocked_ip", 1, rate_limit_window)
+							ddos_counter:set("blocked_ip", 1, block_duration)
 						else
 							local incr = ddos_counter:get("blocked_ip")
-							ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
+							ddos_counter:set("blocked_ip", incr+1, block_duration)
 						end
 						if localized.anti_ddos_table[i][7] == 1 then
 							localized.ngx_log(localized.ngx_LOG_TYPE, log_message .. ip)
@@ -2868,9 +2890,9 @@ end
 
 --Anti DDoS function
 local function anti_ddos()
-	local pcall = pcall
-	local require = require
-	local shdict = pcall(require, "resty.core.shdict") --check if resty core shdict function exists will be true or false
+	--local pcall = pcall
+	--local require = require
+	--local shdict = pcall(require, "resty.core.shdict") --check if resty core shdict function exists will be true or false
 
 	--Slowhttp / Slowloris attack detection
 	local function check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table, logging_value)
@@ -3950,15 +3972,15 @@ local function anti_ddos()
 		local key = "r" .. ip --set identifyer as r and ip for to not use up to much memory
 		local count, err = "" --create locals to use
 
-		if shdict then --backwards compatibility for lua
-			count, err = request_limit:incr(key, 1, 0, rate_limit_window)
-			if not count then
-				if logging == 1 then
-					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Rate limit error: " .. err)
-				end
-				return false
-			end
-		else --older lua version
+		--if shdict then --backwards compatibility for lua
+			--count, err = request_limit:incr(key, 1, 0, rate_limit_window)
+			--if not count then
+				--if logging == 1 then
+					--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Rate limit error: " .. err)
+				--end
+				--return false
+			--end
+		--else --older lua version
 
 			count = request_limit:get(key) or nil
 			if count == nil then
@@ -3969,7 +3991,7 @@ local function anti_ddos()
 				request_limit:set(key, count+1, rate_limit_window)
 				count = request_limit:get(key)
 			end
-		end
+		--end
 
 		--Rate limit check
 		if count > rate_limit_requests then
@@ -3977,23 +3999,23 @@ local function anti_ddos()
 				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Rate limit exceeded by IP: " .. ip .. " (Max requests = " .. rate_limit_requests.. " client has made (" .. count .. " requests)")
 			end
 
-			if shdict then --backwards compatibility for lua
-				local incr, err = ddos_counter:incr("blocked_ip", 1, 0, rate_limit_window)
-				if not incr then
-					if logging == 1 then
-						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] TOTAL IN SHARED error: " .. err)
-					end
-				end
-			else --older lua version
+			--if shdict then --backwards compatibility for lua
+				--local incr, err = ddos_counter:incr("blocked_ip", 1, 0, block_duration)
+				--if not incr then
+					--if logging == 1 then
+						--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] TOTAL IN SHARED error: " .. err)
+					--end
+				--end
+			--else --older lua version
 			
 				local incr = ddos_counter:get("blocked_ip") or nil
 				if incr == nil then
-					ddos_counter:set("blocked_ip", 1, rate_limit_window)
+					ddos_counter:set("blocked_ip", 1, block_duration)
 				else
 					local incr = ddos_counter:get("blocked_ip")
-					ddos_counter:set("blocked_ip", incr+1, rate_limit_window)
+					ddos_counter:set("blocked_ip", incr+1, block_duration)
 				end
-			end
+			--end
 
 			return true
 		end
@@ -4005,31 +4027,6 @@ local function anti_ddos()
 		for i=1,#localized.anti_ddos_table do --for each host/path in our table
 			local v = localized.anti_ddos_table[i]
 			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
-				if v[2] >= 1 then --limit keep alive ip
-					if localized.tonumber(localized.ngx_var_connection_requests) >= v[2] then
-						if v[7] == 1 then
-							localized.ngx_log(localized.ngx_LOG_TYPE,"[Anti-DDoS] Exceeded Number of keepalive conns from IP " .. localized.ngx_var_connection_requests )
-						end
-						localized.ngx_exit(v[3])
-					end
-				end
-				if v[4] >= 1 then --limit request size smaller than
-					if localized.tonumber(localized.ngx_var_request_length) <= v[4] then --1000 bytes = 1kb
-						if v[7] == 1 then
-							localized.ngx_log(localized.ngx_LOG_TYPE,"[Anti-DDoS] Request Smaller than allowed LENGTH in bytes " .. localized.ngx_var_request_length )
-						end
-						localized.ngx_exit(v[6])
-					end
-				end
-				if v[5] >= 1 then --limit request size greater than
-					if localized.tonumber(localized.ngx_var_request_length) >= v[5] then --1000 bytes = 1kb
-						if v[7] == 1 then
-							localized.ngx_log(localized.ngx_LOG_TYPE,"[Anti-DDoS] Request Larger than allowed LENGTH in bytes " .. localized.ngx_var_request_length )
-						end
-						localized.ngx_exit(v[6])
-					end
-				end
-
 				local request_limit = v[19] or nil --What ever memory space your server has set / defined for this to use
 				local blocked_addr = v[20] or nil
 				local ddos_counter = v[21] or nil
@@ -4047,6 +4044,38 @@ local function anti_ddos()
 					local range_whitelist_blacklist = v[17]
 					local range_table = v[18]
 					local ip = v[22]
+
+					local total_requests = ddos_counter:get("blocked_ip") or 0
+					if v[33] == 1 then
+						if total_requests > v[24] then --Automatically enable I am Under Attack Mode so disable logging
+							v[7] = 0 --disable logging to prevent denil of service from excessive log file writes using up disk I/O
+						end
+					end
+
+					if v[2] >= 1 then --limit keep alive ip
+						if localized.tonumber(localized.ngx_var_connection_requests) >= v[2] then
+							if v[7] == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE,"[Anti-DDoS] Exceeded Number of keepalive conns from IP " .. localized.ngx_var_connection_requests )
+							end
+							localized.ngx_exit(v[3])
+						end
+					end
+					if v[4] >= 1 then --limit request size smaller than
+						if localized.tonumber(localized.ngx_var_request_length) <= v[4] then --1000 bytes = 1kb
+							if v[7] == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE,"[Anti-DDoS] Request Smaller than allowed LENGTH in bytes " .. localized.ngx_var_request_length )
+							end
+							localized.ngx_exit(v[6])
+						end
+					end
+					if v[5] >= 1 then --limit request size greater than
+						if localized.tonumber(localized.ngx_var_request_length) >= v[5] then --1000 bytes = 1kb
+							if v[7] == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE,"[Anti-DDoS] Request Larger than allowed LENGTH in bytes " .. localized.ngx_var_request_length )
+							end
+							localized.ngx_exit(v[6])
+						end
+					end
 
 					if ip == "auto" then
 						--localized.ngx_log(localized.ngx_LOG_TYPE, "Proxy IP found in whitelist - " .. localized.tostring(proxy_header_ip_check(localized.proxy_header_table)) .. " http_internal = " .. localized.tostring(localized.ngx_var_http_internal)  )
@@ -4114,8 +4143,13 @@ local function anti_ddos()
 						local blocked_time = blocked_addr:get(ip)
 						if blocked_time then
 							if v[7] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL )
-								--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+								if v[23] == 1 then
+									local total_requests = ddos_counter:get("blocked_ip") or 0
+									if total_requests < v[24] then --Less than required amount to trigger Automatically enable I am Under Attack Mode so enable logging
+										--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL )
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+									end
+								end
 							end
 							blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
 							--localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip --this can slow down nginx tested via 100,000,000 requests nulled out on the block pages
@@ -4175,7 +4209,7 @@ local function anti_ddos()
 						local total_requests = ddos_counter:get("blocked_ip") or 0
 						if total_requests >= v[24] then --Automatically enable I am Under Attack Mode
 							if v[7] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Total number of IP's in block list : " .. total_requests)
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (I am Under Attack Mode is ON) Total number of IP's in block list : " .. total_requests)
 							end
 							--Automatic Detection of DDoS
 							--Disable GZIP to prevent GZIP memory bomb and CPU consumption attacks.
@@ -4268,6 +4302,31 @@ local function anti_ddos()
 					local range_whitelist_blacklist = v[17]
 					local range_table = v[18]
 					local ip = v[22]
+
+					if v[2] >= 1 then --limit keep alive ip
+						if localized.tonumber(localized.ngx_var_connection_requests) >= v[2] then
+							if v[7] == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE,"[Anti-DDoS] Exceeded Number of keepalive conns from IP " .. localized.ngx_var_connection_requests )
+							end
+							localized.ngx_exit(v[3])
+						end
+					end
+					if v[4] >= 1 then --limit request size smaller than
+						if localized.tonumber(localized.ngx_var_request_length) <= v[4] then --1000 bytes = 1kb
+							if v[7] == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE,"[Anti-DDoS] Request Smaller than allowed LENGTH in bytes " .. localized.ngx_var_request_length )
+							end
+							localized.ngx_exit(v[6])
+						end
+					end
+					if v[5] >= 1 then --limit request size greater than
+						if localized.tonumber(localized.ngx_var_request_length) >= v[5] then --1000 bytes = 1kb
+							if v[7] == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE,"[Anti-DDoS] Request Larger than allowed LENGTH in bytes " .. localized.ngx_var_request_length )
+							end
+							localized.ngx_exit(v[6])
+						end
+					end
 
 					if ip == "auto" then
 						--localized.ngx_log(localized.ngx_LOG_TYPE, "Proxy IP found in whitelist - " .. localized.tostring(proxy_header_ip_check(localized.proxy_header_table)) .. " http_internal = " .. localized.tostring(localized.ngx_var_http_internal)  )
