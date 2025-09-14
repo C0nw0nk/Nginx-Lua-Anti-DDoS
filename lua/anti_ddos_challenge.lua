@@ -37,7 +37,6 @@ localized.tonumber = tonumber
 localized.tostring = tostring
 localized.next = next
 localized.type = type
-localized.os_time = os.time
 localized.os_date = os.date
 localized.math_random = math.random
 localized.math_floor = math.floor
@@ -140,7 +139,6 @@ localized.ngx_var_http_user_agent = localized.ngx_var.http_user_agent
 localized.ngx_log = localized.ngx.log
 -- https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#nginx-log-level-constants
 localized.ngx_LOG_TYPE = localized.ngx.STDERR
-localized.os_time_saved = localized.os_time()-24*60*60
 localized.ngx_var_connection_requests = localized.ngx_var.connection_requests or 0 --default timeout per connection in nginx is 60 seconds unless you have changed your timeout configs
 localized.ngx_var_request_length = localized.ngx_var.request_length or 0
 localized.scheme = localized.ngx_var.scheme --scheme is HTTP or HTTPS
@@ -149,6 +147,7 @@ localized.request_uri = localized.ngx_var.request_uri or "/" --request uri is fu
 localized.URL = localized.scheme .. "://" .. localized.host .. localized.request_uri
 localized.user_agent = localized.ngx_var_http_user_agent or "" --user agent of browser
 localized.currenttime = localized.ngx_time() --Current time on server
+localized.os_time_saved = localized.currenttime-24*60*60
 --localized.os_clock = os.clock() --nulled out dev func to test speed
 --[[
 End localization
@@ -1823,11 +1822,6 @@ This is where things get very complex. ;)
 --localized.host = "localhost.onion"
 --localized.URL = localized.scheme .. "://" .. localized.host .. localized.request_uri
 
-if localized.secret == " enigma" then --if its still default and unchanged by user
-	localized.secret = localized.secret .. localized.os_date("%W",localized.os_time_saved) --make more dynamic than default hopefully nobody does try to use default in production
-	--you dont want this to change to frequently every time you change your secret key you will see users on a javascript puzzle page will need to pass auth again
-end
-
 --[[
 Begin Required Functions
 ]]
@@ -2658,7 +2652,6 @@ local function internal_header_setup()
 					if blocked_time then
 						if v[7] == 1 then
 							if v[23] == 1 then
-								local total_requests = ddos_counter:get("blocked_ip") or 0
 								if total_requests < v[24] then --Less than required amount to trigger Automatically enable I am Under Attack Mode so enable logging
 									--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL )
 									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
@@ -2692,7 +2685,6 @@ local function internal_header_setup()
 					if blocked_time then
 						if v[7] == 1 then
 							if v[23] == 1 then
-								local total_requests = ddos_counter:get("blocked_ip") or 0
 								if total_requests < v[24] then --Less than required amount to trigger Automatically enable I am Under Attack Mode so enable logging
 									--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL )
 									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
@@ -2707,6 +2699,10 @@ local function internal_header_setup()
 				break
 			end
 		end
+	end
+	if localized.secret == " enigma" then --if its still default and unchanged by user
+		localized.secret = localized.secret .. localized.os_date("%W",localized.os_time_saved) --make more dynamic than default hopefully nobody does try to use default in production
+		--you dont want this to change to frequently every time you change your secret key you will see users on a javascript puzzle page will need to pass auth again
 	end
 	--openresty have a simple version of this https://github.com/openresty/lua-nginx-module?tab=readme-ov-file#ngxreqis_internal but for old versions of nginx with lua i created this so backwards compatibility
 	if localized.proxy_header_table ~= nil and #localized.proxy_header_table > 0 then --only set internal headers when proxy header checks are in use
@@ -4132,7 +4128,7 @@ local function anti_ddos()
 					end
 
 					--[[ --dev test to show to log file each users request count
-					local incr = ddos_counter:get("blocked_ip") or nil
+					local incr = ddos_counter:get("blocked_ip") or 0
 					if incr ~= nil then
 						local incr = ddos_counter:get("blocked_ip")
 						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Total number of IP's in block list : " .. incr)
@@ -4144,7 +4140,6 @@ local function anti_ddos()
 						if blocked_time then
 							if v[7] == 1 then
 								if v[23] == 1 then
-									local total_requests = ddos_counter:get("blocked_ip") or 0
 									if total_requests < v[24] then --Less than required amount to trigger Automatically enable I am Under Attack Mode so enable logging
 										--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL )
 										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
@@ -4206,7 +4201,6 @@ local function anti_ddos()
 					end
 
 					if v[23] == 1 then
-						local total_requests = ddos_counter:get("blocked_ip") or 0
 						if total_requests >= v[24] then --Automatically enable I am Under Attack Mode
 							if v[7] == 1 then
 								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (I am Under Attack Mode is ON) Total number of IP's in block list : " .. total_requests)
@@ -4287,7 +4281,6 @@ local function anti_ddos()
 					end
 
 					if v[28] > 0 then --dsiable compression when banlist has more than certain number of ips automated protection
-						local total_requests = ddos_counter:get("blocked_ip") or 0
 						if total_requests >= v[24] then --Automatically enable I am Under Attack Mode
 							localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
 						end
@@ -4428,7 +4421,7 @@ anti_ddos()
 local function getRandomSeed()
 	local collectgarbage = collectgarbage
 	local a = collectgarbage("count")
-	local b = localized.os_time()
+	local b = localized.currenttime
 	local c = localized.tostring(a) .. localized.tostring(b)
 	local d = (localized.math_pi * b + localized.math_sqrt(a + 1)) % 4294967296
 	c = c .. localized.tostring(d)
@@ -6331,6 +6324,17 @@ local function minification(content_type_list)
 
 				local req_headers = localized.ngx_req_get_headers() --get all request headers
 
+				localized.cached_restyhttp = nil
+				local function check_resty_http()
+					if localized.cached_restyhttp ~= nil then
+						return localized.cached_restyhttp
+					end
+					local pcall = pcall
+					local require = require
+					localized.cached_restyhttp = pcall(require, "resty.http") --check if resty http library exists will be true or false
+					return localized.cached_restyhttp
+				end
+
 				local cached = content_type_list[i][3] or ""
 				if cached ~= "" then
 					local ttl = content_type_list[i][4] or ""
@@ -6360,10 +6364,7 @@ local function minification(content_type_list)
 					if content_type_cache == nil then
 						if #content_type_list[i][6] > 0 then
 
-							local pcall = pcall
-							local require = require
-							local restyhttp = pcall(require, "resty.http") --check if resty http library exists will be true or false
-							if restyhttp and content_type_list[i][13] then
+							if content_type_list[i][13] and check_resty_http() then
 								local httpc = require("resty.http").new()
 								local res = httpc:request_uri(content_type_list[i][12], {
 									method = map[localized.ngx_var.request_method],
@@ -6594,10 +6595,7 @@ local function minification(content_type_list)
 				else --shared mem zone not specified
 					if #content_type_list[i][6] > 0 then
 						--[[]]
-						local pcall = pcall
-						local require = require
-						local restyhttp = pcall(require, "resty.http") --check if resty http library exists will be true or false
-						if restyhttp and content_type_list[i][13] then
+						if content_type_list[i][13] and check_resty_http() then
 							local httpc = require("resty.http").new()
 							local res = httpc:request_uri(content_type_list[i][12], {
 								method = map[localized.ngx_var.request_method],
