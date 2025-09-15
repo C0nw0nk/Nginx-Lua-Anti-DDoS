@@ -2632,14 +2632,20 @@ local function internal_header_setup()
 		for i=1,#localized.anti_ddos_table do --for each host/path in our table
 			local v = localized.anti_ddos_table[i]
 			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
-				--local request_limit = v[19] or nil --What ever memory space your server has set / defined for this to use
-				local blocked_addr = v[20] or nil
-				local ddos_counter = v[21] or nil
-				if blocked_addr ~= nil and ddos_counter ~= nil then
+				--if localized.request_limit == nil then
+					--localized.request_limit = v[19] or nil --What ever memory space your server has set / defined for this to use
+				--end
+				if localized.blocked_addr == nil then
+					localized.blocked_addr = v[20] or nil
+				end
+				if localized.ddos_counter == nil then
+					localized.ddos_counter = v[21] or nil
+				end
+				if localized.blocked_addr ~= nil and localized.ddos_counter ~= nil then
 					local block_duration = v[10]
 					local rate_limit_exit_status = v[11]
 
-					local total_requests = ddos_counter:get("blocked_ip") or 0
+					local total_requests = localized.ddos_counter:get("blocked_ip") or 0
 					if v[33] == 1 then
 						if total_requests > v[24] then --Automatically enable I am Under Attack Mode so disable logging
 							v[7] = 0 --disable logging to prevent denil of service from excessive log file writes using up disk I/O
@@ -2648,7 +2654,7 @@ local function internal_header_setup()
 
 					--start real ip block
 					local ip = localized.ngx_var_remote_addr
-					local blocked_time = blocked_addr:get(ip) --if for some reason their real ip is in the block list block them else fall back to other checks
+					local blocked_time = localized.blocked_addr:get(ip) --if for some reason their real ip is in the block list block them else fall back to other checks
 					if blocked_time then
 						if v[7] == 1 then
 							if v[23] == 1 then
@@ -2658,7 +2664,7 @@ local function internal_header_setup()
 								end
 							end
 						end
-						blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
+						localized.blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
 						--localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip --this can slow down nginx tested via 100,000,000 requests nulled out on the block pages
 						return localized.ngx_exit(rate_limit_exit_status)
 					end
@@ -2681,7 +2687,7 @@ local function internal_header_setup()
 							ip = localized.ngx_var_remote_addr
 						end
 					end
-					local blocked_time = blocked_addr:get(ip)
+					local blocked_time = localized.blocked_addr:get(ip)
 					if blocked_time then
 						if v[7] == 1 then
 							if v[23] == 1 then
@@ -2691,7 +2697,7 @@ local function internal_header_setup()
 								end
 							end
 						end
-						blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
+						localized.blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
 						--localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip --this can slow down nginx tested via 100,000,000 requests nulled out on the block pages
 						return localized.ngx_exit(rate_limit_exit_status)
 					end
@@ -2782,9 +2788,15 @@ local function blocked_address_check(log_message, jsval)
 			if faster_than_match(localized.anti_ddos_table[i][1]) or localized.string_find(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
 				local rate_limit_window = localized.anti_ddos_table[i][8]
 				local block_duration = localized.anti_ddos_table[i][10]
-				local request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
-				local blocked_addr = localized.anti_ddos_table[i][20] or nil
-				local ddos_counter = localized.anti_ddos_table[i][21] or nil
+				if localized.request_limit == nil then
+					localized.request_limit = localized.anti_ddos_table[i][19] or nil --What ever memory space your server has set / defined for this to use
+				end
+				if localized.blocked_addr == nil then
+					localized.blocked_addr = localized.anti_ddos_table[i][20] or nil
+				end
+				if localized.ddos_counter == nil then
+					localized.ddos_counter = localized.anti_ddos_table[i][21] or nil
+				end
 				local ip = localized.anti_ddos_table[i][22]
 				if ip == "auto" then
 					if localized.ngx_var_http_cf_connecting_ip ~= nil then
@@ -2809,7 +2821,7 @@ local function blocked_address_check(log_message, jsval)
 						ip = localized.ngx_var_remote_addr
 					end
 				end
-				if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
+				if localized.request_limit ~= nil and localized.blocked_addr ~= nil and localized.ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
 					if jsval ~= nil then
 						local jspuzzle_memory_zone = localized.anti_ddos_table[i][29]
 						local jspuzzle_rate_limit_window = localized.anti_ddos_table[i][30]
@@ -2831,7 +2843,7 @@ local function blocked_address_check(log_message, jsval)
 								if count > jspuzzle_request_limit then
 									if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
 										--Block IP
-										blocked_addr:set(ip, localized.currenttime, block_duration)
+										localized.blocked_addr:set(ip, localized.currenttime, block_duration)
 										if localized.anti_ddos_table[i][32] ~= nil and localized.anti_ddos_table[i][32] ~= "" then
 											if localized.anti_ddos_table[i][7] == 1 then
 												localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. localized.anti_ddos_table[i][32])
@@ -2840,12 +2852,12 @@ local function blocked_address_check(log_message, jsval)
 										end
 										localized.blocked_address_check_count = localized.blocked_address_check_count+2
 									end
-									local incr = ddos_counter:get("blocked_ip") or nil
+									local incr = localized.ddos_counter:get("blocked_ip") or nil
 									if incr == nil then
-										ddos_counter:set("blocked_ip", 1, block_duration)
+										localized.ddos_counter:set("blocked_ip", 1, block_duration)
 									else
-										local incr = ddos_counter:get("blocked_ip")
-										ddos_counter:set("blocked_ip", incr+1, block_duration)
+										local incr = localized.ddos_counter:get("blocked_ip")
+										localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
 									end
 									if localized.anti_ddos_table[i][7] == 1 then
 										localized.ngx_log(localized.ngx_LOG_TYPE, log_message .. count .. " - " .. ip)
@@ -2856,7 +2868,7 @@ local function blocked_address_check(log_message, jsval)
 					else
 						if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
 							--Block IP
-							blocked_addr:set(ip, localized.currenttime, block_duration)
+							localized.blocked_addr:set(ip, localized.currenttime, block_duration)
 							if localized.anti_ddos_table[i][32] ~= nil and localized.anti_ddos_table[i][32] ~= "" then
 								if localized.anti_ddos_table[i][7] == 1 then
 									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. localized.anti_ddos_table[i][32])
@@ -2865,12 +2877,12 @@ local function blocked_address_check(log_message, jsval)
 							end
 							localized.blocked_address_check_count = localized.blocked_address_check_count+2
 						end
-						local incr = ddos_counter:get("blocked_ip") or nil
+						local incr = localized.ddos_counter:get("blocked_ip") or nil
 						if incr == nil then
-							ddos_counter:set("blocked_ip", 1, block_duration)
+							localized.ddos_counter:set("blocked_ip", 1, block_duration)
 						else
-							local incr = ddos_counter:get("blocked_ip")
-							ddos_counter:set("blocked_ip", incr+1, block_duration)
+							local incr = localized.ddos_counter:get("blocked_ip")
+							localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
 						end
 						if localized.anti_ddos_table[i][7] == 1 then
 							localized.ngx_log(localized.ngx_LOG_TYPE, log_message .. ip)
@@ -3969,7 +3981,7 @@ local function anti_ddos()
 		local count, err = "" --create locals to use
 
 		--if shdict then --backwards compatibility for lua
-			--count, err = request_limit:incr(key, 1, 0, rate_limit_window)
+			--count, err = localized.request_limit:incr(key, 1, 0, rate_limit_window)
 			--if not count then
 				--if logging == 1 then
 					--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Rate limit error: " .. err)
@@ -3978,14 +3990,14 @@ local function anti_ddos()
 			--end
 		--else --older lua version
 
-			count = request_limit:get(key) or nil
+			count = localized.request_limit:get(key) or nil
 			if count == nil then
-				request_limit:set(key, 1, rate_limit_window)
+				localized.request_limit:set(key, 1, rate_limit_window)
 				return false
 			else
-				count = request_limit:get(key)
-				request_limit:set(key, count+1, rate_limit_window)
-				count = request_limit:get(key)
+				count = localized.request_limit:get(key)
+				localized.request_limit:set(key, count+1, rate_limit_window)
+				count = localized.request_limit:get(key)
 			end
 		--end
 
@@ -3996,7 +4008,7 @@ local function anti_ddos()
 			end
 
 			--if shdict then --backwards compatibility for lua
-				--local incr, err = ddos_counter:incr("blocked_ip", 1, 0, block_duration)
+				--local incr, err = localized.ddos_counter:incr("blocked_ip", 1, 0, block_duration)
 				--if not incr then
 					--if logging == 1 then
 						--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] TOTAL IN SHARED error: " .. err)
@@ -4004,12 +4016,12 @@ local function anti_ddos()
 				--end
 			--else --older lua version
 			
-				local incr = ddos_counter:get("blocked_ip") or nil
+				local incr = localized.ddos_counter:get("blocked_ip") or nil
 				if incr == nil then
-					ddos_counter:set("blocked_ip", 1, block_duration)
+					localized.ddos_counter:set("blocked_ip", 1, block_duration)
 				else
-					local incr = ddos_counter:get("blocked_ip")
-					ddos_counter:set("blocked_ip", incr+1, block_duration)
+					local incr = localized.ddos_counter:get("blocked_ip")
+					localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
 				end
 			--end
 
@@ -4023,11 +4035,17 @@ local function anti_ddos()
 		for i=1,#localized.anti_ddos_table do --for each host/path in our table
 			local v = localized.anti_ddos_table[i]
 			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
-				local request_limit = v[19] or nil --What ever memory space your server has set / defined for this to use
-				local blocked_addr = v[20] or nil
-				local ddos_counter = v[21] or nil
+				if localized.request_limit == nil then
+					localized.request_limit = v[19] or nil --What ever memory space your server has set / defined for this to use
+				end
+				if localized.blocked_addr == nil then
+					localized.blocked_addr = v[20] or nil
+				end
+				if localized.ddos_counter == nil then
+					localized.ddos_counter = v[21] or nil
+				end
 
-				if request_limit ~= nil and blocked_addr ~= nil and ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
+				if localized.request_limit ~= nil and localized.blocked_addr ~= nil and localized.ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
 					local rate_limit_window = v[8]
 					local rate_limit_requests = v[9]
 					local block_duration = v[10]
@@ -4041,7 +4059,7 @@ local function anti_ddos()
 					local range_table = v[18]
 					local ip = v[22]
 
-					local total_requests = ddos_counter:get("blocked_ip") or 0
+					local total_requests = localized.ddos_counter:get("blocked_ip") or 0
 					if v[33] == 1 then
 						if total_requests > v[24] then --Automatically enable I am Under Attack Mode so disable logging
 							v[7] = 0 --disable logging to prevent denil of service from excessive log file writes using up disk I/O
@@ -4128,15 +4146,15 @@ local function anti_ddos()
 					end
 
 					--[[ --dev test to show to log file each users request count
-					local incr = ddos_counter:get("blocked_ip") or 0
+					local incr = localized.ddos_counter:get("blocked_ip") or 0
 					if incr ~= nil then
-						local incr = ddos_counter:get("blocked_ip")
+						local incr = localized.ddos_counter:get("blocked_ip")
 						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Total number of IP's in block list : " .. incr)
 					end
 					]]
 
 					if localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
-						local blocked_time = blocked_addr:get(ip)
+						local blocked_time = localized.blocked_addr:get(ip)
 						if blocked_time then
 							if v[7] == 1 then
 								if v[23] == 1 then
@@ -4146,7 +4164,7 @@ local function anti_ddos()
 									end
 								end
 							end
-							blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
+							localized.blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
 							--localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip --this can slow down nginx tested via 100,000,000 requests nulled out on the block pages
 							if v[32] ~= nil and v[32] ~= "" then
 								if v[7] == 1 then
@@ -4161,7 +4179,7 @@ local function anti_ddos()
 						if check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, ddos_counter, v[7]) then
 							if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
 								--Block IP
-								blocked_addr:set(ip, localized.currenttime, block_duration)
+								localized.blocked_addr:set(ip, localized.currenttime, block_duration)
 								if v[32] ~= nil and v[32] ~= "" then
 									if v[7] == 1 then
 										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. v[32])
@@ -4176,7 +4194,7 @@ local function anti_ddos()
 						if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table, v[7]) then
 							if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
 								--Block IP
-								blocked_addr:set(ip, localized.currenttime, block_duration)
+								localized.blocked_addr:set(ip, localized.currenttime, block_duration)
 								if v[32] ~= nil and v[32] ~= "" then
 									if v[7] == 1 then
 										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. v[32])
@@ -4230,7 +4248,7 @@ local function anti_ddos()
 														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked sending prohibited header : " .. localized.string_lower(header_value) .. " - " .. ip)
 													end
 													--Block IP
-													blocked_addr:set(ip, localized.currenttime, block_duration)
+													localized.blocked_addr:set(ip, localized.currenttime, block_duration)
 												end
 											end
 											localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
@@ -4245,7 +4263,7 @@ local function anti_ddos()
 															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked sending prohibited header : " .. localized.string_lower(header_value[i]) .. " - " .. ip)
 														end
 														--Block IP
-														blocked_addr:set(ip, localized.currenttime, block_duration)
+														localized.blocked_addr:set(ip, localized.currenttime, block_duration)
 													end
 												end
 												localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
@@ -4267,7 +4285,7 @@ local function anti_ddos()
 											localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked using prohibited Request Method : " .. localized.ngx_var.request_method .. " - " .. ip)
 										end
 										--Block IP
-										blocked_addr:set(ip, localized.currenttime, block_duration)
+										localized.blocked_addr:set(ip, localized.currenttime, block_duration)
 									end
 								end
 								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
