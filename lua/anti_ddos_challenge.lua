@@ -4212,13 +4212,13 @@ local function anti_ddos()
 									end
 									os.execute(v[32]) --might be a better way than this with io.popen(v[32])
 								end
+								if v[7] == 1 then
+									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
+								end
+								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+
+								return localized.ngx_exit(slow_limit_exit_status)
 							end
-							if v[7] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
-							end
-							localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
-						
-							return localized.ngx_exit(slow_limit_exit_status)
 						end
 						if localized.ngx_var_http_internal_log == 1 then --log the internal request headers
 							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] attempting 1st ")
