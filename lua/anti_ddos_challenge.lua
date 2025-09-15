@@ -4202,8 +4202,8 @@ local function anti_ddos()
 							end
 						end
 
-						if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table, v[7]) then
-							if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+						if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+							if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table, v[7]) then
 								--Block IP
 								localized.blocked_addr:set(ip, localized.currenttime, block_duration)
 								if v[32] ~= nil and v[32] ~= "" then
