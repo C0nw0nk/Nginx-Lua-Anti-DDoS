@@ -2823,20 +2823,22 @@ local function blocked_address_check(log_message, jsval)
 				end
 				if localized.request_limit ~= nil and localized.blocked_addr ~= nil and localized.ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
 					if jsval ~= nil then
-						local jspuzzle_memory_zone = localized.anti_ddos_table[i][29]
+						if localized.jspuzzle_memory_zone == nil then
+							localized.jspuzzle_memory_zone = localized.anti_ddos_table[i][29]
+						end
 						local jspuzzle_rate_limit_window = localized.anti_ddos_table[i][30]
 						local jspuzzle_request_limit = localized.anti_ddos_table[i][31]
-						if jspuzzle_memory_zone ~= nil then
+						if localized.jspuzzle_memory_zone ~= nil then
 							local key = "r" .. ip --set identifyer as r and ip for to not use up to much memory
 							local count = "" --create locals to use
 
-							count = jspuzzle_memory_zone:get(key) or nil
+							count = localized.jspuzzle_memory_zone:get(key) or nil
 							if count == nil then
-								jspuzzle_memory_zone:set(key, 1, jspuzzle_rate_limit_window)
+								localized.jspuzzle_memory_zone:set(key, 1, jspuzzle_rate_limit_window)
 							else
-								count = jspuzzle_memory_zone:get(key)
-								jspuzzle_memory_zone:set(key, count+1, jspuzzle_rate_limit_window)
-								count = jspuzzle_memory_zone:get(key)
+								count = localized.jspuzzle_memory_zone:get(key)
+								localized.jspuzzle_memory_zone:set(key, count+1, jspuzzle_rate_limit_window)
+								count = localized.jspuzzle_memory_zone:get(key)
 							end
 							--Rate limit check
 							if count ~= nil then
