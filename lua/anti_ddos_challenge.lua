@@ -2604,6 +2604,27 @@ end
 End IP range function
 ]]
 
+--if a table has a value inside of it
+local function has_value(table_, val)
+	--for i=1,#table_ do
+		--if table_[i] == val then
+	for key, value in localized.next, table_ do
+		if value == val then
+			return true
+		end
+	end
+	return false
+end
+
+local function TableConcat(t1,t2)
+	for i=1,#t2 do
+		if has_value(t1,t2[i]) == false then
+			t1[#t1+1] = t2[i]
+		end
+	end
+	return t1
+end
+
 localized.proxy_header_ip_check_count = 0
 local function proxy_header_ip_check(ip_table)
 	if localized.proxy_header_ip_check_count >= 1 then --so we dont run multiple times we serve the cached output instead
@@ -2673,6 +2694,12 @@ local function internal_header_setup()
 						return localized.ngx_exit(rate_limit_exit_status)
 					end
 					--end real ip
+					--concatenate tables make sure both these tables are the same
+					if localized.ip_whitelist ~= nil and localized.proxy_header_table ~= nil then
+						localized.merge_table = TableConcat(localized.ip_whitelist, localized.proxy_header_table)
+						localized.ip_whitelist = localized.merge_table
+						localized.proxy_header_table = localized.merge_table
+					end
 					local ip = v[22]
 					if ip == "auto" then
 						if localized.ngx_var_http_cf_connecting_ip ~= nil then
@@ -4679,18 +4706,6 @@ query_string_remove_args()
 --[[
 Query String Remove arguments
 ]]
-
---if a table has a value inside of it
-local function has_value(table_, val)
-	--for i=1,#table_ do
-		--if table_[i] == val then
-	for key, value in localized.next, table_ do
-		if value == val then
-			return true
-		end
-	end
-	return false
-end
 
 --[[
 Query String Expected arguments Whitelist only
