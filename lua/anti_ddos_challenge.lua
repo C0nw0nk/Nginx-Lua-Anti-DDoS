@@ -387,14 +387,14 @@ localized.content_cache = {
 	--[[
 	{
 		".*", --regex match any site / path
-		"text/html", --content-type valid types are text/css text/javascript
+		"text/html", --content-type valid types are text to match all text formats or text/css text/javascript etc
 		--lua_shared_dict html_cache 10m; #HTML pages cache
 		localized.ngx.shared.html_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict html_cache 10m; #HTML pages cache
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
 		{200,206,}, --response status codes to cache
 		{"GET",}, --request method to cache
-		{ --bypass cache on cookie
+		{ --bypass cache on cookie use nil or empty string "" to not bypass on cookies
 			{
 				".*", --cookie name regex ".*" for any cookie
 				".*", --cookie value ".*" for any value
@@ -402,7 +402,7 @@ localized.content_cache = {
 			},
 			--{"logged_in","1",0,},
 		}, --bypass cache on cookie
-		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
+		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls use nil or empty string "" to not bypass on urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
 		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
 		localized.request_uri, --url to use you can do "/index.html", as an example localized.request_uri is best.
@@ -442,22 +442,15 @@ localized.content_cache = {
 	},
 	{
 		".*", --regex match any site / path
-		"video/mp4", --content-type valid types are text/css text/javascript
+		"video/mp4", --content-type valid types are video to match all video formats or video/mp4 video/webm etc
 		--lua_shared_dict mp4_cache 300m; #video mp4 cache
 		localized.ngx.shared.mp4_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict mp4_cache 300m; #video mp4 cache
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
 		{200,206,}, --response status codes to cache
 		{"GET",}, --request method to cache
-		{ --bypass cache on cookie
-			{
-				".*", --cookie name ".*" for any cookie
-				".*", --cookie value ".*" for any value
-				0, --0 guest user cache only 1 both guest and logged in user cache useful if logged_in cookie is present then cache key will include cookies
-			},
-			--{"logged_in","1",0,},
-		}, --bypass cache on cookie
-		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls
+		"", --nil or empty string "" to not bypass on cookies
+		"", --nil or empty string "" to not bypass on urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
 		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
 		localized.request_uri, --url to use you can do "/index.html", as an example localized.request_uri is best.
@@ -465,6 +458,36 @@ localized.content_cache = {
 		"", --content modified not needed for this format
 		4e+7, --Maximum content size to cache in bytes 1e+6 = 1MB, 1e+7 = 10MB, 1e+8 = 100MB, 1e+9 = 1GB content larger than this wont be cached empty string "" to skip
 		200000, --200kb --Minimum content size to cache in bytes content smaller than this wont be cached empty string "" to skip
+		{"content-type","content-range","content-length","etag","last-modified","set-cookie",}, --headers you can use this to specify what headers you want to keep on your cache HIT/UPDATING output
+		--Request header forwarding / overrides :
+		--the way ngx.location.capture works with request headers is it forwards your browser request headers to the ngx.location you can remove them using a table by setting the request header from your browser to nil
+		--you can over ride your browsers request headers being sent to the backend using a table any headers your browser sends that is not specified in the table will not be overridden and will still go to the ngx location as is.
+		--nil,--nil or empty table to use browsers request headers
+		{ --override browsers request headers
+			--["Content-Type"] = "application/x-www-form-urlencoded", --add this header to request being sent to backend
+			--["Accept"] = localized.ngx_req_get_headers()["Accept"], --override this header being sent with the contents of browsers accept value
+			--["host"] = "www.google.com", --override this header to request being sent to backend
+			--["priority"] = "", --remove this header from the request being sent to the backened
+		},
+	},
+	{
+		".*", --regex match any site / path
+		"image", --content-type for image/png image/jpeg image/x-icon etc
+		--lua_shared_dict image_cache 300m; #image cache
+		localized.ngx.shared.image_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict image_cache 300m; #image cache
+		60, --ttl for cache or ""
+		1, --enable logging 1 to enable 0 to disable
+		{200,206,}, --response status codes to cache
+		{"GET",}, --request method to cache
+		nil, --nil or empty string "" to not bypass on cookies
+		nil, --nil or empty string "" to not bypass on urls
+		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
+		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
+		localized.request_uri, --url to use you can do "/index.html", as an example localized.request_uri is best.
+		false, --true to use lua resty.http library if exist if you set this to true you can change localized.request_uri above to "https://www.google.com/", as an example.
+		"", --content modified not needed for this format
+		"", --Maximum content size to cache in bytes 1e+6 = 1MB, 1e+7 = 10MB, 1e+8 = 100MB, 1e+9 = 1GB content larger than this wont be cached empty string "" to skip
+		"", --200kb --Minimum content size to cache in bytes content smaller than this wont be cached empty string "" to skip
 		{"content-type","content-range","content-length","etag","last-modified","set-cookie",}, --headers you can use this to specify what headers you want to keep on your cache HIT/UPDATING output
 		--Request header forwarding / overrides :
 		--the way ngx.location.capture works with request headers is it forwards your browser request headers to the ngx.location you can remove them using a table by setting the request header from your browser to nil
@@ -6150,7 +6173,7 @@ local function minification(content_type_list)
 					--goto end_for_loop
 				end
 			end
-			if content_type_list[i][8] ~= "" then
+			if content_type_list[i][8] ~= "" and content_type_list[i][8] ~= nil then
 				for a=1, #content_type_list[i][8] do
 					local cookie_name = content_type_list[i][8][a][1]
 					local cookie_value = content_type_list[i][8][a][2]
@@ -6170,7 +6193,7 @@ local function minification(content_type_list)
 					end
 				end
 			end
-			if content_type_list[i][9] ~= "" then
+			if content_type_list[i][9] ~= "" and content_type_list[i][9] ~= nil then
 				for a=1, #content_type_list[i][9] do
 					if faster_than_match(content_type_list[i][9][a]) or localized.string_find(localized.request_uri, content_type_list[i][9][a] ) then
 						request_uri_match = 1
