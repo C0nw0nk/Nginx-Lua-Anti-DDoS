@@ -1832,7 +1832,7 @@ localized.exit_status = false --true or false
 --[[
 a fix for content-type miss matching and lets say a text/html page your nginx is providing application/octet-stream as the content-type
 ]]
-localized.content_type_fix = true --true or false
+localized.content_type_fix = false --true or false
 
 --[[
 End Configuration
