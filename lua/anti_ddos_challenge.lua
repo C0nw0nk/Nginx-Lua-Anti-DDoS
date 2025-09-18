@@ -1830,6 +1830,11 @@ false = nothing the script will run down to the end of the file and nginx will c
 localized.exit_status = false --true or false
 
 --[[
+a fix for content-type miss matching and lets say a text/html page your nginx is providing application/octet-stream as the content-type
+]]
+localized.content_type_fix = true --true or false
+
+--[[
 End Configuration
 
 
@@ -3142,7 +3147,9 @@ local function anti_ddos()
 		if range then
 			if localized.type(range) ~= "table" then
 				--Filter by what we expect a range header to be provided with
-				get_resp_content_type() --grab content-type incase does not exist
+				if localized.content_type_fix then
+					get_resp_content_type() --grab content-type incase does not exist
+				end
 				if localized.ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
 					if #range_table > 0 then
 						local whitelist_set = 0
@@ -3587,7 +3594,9 @@ local function anti_ddos()
 			else
 				for i=1, #range do
 					--Filter by what we expect a range header to be provided with
-					get_resp_content_type() --grab content-type incase does not exist
+					if localized.content_type_fix then
+						get_resp_content_type() --grab content-type incase does not exist
+					end
 					if localized.ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
 						if #range_table > 0 then
 							local whitelist_set = 0
@@ -6083,7 +6092,9 @@ run_checks() --nest function to prevent function at line 1 has more than 200 loc
 
 if localized.content_cache == nil or #localized.content_cache == 0 then
 	--localized.ngx_log(localized.ngx_LOG_TYPE,  " resp_content_type before " .. get_resp_content_type() )
-	get_resp_content_type(1) --fix for random bug where content-type output is application/octet-stream on text/html seems to only happen on a / directory not a /index.html
+	if localized.content_type_fix then
+		get_resp_content_type(1) --fix for random bug where content-type output is application/octet-stream on text/html seems to only happen on a / directory not a /index.html
+	end
 	--localized.ngx_log(localized.ngx_LOG_TYPE,  " resp_content_type after " .. get_resp_content_type() )
 	if localized.exit_status then
 		localized.ngx_exit(localized.ngx_OK) --Go to content
@@ -6827,7 +6838,9 @@ local function minification(content_type_list)
 
 		if i >= #content_type_list then --last occurance
 			--localized.ngx_log(localized.ngx_LOG_TYPE,  "count is " .. i .. " " .. localized.get_resp_content_type_counter .. " resp_content_type before " .. get_resp_content_type() .. " and " .. localized.ngx_header["Content-Type"]  )
-			get_resp_content_type(1) --fix for random bug where content-type output is application/octet-stream on text/html seems to only happen on a / directory not a /index.html
+			if localized.content_type_fix then
+				get_resp_content_type(1) --fix for random bug where content-type output is application/octet-stream on text/html seems to only happen on a / directory not a /index.html
+			end
 			--localized.ngx_log(localized.ngx_LOG_TYPE,  localized.get_resp_content_type_counter .. " resp_content_type after " .. get_resp_content_type() )
 		end
 
