@@ -110,6 +110,14 @@ nginx-lua-anti-ddos-challenge (2.2-1) stable; urgency=medium
 
  -- C0nw0nk <C0nw0nk@github>  Sat, 13 Sep 2025 00:00:00 +0000
 
+nginx-lua-anti-ddos-challenge (2.2-1) stable; urgency=medium
+  - String.find is faster than string match so use string.find where possible
+  - Improve speed of wildcard matches by not using string.find or string.match and using a custom function
+  - Performance improvement with logs
+  - Make sure users set custom commands get run on blocks
+
+ -- C0nw0nk <C0nw0nk@github>  Sat, 13 Sep 2025 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (2.1-1) stable; urgency=medium
   - Fix for users seeing javascript authentication puzzle i forgot to null out a line when doing tests.
   - Added a check on default secret key or password just incase a user has not changed it from default

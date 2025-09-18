@@ -136,6 +136,11 @@ fi
 - Improve speed of wildcard matches by not using string.find or string.match and using a custom function
 - Performance improvement with logs
 - Make sure users set custom commands get run on blocks
+* Sat Sep 13 2025 C0nw0nk <C0nw0nk@github> - 2.2-1
+- String.find is faster than string match so use string.find where possible
+- Improve speed of wildcard matches by not using string.find or string.match and using a custom function
+- Performance improvement with logs
+- Make sure users set custom commands get run on blocks
 * Fri Sep 12 2025 C0nw0nk <C0nw0nk@github> - 2.1-1
 - Fix for users seeing javascript authentication puzzle i forgot to null out a line when doing tests.
 - Added a check on default secret key or password just incase a user has not changed it from default
