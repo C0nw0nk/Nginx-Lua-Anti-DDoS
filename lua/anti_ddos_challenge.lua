@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 2.3
+Script Version: 2.4
 
 Copyright Conor McKnight
 
@@ -1831,6 +1831,7 @@ localized.exit_status = false --true or false
 
 --[[
 a fix for content-type miss matching and lets say a text/html page your nginx is providing application/octet-stream as the content-type
+Setting this to false will not allow content-type matches on range filtering but range filtering will still work just ignoring the content-type you are matching
 ]]
 localized.content_type_fix = true --true or false
 
@@ -1849,6 +1850,10 @@ This is where things get very complex. ;)
 --Test as Tor network
 --localized.host = "localhost.onion"
 --localized.URL = localized.scheme .. "://" .. localized.host .. localized.request_uri
+
+--Test clear the IP whitelists
+--localized.proxy_header_table = {}
+--localized.ip_whitelist = {}
 
 --[[
 Begin Required Functions
@@ -3151,7 +3156,7 @@ local function anti_ddos()
 				if localized.content_type_fix then
 					get_resp_content_type() --grab content-type incase does not exist
 				end
-				if localized.ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
+				if localized.content_type_fix == false or localized.ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
 					if #range_table > 0 then
 						local whitelist_set = 0
 						local regex_g = "%s*(%-?%d+)%s*-%s*(%-?%d+)%s*[^,]+" --multi segment regex
@@ -3167,7 +3172,7 @@ local function anti_ddos()
 						for i=1,#range_table do
 							if #range_table[i] > 0 then
 								for x=1,#range_table[i] do
-									if x == 1 then
+									if x == 1 and localized.content_type_fix then
 										if range_table[i][x] ~= "" then
 											if localized.string_find(localized.ngx_header["content-type"], range_table[i][x]) then
 												if range_whitelist_blacklist == 0 then --0 blacklist 1 whitelist
@@ -3598,7 +3603,7 @@ local function anti_ddos()
 					if localized.content_type_fix then
 						get_resp_content_type() --grab content-type incase does not exist
 					end
-					if localized.ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
+					if localized.content_type_fix == false or localized.ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
 						if #range_table > 0 then
 							local whitelist_set = 0
 							local regex_g = "%s*(%-?%d+)%s*-%s*(%-?%d+)%s*[^,]+" --multi segment regex
@@ -3614,7 +3619,7 @@ local function anti_ddos()
 							for i=1,#range_table do
 								if #range_table[i] > 0 then
 									for x=1,#range_table[i] do
-										if x == 1 then
+										if x == 1 and localized.content_type_fix then
 											if range_table[i][x] ~= "" then
 												if localized.string_find(localized.ngx_header["content-type"], range_table[i][x]) then
 													if range_whitelist_blacklist == 0 then --0 blacklist 1 whitelist
