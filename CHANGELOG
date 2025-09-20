@@ -1,3 +1,7 @@
+Version: 2.4
+Date: 2025-09-20
+- Range filter will now work with content-type fix set to false.
+
 Version: 2.3
 Date: 2025-09-20
 - GET content-type function ability to toggle on / off via true / false statement
