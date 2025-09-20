@@ -1,3 +1,8 @@
+nginx-lua-anti-ddos-challenge (2.4-1) stable; urgency=medium
+  - Range filter will now work with content-type fix set to false.
+
+ -- C0nw0nk <C0nw0nk@github>  Sat, 20 Sep 2025 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (2.3-1) stable; urgency=medium
   - GET content-type function ability to toggle on / off via true / false statement
   - Default content-type function to true so users can turn it off if they need to
