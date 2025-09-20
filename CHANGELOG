@@ -1,3 +1,8 @@
+Version: 2.3
+Date: 2025-09-20
+- GET content-type function ability to toggle on / off via true / false statement
+- Default content-type function to true so users can turn it off if they need to
+
 Version: 2.2
 Date: 2025-09-13
 - String.find is faster than string match so use string.find where possible
