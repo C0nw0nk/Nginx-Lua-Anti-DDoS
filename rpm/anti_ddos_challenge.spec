@@ -66,6 +66,9 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Sat Sep 20 2025 C0nw0nk <C0nw0nk@github> - 2.3-1
+- GET content-type function ability to toggle on / off via true / false statement
+- Default content-type function to true so users can turn it off if they need to
 * Sat Sep 13 2025 C0nw0nk <C0nw0nk@github> - 2.2-1
 - String.find is faster than string match so use string.find where possible
 - Improve speed of wildcard matches by not using string.find or string.match and using a custom function
