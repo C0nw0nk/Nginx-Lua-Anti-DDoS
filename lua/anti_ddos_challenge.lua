@@ -1832,7 +1832,7 @@ localized.exit_status = false --true or false
 --[[
 a fix for content-type miss matching and lets say a text/html page your nginx is providing application/octet-stream as the content-type
 ]]
-localized.content_type_fix = false --true or false
+localized.content_type_fix = true --true or false
 
 --[[
 End Configuration
@@ -1939,12 +1939,8 @@ local function get_resp_content_type(forced) --incase content-type header not ye
 	}
 	local res = localized.ngx.location.capture(localized.request_uri, {
 	--method = map[localized.ngx_var.request_method],
-	method = map[HEAD], --only need head to grab headers dont need contents
-	--body = nil,
-	--args = nil,
+	method = map[HEAD],
 	--headers = req_headers,
-	--headers = {["user-agent"] = "none",},
-	--headers = nil,
 	})
 	if res then
 		if res.header ~= nil and localized.type(res.header) == "table" then
@@ -1957,9 +1953,7 @@ local function get_resp_content_type(forced) --incase content-type header not ye
 			end
 		end
 	end
-	if localized.content_type_fix then --only set the header if user needs it
-		localized.ngx_header["content-type"] = resp_content_type --set header as content-type be either nil or the content-type
-	end
+	localized.ngx_header["content-type"] = resp_content_type --set header as content-type be either nil or the content-type
 	localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
 	return resp_content_type
 
@@ -3154,9 +3148,9 @@ local function anti_ddos()
 		if range then
 			if localized.type(range) ~= "table" then
 				--Filter by what we expect a range header to be provided with
-				--if localized.content_type_fix then
+				if localized.content_type_fix then
 					get_resp_content_type() --grab content-type incase does not exist
-				--end
+				end
 				if localized.ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
 					if #range_table > 0 then
 						local whitelist_set = 0
@@ -3601,9 +3595,9 @@ local function anti_ddos()
 			else
 				for i=1, #range do
 					--Filter by what we expect a range header to be provided with
-					--if localized.content_type_fix then
+					if localized.content_type_fix then
 						get_resp_content_type() --grab content-type incase does not exist
-					--end
+					end
 					if localized.ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
 						if #range_table > 0 then
 							local whitelist_set = 0
@@ -6099,9 +6093,9 @@ run_checks() --nest function to prevent function at line 1 has more than 200 loc
 
 if localized.content_cache == nil or #localized.content_cache == 0 then
 	--localized.ngx_log(localized.ngx_LOG_TYPE,  " resp_content_type before " .. get_resp_content_type() )
-	--if localized.content_type_fix then
+	if localized.content_type_fix then
 		get_resp_content_type(1) --fix for random bug where content-type output is application/octet-stream on text/html seems to only happen on a / directory not a /index.html
-	--end
+	end
 	--localized.ngx_log(localized.ngx_LOG_TYPE,  " resp_content_type after " .. get_resp_content_type() )
 	if localized.exit_status then
 		localized.ngx_exit(localized.ngx_OK) --Go to content
@@ -6845,9 +6839,9 @@ local function minification(content_type_list)
 
 		if i >= #content_type_list then --last occurance
 			--localized.ngx_log(localized.ngx_LOG_TYPE,  "count is " .. i .. " " .. localized.get_resp_content_type_counter .. " resp_content_type before " .. get_resp_content_type() .. " and " .. localized.ngx_header["Content-Type"]  )
-			--if localized.content_type_fix then
+			if localized.content_type_fix then
 				get_resp_content_type(1) --fix for random bug where content-type output is application/octet-stream on text/html seems to only happen on a / directory not a /index.html
-			--end
+			end
 			--localized.ngx_log(localized.ngx_LOG_TYPE,  localized.get_resp_content_type_counter .. " resp_content_type after " .. get_resp_content_type() )
 		end
 
