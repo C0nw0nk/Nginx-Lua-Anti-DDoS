@@ -1832,6 +1832,7 @@ localized.exit_status = false --true or false
 --[[
 a fix for content-type miss matching and lets say a text/html page your nginx is providing application/octet-stream as the content-type
 Setting this to false will not allow content-type matches on range filtering but range filtering will still work just ignoring the content-type you are matching
+If you encounter requests hanging or subrequests issues set this to false the cause is proxy_max_temp_file_size 0; you either increase your buffer size or set this to false
 ]]
 localized.content_type_fix = true --true or false
 
