@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 2.5
+Script Version: 2.6
 
 Copyright Conor McKnight
 
@@ -2756,6 +2756,7 @@ local function internal_header_setup()
 					--concatenate tables make sure both these tables are the same
 					if localized.ip_whitelist ~= nil and localized.proxy_header_table ~= nil then
 						localized.merge_table = TableConcat(localized.ip_whitelist, localized.proxy_header_table)
+						localized.merge_table[#localized.merge_table+1] = localized.ngx_var.server_addr --make sure our own server address is whitelisted just incase
 						localized.ip_whitelist = localized.merge_table
 						localized.proxy_header_table = localized.merge_table
 					end
