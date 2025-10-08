@@ -66,6 +66,8 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Wed Oct 08 2025 C0nw0nk <C0nw0nk@github> - 2.6-1
+- Add ability to detect and auto whitelist servers IP address
 * Wed Oct 08 2025 C0nw0nk <C0nw0nk@github> - 2.5-1
 - Add IPv6 Addresses to whitelist for localhost so that nginx setups using IPv6 do not internally ban themselves.
 - Added check if exit status is 444 for close the connection or 204 for no content we do not need to waste time disabling gzip since there is no response to gzip.

@@ -1,3 +1,8 @@
+nginx-lua-anti-ddos-challenge (2.6-1) stable; urgency=medium
+  - Add ability to detect and auto whitelist servers IP address
+
+ -- C0nw0nk <C0nw0nk@github>  Wed, 08 Oct 2025 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (2.5-1) stable; urgency=medium
   - Add IPv6 Addresses to whitelist for localhost so that nginx setups using IPv6 do not internally ban themselves.
   - Added check if exit status is 444 for close the connection or 204 for no content we do not need to waste time disabling gzip since there is no response to gzip.
