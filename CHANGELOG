@@ -1,3 +1,7 @@
+Version: 2.6
+Date: 2025-10-08
+- Add ability to detect and auto whitelist servers IP address
+
 Version: 2.5
 Date: 2025-10-08
 - Add IPv6 Addresses to whitelist for localhost so that nginx setups using IPv6 do not internally ban themselves.
