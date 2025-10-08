@@ -66,6 +66,9 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Wed Oct 08 2025 C0nw0nk <C0nw0nk@github> - 2.5-1
+- Add IPv6 Addresses to whitelist for localhost so that nginx setups using IPv6 do not internally ban themselves.
+- Added check if exit status is 444 for close the connection or 204 for no content we do not need to waste time disabling gzip since there is no response to gzip.
 * Sat Sep 20 2025 C0nw0nk <C0nw0nk@github> - 2.4-1
 - Range filter will now work with content-type fix set to false.
 * Sat Sep 20 2025 C0nw0nk <C0nw0nk@github> - 2.3-1
