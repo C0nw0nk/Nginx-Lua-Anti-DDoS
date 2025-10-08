@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 2.4
+Script Version: 2.5
 
 Copyright Conor McKnight
 
@@ -638,10 +638,21 @@ localized.ip_whitelist_remote_addr = "auto" --Automatically get the Clients IP a
 localized.ip_whitelist_block_mode = 0 --0 whitelist acts as a bypass to puzzle auth checks 1 is to enforce only allowing whitelisted addresses access other addresses will be blocked.
 localized.ip_whitelist_bypass_flood_protection = 1 --0 IP's in whitelist can still be banned / blocked for DDoS flooding behaviour 1 IP's bypass the flood detection
 localized.ip_whitelist = {
+--IPV4 Local addresses
 "10.0.0.0/8", --localnetwork
 "172.16.0.0/12", --localnetwork
 "127.0.0.0/16", --localhost
 "192.168.0.0/16", --localhost
+--IPV6 Local addresses
+"::/128", --unspecified address = "::"
+"::1/128", --localhost = http://[::1]:80/index.html
+--"fc00::/8", --centrally assigned by unkown, routed within a site (RFC 4193)
+--"fd00::/8", --free for all, global ID must be generated randomly with pseudo-random algorithm, routed within a site (RFC 4193)
+--"ff00::/8", --multicast, following after the prefix ff there are 4 bits for flags and 4 bits for the scope
+--"::ffff:0:0/96", --IPv4 to IPv6 Address, eg: ::ffff:10.10.10.10 (RFC 4038)
+--"2001::/16", -- /32 subnets assigned to providers, they assign /48, /56 or /64 to the customer
+"2001:db8::/32", --reserved for use in documentation
+--"2002::/16", --6to4 scope, 2002:c058:6301:: is the 6to4 public router anycast (RFC 3068)
 --https://developers.google.com/search/apis/ipranges/googlebot.json Google Bot Search engine crawler IP's
 --"2001:4860:4801:10::/64","2001:4860:4801:12::/64","2001:4860:4801:13::/64","2001:4860:4801:14::/64","2001:4860:4801:15::/64","2001:4860:4801:16::/64","2001:4860:4801:17::/64","2001:4860:4801:18::/64","2001:4860:4801:19::/64","2001:4860:4801:1a::/64","2001:4860:4801:1b::/64","2001:4860:4801:1c::/64","2001:4860:4801:1d::/64","2001:4860:4801:1e::/64","2001:4860:4801:1f::/64","2001:4860:4801:20::/64","2001:4860:4801:21::/64","2001:4860:4801:22::/64","2001:4860:4801:23::/64","2001:4860:4801:24::/64","2001:4860:4801:25::/64","2001:4860:4801:26::/64","2001:4860:4801:27::/64","2001:4860:4801:28::/64","2001:4860:4801:29::/64","2001:4860:4801:2::/64","2001:4860:4801:2a::/64","2001:4860:4801:2b::/64","2001:4860:4801:2c::/64","2001:4860:4801:2d::/64","2001:4860:4801:2e::/64","2001:4860:4801:2f::/64","2001:4860:4801:30::/64","2001:4860:4801:31::/64","2001:4860:4801:32::/64","2001:4860:4801:33::/64","2001:4860:4801:34::/64","2001:4860:4801:35::/64","2001:4860:4801:36::/64","2001:4860:4801:37::/64","2001:4860:4801:38::/64","2001:4860:4801:39::/64","2001:4860:4801:3a::/64","2001:4860:4801:3b::/64","2001:4860:4801:3c::/64","2001:4860:4801:3d::/64","2001:4860:4801:3e::/64","2001:4860:4801:3f::/64","2001:4860:4801:40::/64","2001:4860:4801:41::/64","2001:4860:4801:42::/64","2001:4860:4801:43::/64","2001:4860:4801:44::/64","2001:4860:4801:45::/64","2001:4860:4801:46::/64","2001:4860:4801:47::/64","2001:4860:4801:48::/64","2001:4860:4801:49::/64","2001:4860:4801:4a::/64","2001:4860:4801:4b::/64","2001:4860:4801:4c::/64","2001:4860:4801:4d::/64","2001:4860:4801:4e::/64","2001:4860:4801:50::/64","2001:4860:4801:51::/64","2001:4860:4801:52::/64","2001:4860:4801:53::/64","2001:4860:4801:54::/64","2001:4860:4801:55::/64","2001:4860:4801:56::/64","2001:4860:4801:57::/64","2001:4860:4801:58::/64","2001:4860:4801:60::/64","2001:4860:4801:61::/64","2001:4860:4801:62::/64","2001:4860:4801:63::/64","2001:4860:4801:64::/64","2001:4860:4801:65::/64","2001:4860:4801:66::/64","2001:4860:4801:67::/64","2001:4860:4801:68::/64","2001:4860:4801:69::/64","2001:4860:4801:6a::/64","2001:4860:4801:6b::/64","2001:4860:4801:6c::/64","2001:4860:4801:6d::/64","2001:4860:4801:6e::/64","2001:4860:4801:6f::/64","2001:4860:4801:70::/64","2001:4860:4801:71::/64","2001:4860:4801:72::/64","2001:4860:4801:73::/64","2001:4860:4801:74::/64","2001:4860:4801:75::/64","2001:4860:4801:76::/64","2001:4860:4801:77::/64","2001:4860:4801:78::/64","2001:4860:4801:79::/64","2001:4860:4801:7a::/64","2001:4860:4801:7b::/64","2001:4860:4801:7c::/64","2001:4860:4801:7d::/64","2001:4860:4801:80::/64","2001:4860:4801:81::/64","2001:4860:4801:82::/64","2001:4860:4801:83::/64","2001:4860:4801:84::/64","2001:4860:4801:85::/64","2001:4860:4801:86::/64","2001:4860:4801:87::/64","2001:4860:4801:88::/64","2001:4860:4801:90::/64","2001:4860:4801:91::/64","2001:4860:4801:92::/64","2001:4860:4801:93::/64","2001:4860:4801:94::/64","2001:4860:4801:95::/64","2001:4860:4801:96::/64","2001:4860:4801:97::/64","2001:4860:4801:a0::/64","2001:4860:4801:a1::/64","2001:4860:4801:a2::/64","2001:4860:4801:a3::/64","2001:4860:4801:a4::/64","2001:4860:4801:a5::/64","2001:4860:4801:a6::/64","2001:4860:4801:a7::/64","2001:4860:4801:a8::/64","2001:4860:4801:a9::/64","2001:4860:4801:aa::/64","2001:4860:4801:ab::/64","2001:4860:4801:ac::/64","2001:4860:4801:ad::/64","2001:4860:4801:ae::/64","2001:4860:4801:b0::/64","2001:4860:4801:b1::/64","2001:4860:4801:b2::/64","2001:4860:4801:b3::/64","2001:4860:4801:b4::/64","2001:4860:4801:b5::/64","2001:4860:4801:c::/64","2001:4860:4801:f::/64","192.178.4.0/27","192.178.4.128/27","192.178.4.160/27","192.178.4.192/27","192.178.4.32/27","192.178.4.64/27","192.178.4.96/27","192.178.5.0/27","192.178.6.0/27","192.178.6.128/27","192.178.6.160/27","192.178.6.192/27","192.178.6.224/27","192.178.6.32/27","192.178.6.64/27","192.178.6.96/27","192.178.7.0/27","192.178.7.128/27","192.178.7.160/27","192.178.7.192/27","192.178.7.224/27","192.178.7.32/27","192.178.7.64/27","192.178.7.96/27","34.100.182.96/28","34.101.50.144/28","34.118.254.0/28","34.118.66.0/28","34.126.178.96/28","34.146.150.144/28","34.147.110.144/28","34.151.74.144/28","34.152.50.64/28","34.154.114.144/28","34.155.98.32/28","34.165.18.176/28","34.175.160.64/28","34.176.130.16/28","34.22.85.0/27","34.64.82.64/28","34.65.242.112/28","34.80.50.80/28","34.88.194.0/28","34.89.10.80/28","34.89.198.80/28","34.96.162.48/28","35.247.243.240/28","66.249.64.0/27","66.249.64.128/27","66.249.64.160/27","66.249.64.192/27","66.249.64.224/27","66.249.64.32/27","66.249.64.64/27","66.249.64.96/27","66.249.65.0/27","66.249.65.128/27","66.249.65.160/27","66.249.65.192/27","66.249.65.224/27","66.249.65.32/27","66.249.65.64/27","66.249.65.96/27","66.249.66.0/27","66.249.66.128/27","66.249.66.160/27","66.249.66.192/27","66.249.66.224/27","66.249.66.32/27","66.249.66.64/27","66.249.66.96/27","66.249.67.0/27","66.249.67.32/27","66.249.68.0/27","66.249.68.128/27","66.249.68.160/27","66.249.68.192/27","66.249.68.32/27","66.249.68.64/27","66.249.68.96/27","66.249.69.0/27","66.249.69.128/27","66.249.69.160/27","66.249.69.192/27","66.249.69.224/27","66.249.69.32/27","66.249.69.64/27","66.249.69.96/27","66.249.70.0/27","66.249.70.128/27","66.249.70.160/27","66.249.70.192/27","66.249.70.224/27","66.249.70.32/27","66.249.70.64/27","66.249.70.96/27","66.249.71.0/27","66.249.71.128/27","66.249.71.160/27","66.249.71.192/27","66.249.71.224/27","66.249.71.32/27","66.249.71.64/27","66.249.71.96/27","66.249.72.0/27","66.249.72.128/27","66.249.72.160/27","66.249.72.192/27","66.249.72.224/27","66.249.72.32/27","66.249.72.64/27","66.249.73.0/27","66.249.73.128/27","66.249.73.160/27","66.249.73.192/27","66.249.73.224/27","66.249.73.32/27","66.249.73.64/27","66.249.73.96/27","66.249.74.0/27","66.249.74.128/27","66.249.74.160/27","66.249.74.192/27","66.249.74.224/27","66.249.74.32/27","66.249.74.64/27","66.249.74.96/27","66.249.75.0/27","66.249.75.128/27","66.249.75.160/27","66.249.75.192/27","66.249.75.224/27","66.249.75.32/27","66.249.75.64/27","66.249.75.96/27","66.249.76.0/27","66.249.76.128/27","66.249.76.160/27","66.249.76.192/27","66.249.76.224/27","66.249.76.32/27","66.249.76.64/27","66.249.76.96/27","66.249.77.0/27","66.249.77.128/27","66.249.77.160/27","66.249.77.192/27","66.249.77.224/27","66.249.77.32/27","66.249.77.64/27","66.249.77.96/27","66.249.78.0/27","66.249.78.128/27","66.249.78.160/27","66.249.78.32/27","66.249.78.64/27","66.249.78.96/27","66.249.79.0/27","66.249.79.128/27","66.249.79.160/27","66.249.79.192/27","66.249.79.224/27","66.249.79.32/27","66.249.79.64/27","66.249.79.96/27",
 --https://www.bing.com/toolbox/bingbot.json Bing Bots Search engine crawler IP's
@@ -1422,10 +1433,21 @@ Add your ip ranges to the list of who you expect to send you a proxy header.
 Example to test with : curl.exe "http://localhost/" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -H "Accept-Language: en-GB,en;q=0.5" -H "Accept-Encoding: gzip, deflate, br, zstd" -H "DNT: 1" -H "Connection: keep-alive" -H "Cookie: name1=1; name2=2; logged_in=1" -H "Upgrade-Insecure-Requests: 1" -H "Sec-Fetch-Dest: document" -H "Sec-Fetch-Mode: navigate" -H "Sec-Fetch-Site: none" -H "Sec-Fetch-User: ?1" -H "Priority: u=0, i" -H "Pragma: no-cache" -H "Cache-Control: no-cache" -H "User-Agent:testagent1" -H "CF-Connecting-IP: 1" -H "X-Forwarded-For: 1" -H "internal:1"
 ]]
 localized.proxy_header_table = {
+--IPV4 Local addresses
 "10.0.0.0/8", --localnetwork
 "172.16.0.0/12", --localnetwork
 "127.0.0.0/16", --localhost
 "192.168.0.0/16", --localhost
+--IPV6 Local addresses
+"::/128", --unspecified address = "::"
+"::1/128", --localhost = http://[::1]:80/index.html
+--"fc00::/8", --centrally assigned by unkown, routed within a site (RFC 4193)
+--"fd00::/8", --free for all, global ID must be generated randomly with pseudo-random algorithm, routed within a site (RFC 4193)
+--"ff00::/8", --multicast, following after the prefix ff there are 4 bits for flags and 4 bits for the scope
+--"::ffff:0:0/96", --IPv4 to IPv6 Address, eg: ::ffff:10.10.10.10 (RFC 4038)
+--"2001::/16", -- /32 subnets assigned to providers, they assign /48, /56 or /64 to the customer
+"2001:db8::/32", --reserved for use in documentation
+--"2002::/16", --6to4 scope, 2002:c058:6301:: is the 6to4 public router anycast (RFC 3068)
 --Cloudflare IP's https://www.cloudflare.com/en-gb/ips/
 "173.245.48.0/20","103.21.244.0/22","103.22.200.0/22","103.31.4.0/22","141.101.64.0/18","108.162.192.0/18","190.93.240.0/20","188.114.96.0/20","197.234.240.0/22","198.41.128.0/17","162.158.0.0/15","104.16.0.0/13","104.24.0.0/14","172.64.0.0/13","131.0.72.0/22","2400:cb00::/32","2606:4700::/32","2803:f800::/32","2405:b500::/32","2405:8100::/32","2a06:98c0::/29","2c0f:f248::/32",
 }
@@ -2725,7 +2747,9 @@ local function internal_header_setup()
 							end
 						end
 						localized.blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
-						--localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip --this can slow down nginx tested via 100,000,000 requests nulled out on the block pages
+						if rate_limit_exit_status ~= 444 and rate_limit_exit_status ~= 204 then --no point with gzip on these
+							localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip --this can slow down nginx tested via 100,000,000 requests nulled out on the block pages
+						end
 						return localized.ngx_exit(rate_limit_exit_status)
 					end
 					--end real ip
@@ -2764,7 +2788,9 @@ local function internal_header_setup()
 							end
 						end
 						localized.blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
-						--localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip --this can slow down nginx tested via 100,000,000 requests nulled out on the block pages
+						if rate_limit_exit_status ~= 444 and rate_limit_exit_status ~= 204 then --no point with gzip on these
+							localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip --this can slow down nginx tested via 100,000,000 requests nulled out on the block pages
+						end
 						return localized.ngx_exit(rate_limit_exit_status)
 					end
 				end
@@ -4242,7 +4268,9 @@ local function anti_ddos()
 								end
 							end
 							localized.blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
-							--localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip --this can slow down nginx tested via 100,000,000 requests nulled out on the block pages
+							if rate_limit_exit_status ~= 444 and rate_limit_exit_status ~= 204 then --no point with gzip on these
+								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip --this can slow down nginx tested via 100,000,000 requests nulled out on the block pages
+							end
 							if v[32] ~= nil and v[32] ~= "" then
 								if v[7] == 1 then
 									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. v[32])
@@ -4263,7 +4291,9 @@ local function anti_ddos()
 									end
 									os.execute(v[32]) --might be a better way than this with io.popen(v[32])
 								end
-								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+								if rate_limit_exit_status ~= 444 and rate_limit_exit_status ~= 204 then --no point with gzip on these
+									localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+								end
 								return localized.ngx_exit(rate_limit_exit_status)
 							end
 						end
@@ -4281,7 +4311,9 @@ local function anti_ddos()
 								if v[7] == 1 then
 									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
 								end
-								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+								if slow_limit_exit_status ~= 444 and slow_limit_exit_status ~= 204 then --no point with gzip on these
+									localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+								end
 
 								return localized.ngx_exit(slow_limit_exit_status)
 							end
@@ -4328,7 +4360,9 @@ local function anti_ddos()
 													localized.blocked_addr:set(ip, localized.currenttime, block_duration)
 												end
 											end
-											localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+											if v[25][i][3] ~= 444 and v[25][i][3] ~= 204 then --no point with gzip on these
+												localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+											end
 											localized.ngx_exit(v[25][i][3])
 										end
 									else
@@ -4343,7 +4377,9 @@ local function anti_ddos()
 														localized.blocked_addr:set(ip, localized.currenttime, block_duration)
 													end
 												end
-												localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+												if v[25][i][3] ~= 444 and v[25][i][3] ~= 204 then --no point with gzip on these
+													localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+												end
 												localized.ngx_exit(v[25][i][3])
 											end
 										end
@@ -4365,7 +4401,9 @@ local function anti_ddos()
 										localized.blocked_addr:set(ip, localized.currenttime, block_duration)
 									end
 								end
-								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+								if v[26][i][2] ~= 444 and v[26][i][2] ~= 204 then --no point with gzip on these
+									localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+								end
 								localized.ngx_exit(v[26][i][2])
 							end
 						end
@@ -4446,7 +4484,9 @@ local function anti_ddos()
 					--no shared memory set but we can still check and block slowhttp cons without shared memory
 					if localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
 						if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table) then
-							localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+							if slow_limit_exit_status ~= 444 and slow_limit_exit_status ~= 204 then --no point with gzip on these
+								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+							end
 							if v[7] == 1 then
 								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
 							end
@@ -4467,7 +4507,9 @@ local function anti_ddos()
 											if v[7] == 1 then
 												localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked sending prohibited header : " .. localized.string_lower(header_value) .. " - " .. ip)
 											end
-											localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+											if t[3] ~= 444 and t[3] ~= 204 then --no point with gzip on these
+												localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+											end
 											localized.ngx_exit(t[3])
 										end
 									else
@@ -4476,7 +4518,9 @@ local function anti_ddos()
 												if v[7] == 1 then
 													localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked sending prohibited header : " .. localized.string_lower(header_value[i]) .. " - " .. ip)
 												end
-												localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+												if t[3] ~= 444 and t[3] ~= 204 then --no point with gzip on these
+													localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+												end
 												localized.ngx_exit(t[3])
 											end
 										end
@@ -4492,7 +4536,9 @@ local function anti_ddos()
 								if v[7] == 1 then
 									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked using prohibited Request Method : " .. localized.ngx_var.request_method .. " - " .. ip)
 								end
-								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+								if v[26][i][2] ~= 444 and v[26][i][2] ~= 204 then --no point with gzip on these
+									localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+								end
 								localized.ngx_exit(v[26][i][2])
 							end
 						end
