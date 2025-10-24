@@ -1,3 +1,8 @@
+Version: 2.7
+Date: 2025-10-24
+- Performance improvement and fixes for Tor .onion checks javascript authentication puzzle now shows and protects backends for Tor users.
+- Added support to detect if Linux, Windows or Mac for custom commands.
+
 Version: 2.6
 Date: 2025-10-08
 - Add ability to detect and auto whitelist servers IP address
