@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 2.6
+Script Version: 2.7
 
 Copyright Conor McKnight
 
@@ -283,12 +283,12 @@ localized.anti_ddos_table = {
 
 		{ --headers to block i notice slowloris attacks send this header if your under attack and check your logs and see a header or something all attacker addresses have in common this can be useful to block that.
 			{ --slowhttp / slowloris sends this referer header with all requests
-				"referer", "http://code.google.com/p/slowhttptest/", --header to match
+				"referer", "http://code.google.com/p/slowhttptest", --header to match
 				localized.ngx_HTTP_CLOSE, --close their connection
 				1, --1 to add ip to ban list 0 to just send response above close the connection
 			}, --slowloris referer header block
 			{ --slowhttp / slowloris incase they set it as referrer spelt wrong Intentionally.
-				"referrer", "http://code.google.com/p/slowhttptest/", --header to match
+				"referrer", "http://code.google.com/p/slowhttptest", --header to match
 				localized.ngx_HTTP_CLOSE, --close their connection
 				1, --1 to add ip to ban list 0 to just send response above close the connection
 			}, --slowloris referrer header block
@@ -344,13 +344,19 @@ localized.anti_ddos_table = {
 
 		--When a IP is in the blocklist for flooding or attacking to prevent their request even reaching the nginx process you can use this to execute custom scripts or commands on your server to block the ip before it even reaches the nginx process
 		--You can do this with linux so anyone who gets blocked will be blocked at the server / router level before they reach your nginx process.
-		--Linux examples 
-		--"iptables -A INPUT -s "..localized.ngx_var_remote_addr.." -j DROP",
-		--"./do_something.sh "..localized.ngx_var_remote_addr.."",
-		--Windows examples
-		--"start cmd /c netsh advfirewall firewall add rule name=\"Block In "..localized.ngx_var_remote_addr.."\" protocol=any dir=in remoteip="..localized.ngx_var_remote_addr.." action=block",
 		--Default is nil or "" to not do anything
 		nil,
+		--[[
+		{ --Compaitbility across multiple systems will auto detect if your running windows the script will choose the Windows CMD same for linux, MacOS etc that way you can use the same script via network share or across multiple platforms
+			--Windows
+			"start cmd /c netsh advfirewall firewall add rule name=\"Block In "..localized.ngx_var_remote_addr.."\" protocol=any dir=in remoteip="..localized.ngx_var_remote_addr.." action=block",
+			--Linux
+			"iptables -A INPUT -s "..localized.ngx_var_remote_addr.." -j DROP",
+			--"./do_something.sh "..localized.ngx_var_remote_addr.."", --run shell script to ban user instead
+			--MacOS
+			"sudo vim /etc/pf.conf && block drop from any to "..localized.ngx_var_remote_addr.." && sudo pfctl -f /etc/pf.conf && sudo pfctl -e",
+		},
+		]]
 
 		--Protection from excessive log writes when under attack
 		--This depends on the value in your Automatic I am Under Attack Mode setting by default its 100 ips if more than that logging stops i suggest leave at default
@@ -638,12 +644,18 @@ localized.ip_whitelist_remote_addr = "auto" --Automatically get the Clients IP a
 localized.ip_whitelist_block_mode = 0 --0 whitelist acts as a bypass to puzzle auth checks 1 is to enforce only allowing whitelisted addresses access other addresses will be blocked.
 localized.ip_whitelist_bypass_flood_protection = 1 --0 IP's in whitelist can still be banned / blocked for DDoS flooding behaviour 1 IP's bypass the flood detection
 localized.ip_whitelist = {
---IPV4 Local addresses
+"127.0.0.0",
+"127.0.0.1",
+"127.0.0.2",
+"::",
+"::1",
+"::2",
+--IPV4 Local addresses ranges
 "10.0.0.0/8", --localnetwork
 "172.16.0.0/12", --localnetwork
 "127.0.0.0/16", --localhost
 "192.168.0.0/16", --localhost
---IPV6 Local addresses
+--IPV6 Local addresses ranges
 "::/128", --unspecified address = "::"
 "::1/128", --localhost = http://[::1]:80/index.html
 --"fc00::/8", --centrally assigned by unkown, routed within a site (RFC 4193)
@@ -688,9 +700,10 @@ localized.tor = 1 --Allow Tor Users
 --[[
 Unique ID to identify each individual Tor user who connects to the website
 Using their User-Agent as a static variable to latch onto works well.
-localized.tor_remote_addr = localized.ngx_var_remote_addr .. localized.ngx_var_http_user_agent or "" --Tor / Onion users can use this if you dont like the "auto" behaviour
+localized.tor_remote_addr = localized.ngx_var_remote_addr .. localized.os_date("%W",localized.os_time_saved) .. localized.ngx_var_http_user_agent or "" --Tor / Onion users can use this if you dont like the "auto" behaviour
 ]]
-localized.tor_remote_addr = "auto"
+--localized.tor_remote_addr = "auto"
+localized.tor_remote_addr = localized.ngx_var_remote_addr .. localized.os_date("%W",localized.os_time_saved) .. localized.ngx_var_http_user_agent or ""
 
 --[[
 X-Tor-Header to be static or Dynamic setting this as dynamic is the best form of security
@@ -1433,12 +1446,18 @@ Add your ip ranges to the list of who you expect to send you a proxy header.
 Example to test with : curl.exe "http://localhost/" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -H "Accept-Language: en-GB,en;q=0.5" -H "Accept-Encoding: gzip, deflate, br, zstd" -H "DNT: 1" -H "Connection: keep-alive" -H "Cookie: name1=1; name2=2; logged_in=1" -H "Upgrade-Insecure-Requests: 1" -H "Sec-Fetch-Dest: document" -H "Sec-Fetch-Mode: navigate" -H "Sec-Fetch-Site: none" -H "Sec-Fetch-User: ?1" -H "Priority: u=0, i" -H "Pragma: no-cache" -H "Cache-Control: no-cache" -H "User-Agent:testagent1" -H "CF-Connecting-IP: 1" -H "X-Forwarded-For: 1" -H "internal:1"
 ]]
 localized.proxy_header_table = {
---IPV4 Local addresses
+"127.0.0.0",
+"127.0.0.1",
+"127.0.0.2",
+"::",
+"::1",
+"::2",
+--IPV4 Local addresses ranges
 "10.0.0.0/8", --localnetwork
 "172.16.0.0/12", --localnetwork
 "127.0.0.0/16", --localhost
 "192.168.0.0/16", --localhost
---IPV6 Local addresses
+--IPV6 Local addresses ranges
 "::/128", --unspecified address = "::"
 "::1/128", --localhost = http://[::1]:80/index.html
 --"fc00::/8", --centrally assigned by unkown, routed within a site (RFC 4193)
@@ -1875,8 +1894,8 @@ This is where things get very complex. ;)
 --localized.URL = localized.scheme .. "://" .. localized.host .. localized.request_uri
 
 --Test clear the IP whitelists
---localized.proxy_header_table = {}
---localized.ip_whitelist = {}
+--localized.proxy_header_table = nil
+--localized.ip_whitelist = nil
 
 --[[
 Begin Required Functions
@@ -2830,12 +2849,31 @@ local function internal_header_setup()
 end
 internal_header_setup()
 
+localized.check_tor_onion_cached = nil
+local function check_tor_onion()
+	if localized.check_tor_onion_cached == nil then
+		if localized.string_find(localized.string_lower(localized.host), ".onion") then
+			localized.check_tor_onion_cached = true
+		else
+			localized.check_tor_onion_cached = false
+		end
+		return localized.check_tor_onion_cached
+	else
+		return localized.check_tor_onion_cached
+	end
+end
+--check_tor_onion() --true or false
+if check_tor_onion() then
+	localized.ip_whitelist = nil
+	localized.proxy_header_table = nil
+end
+
 localized.ip_whitelist_flood_checks_count = 0
 local function ip_whitelist_flood_checks(ip_table)
 	if localized.ip_whitelist_flood_checks_count >= 1 then --so we dont run multiple times we serve the cached output instead
 		return localized.ip_whitelist_output_cached
 	end
-	if localized.ip_whitelist_bypass_flood_protection == 1 and #ip_table > 0 then
+	if localized.ip_whitelist_bypass_flood_protection == 1 and ip_table ~= nil and #ip_table > 0 then
 		if localized.ip_whitelist_remote_addr == "auto" then
 			if localized.ngx_var_http_cf_connecting_ip ~= nil then
 				if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
@@ -2876,6 +2914,40 @@ local function ip_whitelist_flood_checks(ip_table)
 	return true
 end
 
+local function check_system(number,command,logging,ip)
+	if localized.package == nil then
+		localized.package = package
+	end
+	if localized.os_exe == nil then
+		localized.os_execute = os.execute --might be better way with io.popen
+	end
+	if localized.system_os == nil then
+		localized.system_os = localized.string_match(localized.package.cpath, "%p[".. localized.string_sub(localized.package.config, 1, 1 ) .."]?%p(%a+)")
+	end
+	if localized.system_os == "dll" and number == 1 then
+		if logging == 1 then
+			--localized.ngx_log(localized.ngx_LOG_TYPE, "binformat: "..localized.system_os .. " - number: " .. number .. " - command: " .. command)
+			localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. command)
+		end
+		--Windows
+		localized.os_execute(command)
+	elseif localized.system_os == "so" and number == 2 then
+		if logging == 1 then
+			--localized.ngx_log(localized.ngx_LOG_TYPE, "binformat: "..localized.system_os .. " - number: " .. number .. " - command: " .. command)
+			localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. command)
+		end
+		--Linux
+		localized.os_execute(command)
+	elseif localized.system_os == "dylib" and number == 3 then
+		if logging == 1 then
+			--localized.ngx_log(localized.ngx_LOG_TYPE, "binformat: "..localized.system_os .. " - number: " .. number .. " - command: " .. command)
+			localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. command)
+		end
+		--MacOS
+		localized.os_execute(command)
+	end
+end
+
 localized.blocked_address_check_count = 0
 local function blocked_address_check(log_message, jsval)
 	if localized.blocked_address_check_count > 1 then --so we dont run multiple times
@@ -2913,7 +2985,7 @@ local function blocked_address_check(log_message, jsval)
 						ip = localized.ngx_var_remote_addr
 					end
 				end
-				if localized.string_find(localized.string_lower(localized.host), ".onion") then
+				if check_tor_onion() then
 					ip = localized.tor_remote_addr --set ip as what the user wants the tor IP to be
 					if localized.tor_remote_addr == "auto" then
 						ip = localized.ngx_var_remote_addr
@@ -2941,14 +3013,15 @@ local function blocked_address_check(log_message, jsval)
 							--Rate limit check
 							if count ~= nil then
 								if count > jspuzzle_request_limit then
-									if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+									if ip_whitelist_flood_checks(localized.ip_whitelist) and check_tor_onion() == false then --if true then block ip
 										--Block IP
 										localized.blocked_addr:set(ip, localized.currenttime, block_duration)
 										if localized.anti_ddos_table[i][32] ~= nil and localized.anti_ddos_table[i][32] ~= "" then
-											if localized.anti_ddos_table[i][7] == 1 then
-												localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. localized.anti_ddos_table[i][32])
+											if #localized.anti_ddos_table[i][32] > 0 then
+												for o=1,#localized.anti_ddos_table[i][32] do
+													check_system(o, localized.anti_ddos_table[i][32][o], localized.anti_ddos_table[i][7], ip)
+												end
 											end
-											os.execute(localized.anti_ddos_table[i][32]) --might be a better way than this with io.popen(localized.anti_ddos_table[i][32])
 										end
 										localized.blocked_address_check_count = localized.blocked_address_check_count+2
 									end
@@ -2966,14 +3039,15 @@ local function blocked_address_check(log_message, jsval)
 							end
 						end
 					else
-						if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+						if ip_whitelist_flood_checks(localized.ip_whitelist) and check_tor_onion() == false then --if true then block ip
 							--Block IP
 							localized.blocked_addr:set(ip, localized.currenttime, block_duration)
 							if localized.anti_ddos_table[i][32] ~= nil and localized.anti_ddos_table[i][32] ~= "" then
-								if localized.anti_ddos_table[i][7] == 1 then
-									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. localized.anti_ddos_table[i][32])
+								if #localized.anti_ddos_table[i][32] > 0 then
+									for o=1,#localized.anti_ddos_table[i][32] do
+										check_system(o, localized.anti_ddos_table[i][32][o], localized.anti_ddos_table[i][7], ip)
+									end
 								end
-								os.execute(localized.anti_ddos_table[i][32]) --might be a better way than this with io.popen(localized.anti_ddos_table[i][32])
 							end
 							localized.blocked_address_check_count = localized.blocked_address_check_count+2
 						end
@@ -4240,9 +4314,9 @@ local function anti_ddos()
 							ip = localized.ngx_var_remote_addr
 						end
 					end
-					if localized.string_find(localized.string_lower(localized.host), ".onion") then
-						v[23] = 0
-						v[24] = 0
+					if check_tor_onion() then
+						v[23] = 0 --enable or disable automatic under attack
+						--v[24] = 0 --number of ips to enable automatic under attack
 						ip = localized.tor_remote_addr --set ip as what the user wants the tor IP to be
 						if localized.tor_remote_addr == "auto" then
 							ip = localized.ngx_var_remote_addr
@@ -4273,24 +4347,26 @@ local function anti_ddos()
 								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip --this can slow down nginx tested via 100,000,000 requests nulled out on the block pages
 							end
 							if v[32] ~= nil and v[32] ~= "" then
-								if v[7] == 1 then
-									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. v[32])
+								if #v[32] > 0 then
+									for o=1,#v[32] do
+										check_system(o, v[32][o], v[7], ip)
+									end
 								end
-								os.execute(v[32]) --might be a better way than this with io.popen(v[32])
 							end
 
 							return localized.ngx_exit(rate_limit_exit_status)
 						end
 
-						if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+						if ip_whitelist_flood_checks(localized.ip_whitelist) and check_tor_onion() == false then --if true then block ip
 							if check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, ddos_counter, v[7]) then
 								--Block IP
 								localized.blocked_addr:set(ip, localized.currenttime, block_duration)
 								if v[32] ~= nil and v[32] ~= "" then
-									if v[7] == 1 then
-										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. v[32])
+									if #v[32] > 0 then
+										for o=1,#v[32] do
+											check_system(o, v[32][o], v[7], ip)
+										end
 									end
-									os.execute(v[32]) --might be a better way than this with io.popen(v[32])
 								end
 								if rate_limit_exit_status ~= 444 and rate_limit_exit_status ~= 204 then --no point with gzip on these
 									localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
@@ -4299,15 +4375,16 @@ local function anti_ddos()
 							end
 						end
 
-						if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+						if ip_whitelist_flood_checks(localized.ip_whitelist) and check_tor_onion() == false then --if true then block ip
 							if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table, v[7]) then
 								--Block IP
 								localized.blocked_addr:set(ip, localized.currenttime, block_duration)
 								if v[32] ~= nil and v[32] ~= "" then
-									if v[7] == 1 then
-										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Running custom command on banned IP address : " .. ip .. " - " .. v[32])
+									if #v[32] > 0 then
+										for o=1,#v[32] do
+											check_system(o, v[32][o], v[7], ip)
+										end
 									end
-									os.execute(v[32]) --might be a better way than this with io.popen(v[32])
 								end
 								if v[7] == 1 then
 									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] SlowHTTP / Slowloris attack detected from: " .. ip)
@@ -4353,7 +4430,7 @@ local function anti_ddos()
 									if localized.type(header_value) ~= "table" then
 										if localized.string_find(localized.string_lower(header_value), localized.string_lower(v[25][i][2])) then
 											if v[25][i][4] > 0 then --add to ban list
-												if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+												if ip_whitelist_flood_checks(localized.ip_whitelist) and check_tor_onion() == false then --if true then block ip
 													if v[7] == 1 then
 														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked sending prohibited header : " .. localized.string_lower(header_value) .. " - " .. ip)
 													end
@@ -4370,7 +4447,7 @@ local function anti_ddos()
 										for i=1, #header_value do
 											if localized.string_find(localized.string_lower(header_value[i]), localized.string_lower(v[25][i][2])) then
 												if v[25][i][4] > 0 then --add to ban list
-													if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+													if ip_whitelist_flood_checks(localized.ip_whitelist) and check_tor_onion() == false then --if true then block ip
 														if v[7] == 1 then
 															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked sending prohibited header : " .. localized.string_lower(header_value[i]) .. " - " .. ip)
 														end
@@ -4394,7 +4471,7 @@ local function anti_ddos()
 						for i=1,#v[26] do
 							if localized.string_lower(localized.ngx_var.request_method) == localized.string_lower(v[26][i][1]) then
 								if v[26][i][3] > 0 then
-									if ip_whitelist_flood_checks(localized.ip_whitelist) then --if true then block ip
+									if ip_whitelist_flood_checks(localized.ip_whitelist) and check_tor_onion() == false then --if true then block ip
 										if v[7] == 1 then
 											localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked using prohibited Request Method : " .. localized.ngx_var.request_method .. " - " .. ip)
 										end
@@ -4473,7 +4550,7 @@ local function anti_ddos()
 							ip = localized.ngx_var_remote_addr
 						end
 					end
-					if localized.string_find(localized.string_lower(localized.host), ".onion") then
+					if check_tor_onion() then
 						v[23] = 0
 						v[24] = 0
 						ip = localized.tor_remote_addr --set ip as what the user wants the tor IP to be
@@ -4751,7 +4828,7 @@ if localized.remote_addr == "tor" then
 		localized.tor_remote_addr = localized.ngx_var_remote_addr
 	end
 end
-if localized.string_find(localized.string_lower(localized.host), ".onion") then
+if check_tor_onion() then
 	localized.remote_addr = localized.tor_remote_addr --set ip as what the user wants the tor IP to be
 	if localized.tor_remote_addr == "auto" then
 		localized.remote_addr = localized.ngx_var_remote_addr
@@ -5553,7 +5630,7 @@ local function check_authorization(authorization, authorization_dynamic)
 		return
 	end
 
-	if localized.authorization ~= 0 and localized.string_find(localized.string_lower(localized.host), ".onion") then
+	if localized.authorization ~= 0 and check_tor_onion() then
 		localized.authorization = 2
 		localized.remote_addr = localized.tor_remote_addr --set for compatibility with Tor Clients
 	end
@@ -5849,7 +5926,9 @@ else
 	localized.remote_addr = localized.ngx_var_remote_addr
 end
 
+if check_tor_onion() == false then
 blocked_address_check("[Anti-DDoS] Blocked IP for exceeding puzzle fail attempt : ", 1)
+end
 
 --[[
 Build HTML Template
