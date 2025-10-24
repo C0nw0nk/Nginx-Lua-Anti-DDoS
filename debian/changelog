@@ -1,3 +1,9 @@
+nginx-lua-anti-ddos-challenge (2.7-1) stable; urgency=medium
+  - Performance improvement and fixes for Tor .onion checks javascript authentication puzzle now shows and protects backends for Tor users.
+  - Added support to detect if Linux, Windows or Mac for custom commands.
+
+ -- C0nw0nk <C0nw0nk@github>  Fri, 24 Oct 2025 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (2.6-1) stable; urgency=medium
   - Add ability to detect and auto whitelist servers IP address
 

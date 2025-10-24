@@ -66,6 +66,9 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Fri Oct 24 2025 C0nw0nk <C0nw0nk@github> - 2.7-1
+- Performance improvement and fixes for Tor .onion checks javascript authentication puzzle now shows and protects backends for Tor users.
+- Added support to detect if Linux, Windows or Mac for custom commands.
 * Wed Oct 08 2025 C0nw0nk <C0nw0nk@github> - 2.6-1
 - Add ability to detect and auto whitelist servers IP address
 * Wed Oct 08 2025 C0nw0nk <C0nw0nk@github> - 2.5-1
