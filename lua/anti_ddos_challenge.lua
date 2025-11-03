@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 2.7
+Script Version: 2.8
 
 Copyright Conor McKnight
 
@@ -1888,6 +1888,233 @@ Please do not touch anything below here unless you understand the code you read 
 This is where things get very complex. ;)
 
 ]]
+
+--[[
+Overrides for lua can be used via configuration file nginx.conf in the lua init block
+https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/Script-Overrides
+useful for those who do not want to modify the script but want to control settings via their nginx config
+This way for each website or nginx config or vhost virtual host you can use the nginx config files to control this script
+Example: nginx.conf inside the http block
+http {
+init_by_lua '
+localized_global = {} --define global var that script can read
+localized_global.secret = " enigma" --nginx config now sets secret key and the script will use the secret key from here
+localized_global.credits = 2 --disable ddos credits
+--clear the IP whitelists
+localized_global.proxy_header_table = nil
+localized_global.ip_whitelist = nil
+';
+}
+]]
+if localized_global ~= nil then
+if localized_global.anti_ddos_table ~= nil then
+localized.anti_ddos_table = localized_global.anti_ddos_table
+end
+if localized_global.content_cache ~= nil then
+localized.content_cache = localized_global.content_cache
+end
+if localized_global.secret ~= nil then
+localized.secret = localized_global.secret
+end
+if localized_global.remote_addr ~= nil then
+localized.remote_addr = localized_global.remote_addr
+end
+if localized_global.expire_time ~= nil then
+localized.expire_time = localized_global.expire_time
+end
+if localized_global.javascript_REQUEST_TYPE ~= nil then
+localized.javascript_REQUEST_TYPE = localized_global.javascript_REQUEST_TYPE
+end
+if localized_global.refresh_auth ~= nil then
+localized.refresh_auth = localized_global.refresh_auth
+end
+if localized_global.JavascriptVars_opening ~= nil then
+localized.JavascriptVars_opening = localized_global.JavascriptVars_opening
+end
+if localized_global.JavascriptVars_closing ~= nil then
+localized.JavascriptVars_closing = localized_global.JavascriptVars_closing
+end
+if localized_global.x_auth_header ~= nil then
+localized.x_auth_header = localized_global.x_auth_header
+end
+if localized_global.x_auth_header_name ~= nil then
+localized.x_auth_header_name = localized_global.x_auth_header_name
+end
+if localized_global.challenge ~= nil then
+localized.challenge = localized_global.challenge
+end
+if localized_global.cookie_name_start_date ~= nil then
+localized.cookie_name_start_date = localized_global.cookie_name_start_date
+end
+if localized_global.cookie_name_end_date ~= nil then
+localized.cookie_name_end_date = localized_global.cookie_name_end_date
+end
+if localized_global.cookie_name_encrypted_start_and_end_date ~= nil then
+localized.cookie_name_encrypted_start_and_end_date = localized_global.cookie_name_encrypted_start_and_end_date
+end
+if localized_global.encrypt_anti_ddos_cookies ~= nil then
+localized.encrypt_anti_ddos_cookies = localized_global.encrypt_anti_ddos_cookies
+end
+if localized_global.encrypt_javascript_output ~= nil then
+localized.encrypt_javascript_output = localized_global.encrypt_javascript_output
+end
+if localized_global.ip_whitelist_remote_addr ~= nil then
+localized.ip_whitelist_remote_addr = localized_global.ip_whitelist_remote_addr
+end
+if localized_global.ip_whitelist_block_mode ~= nil then
+localized.ip_whitelist_block_mode = localized_global.ip_whitelist_block_mode
+end
+if localized_global.ip_whitelist_bypass_flood_protection ~= nil then
+localized.ip_whitelist_bypass_flood_protection = localized_global.ip_whitelist_bypass_flood_protection
+end
+if localized_global.ip_whitelist ~= nil then
+localized.ip_whitelist = localized_global.ip_whitelist
+end
+if localized_global.ip_blacklist_remote_addr ~= nil then
+localized.ip_blacklist_remote_addr = localized_global.ip_blacklist_remote_addr
+end
+if localized_global.ip_blacklist ~= nil then
+localized.ip_blacklist = localized_global.ip_blacklist
+end
+if localized_global.tor ~= nil then
+localized.tor = localized_global.tor
+end
+if localized_global.tor_remote_addr ~= nil then
+localized.tor_remote_addr = localized_global.tor_remote_addr
+end
+if localized_global.x_tor_header ~= nil then
+localized.x_tor_header = localized_global.x_tor_header
+end
+if localized_global.x_tor_header_name ~= nil then
+localized.x_tor_header_name = localized_global.x_tor_header_name
+end
+if localized_global.x_tor_header_name_allowed ~= nil then
+localized.x_tor_header_name_allowed = localized_global.x_tor_header_name_allowed
+end
+if localized_global.x_tor_header_name_blocked ~= nil then
+localized.x_tor_header_name_blocked = localized_global.x_tor_header_name_blocked
+end
+if localized_global.cookie_tor ~= nil then
+localized.cookie_tor = localized_global.cookie_tor
+end
+if localized_global.cookie_tor_value_allow ~= nil then
+localized.cookie_tor_value_allow = localized_global.cookie_tor_value_allow
+end
+if localized_global.cookie_tor_value_block ~= nil then
+localized.cookie_tor_value_block = localized_global.cookie_tor_value_block
+end
+if localized_global.default_charset ~= nil then
+localized.default_charset = localized_global.default_charset
+end
+if localized_global.master_switch ~= nil then
+localized.master_switch = localized_global.master_switch
+end
+if localized_global.master_switch_custom_hosts ~= nil then
+localized.master_switch_custom_hosts = localized_global.master_switch_custom_hosts
+end
+if localized_global.credits ~= nil then
+localized.credits = localized_global.credits
+end
+if localized_global.dynamic_javascript_vars_length ~= nil then
+localized.dynamic_javascript_vars_length = localized_global.dynamic_javascript_vars_length
+end
+if localized_global.dynamic_javascript_vars_length_static ~= nil then
+localized.dynamic_javascript_vars_length_static = localized_global.dynamic_javascript_vars_length_static
+end
+if localized_global.dynamic_javascript_vars_length_start ~= nil then
+localized.dynamic_javascript_vars_length_start = localized_global.dynamic_javascript_vars_length_start
+end
+if localized_global.dynamic_javascript_vars_length_end ~= nil then
+localized.dynamic_javascript_vars_length_end = localized_global.dynamic_javascript_vars_length_end
+end
+if localized_global.user_agent_blacklist_table ~= nil then
+localized.user_agent_blacklist_table = localized_global.user_agent_blacklist_table
+end
+if localized_global.user_agent_whitelist_table ~= nil then
+localized.user_agent_whitelist_table = localized_global.user_agent_whitelist_table
+end
+if localized_global.authorization ~= nil then
+localized.authorization = localized_global.authorization
+end
+if localized_global.authorization_paths ~= nil then
+localized.authorization_paths = localized_global.authorization_paths
+end
+if localized_global.authorization_dynamic ~= nil then
+localized.authorization_dynamic = localized_global.authorization_dynamic
+end
+if localized_global.authorization_dynamic_length ~= nil then
+localized.authorization_dynamic_length = localized_global.authorization_dynamic_length
+end
+if localized_global.authorization_message ~= nil then
+localized.authorization_message = localized_global.authorization_message
+end
+if localized_global.authorization_username_message ~= nil then
+localized.authorization_username_message = localized_global.authorization_username_message
+end
+if localized_global.authorization_password_message ~= nil then
+localized.authorization_password_message = localized_global.authorization_password_message
+end
+if localized_global.authorization_logins ~= nil then
+localized.authorization_logins = localized_global.authorization_logins
+end
+if localized_global.authorization_cookie ~= nil then
+localized.authorization_cookie = localized_global.authorization_cookie
+end
+if localized_global.WAF_POST_Request_table ~= nil then
+localized.WAF_POST_Request_table = localized_global.WAF_POST_Request_table
+end
+if localized_global.WAF_Header_Request_table ~= nil then
+localized.WAF_Header_Request_table = localized_global.WAF_Header_Request_table
+end
+if localized_global.WAF_query_string_Request_table ~= nil then
+localized.WAF_query_string_Request_table = localized_global.WAF_query_string_Request_table
+end
+if localized_global.WAF_URI_Request_table ~= nil then
+localized.WAF_URI_Request_table = localized_global.WAF_URI_Request_table
+end
+if localized_global.query_string_sort_table ~= nil then
+localized.query_string_sort_table = localized_global.query_string_sort_table
+end
+if localized_global.query_string_expected_args_only_table ~= nil then
+localized.query_string_expected_args_only_table = localized_global.query_string_expected_args_only_table
+end
+if localized_global.query_string_remove_args_table ~= nil then
+localized.query_string_remove_args_table = localized_global.query_string_remove_args_table
+end
+if localized_global.proxy_header_table ~= nil then
+localized.proxy_header_table = localized_global.proxy_header_table
+end
+if localized_global.send_ip_to_backend_custom_headers ~= nil then
+localized.send_ip_to_backend_custom_headers = localized_global.send_ip_to_backend_custom_headers
+end
+if localized_global.custom_headers ~= nil then
+localized.custom_headers = localized_global.custom_headers
+end
+if localized_global.log_users_on_puzzle ~= nil then
+localized.log_users_on_puzzle = localized_global.log_users_on_puzzle
+end
+if localized_global.log_on_puzzle_text_start ~= nil then
+localized.log_on_puzzle_text_start = localized_global.log_on_puzzle_text_start
+end
+if localized_global.log_on_puzzle_text_end ~= nil then
+localized.log_on_puzzle_text_end = localized_global.log_on_puzzle_text_end
+end
+if localized_global.log_users_granted_access ~= nil then
+localized.log_users_granted_access = localized_global.log_users_granted_access
+end
+if localized_global.log_on_granted_text_start ~= nil then
+localized.log_on_granted_text_start = localized_global.log_on_granted_text_start
+end
+if localized_global.log_on_granted_text_end ~= nil then
+localized.log_on_granted_text_end = localized_global.log_on_granted_text_end
+end
+if localized_global.exit_status ~= nil then
+localized.exit_status = localized_global.exit_status
+end
+if localized_global.content_type_fix ~= nil then
+localized.content_type_fix = localized_global.content_type_fix
+end
+end
 
 --Test as Tor network
 --localized.host = "localhost.onion"
