@@ -1891,6 +1891,7 @@ This is where things get very complex. ;)
 
 --[[
 Overrides for lua can be used via configuration file nginx.conf in the lua init block
+https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/Script-Overrides
 useful for those who do not want to modify the script but want to control settings via their nginx config
 This way for each website or nginx config or vhost virtual host you can use the nginx config files to control this script
 Example: nginx.conf inside the http block
