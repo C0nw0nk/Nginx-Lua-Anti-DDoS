@@ -523,7 +523,7 @@ localized.ngx_var_remote_addr --Users IP address
 localized.ngx_var_http_user_agent or "" --User-Agent
 
 You can combine multiple if you like. You can do so like this.
-localized.remote_addr = localized.ngx_var_remote_addr .. localized.ngx_var_http_user_agent or ""
+localized.remote_addr = localized.ngx_var_remote_addr .. (localized.ngx_var_http_user_agent or "")
 
 remote_addr = "tor" this will mean this script will be functioning for tor users only
 remote_addr = "auto" the script will automatically get the clients IP this is the default it is the smartest and most compatible method with every service proxy etc
@@ -700,10 +700,10 @@ localized.tor = 1 --Allow Tor Users
 --[[
 Unique ID to identify each individual Tor user who connects to the website
 Using their User-Agent as a static variable to latch onto works well.
-localized.tor_remote_addr = localized.ngx_var_remote_addr .. localized.os_date("%W",localized.os_time_saved) .. localized.ngx_var_http_user_agent or "" --Tor / Onion users can use this if you dont like the "auto" behaviour
+localized.tor_remote_addr = localized.ngx_var_remote_addr .. localized.os_date("%W",localized.os_time_saved) .. (localized.ngx_var_http_user_agent or "") --Tor / Onion users can use this if you dont like the "auto" behaviour
 ]]
 --localized.tor_remote_addr = "auto"
-localized.tor_remote_addr = localized.ngx_var_remote_addr .. localized.os_date("%W",localized.os_time_saved) .. localized.ngx_var_http_user_agent or ""
+localized.tor_remote_addr = localized.ngx_var_remote_addr .. localized.os_date("%W",localized.os_time_saved) .. (localized.ngx_var_http_user_agent or "")
 
 --[[
 X-Tor-Header to be static or Dynamic setting this as dynamic is the best form of security
