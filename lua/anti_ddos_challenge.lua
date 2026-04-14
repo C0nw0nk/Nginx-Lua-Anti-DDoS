@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 2.8
+Script Version: 2.9
 
 Copyright Conor McKnight
 
@@ -393,7 +393,7 @@ localized.content_cache = {
 	--[[
 	{
 		".*", --regex match any site / path
-		"text/html", --content-type valid types are text to match all text formats or text/css text/javascript etc
+		"text/html", --empty string matches all "" content-type valid types are text to match all text formats or text/css text/javascript etc
 		--lua_shared_dict html_cache 10m; #HTML pages cache
 		localized.ngx.shared.html_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict html_cache 10m; #HTML pages cache
 		60, --ttl for cache or ""
@@ -3079,7 +3079,14 @@ internal_header_setup()
 localized.check_tor_onion_cached = nil
 local function check_tor_onion()
 	if localized.check_tor_onion_cached == nil then
-		if localized.string_find(localized.string_lower(localized.host), ".onion") then
+		if localized.string_find(localized.string_lower(localized.host), ".onion$") --Tor
+		or localized.string_find(localized.string_lower(localized.host), ".eth$") --ENS
+		or localized.string_find(localized.string_lower(localized.URL), "usk%@") --Freenet
+		or localized.string_find(localized.string_lower(localized.URL), "%/ipfs%/") --IPFS inter planetary file system
+		or localized.string_find(localized.string_lower(localized.URL), "%/ipns%/") --IPFS inter planetary name system
+		or localized.string_find(localized.string_lower(localized.URL), "%/bzz%/") --SWARM network
+		or localized.string_find(localized.string_lower(localized.URL), "%/radicale%/") --Radicale
+		or localized.string_find(localized.string_lower(localized.host), ".i2p$") then --i2p the invisible internet project
 			localized.check_tor_onion_cached = true
 		else
 			localized.check_tor_onion_cached = false
@@ -6823,6 +6830,9 @@ local function minification(content_type_list)
 															--goto end_for_loop
 															content_type_header_match = 1
 														end
+														if content_type_list[i][2] == "" or content_type_list[i][2] == nil then
+															content_type_header_match = 0
+														end
 													end
 												end
 											end
@@ -6917,6 +6927,9 @@ local function minification(content_type_list)
 															--goto end_for_loop
 															content_type_header_match = 1
 														end
+														if content_type_list[i][2] == "" or content_type_list[i][2] == nil then
+															content_type_header_match = 0
+														end
 													end
 												end
 											end
@@ -6993,7 +7006,8 @@ local function minification(content_type_list)
 
 					else --if content_type_cache == nil then
 
-						if content_type_cache and localized.string_find(content_type_cache, content_type_list[i][2]) then
+						if content_type_cache and (content_type_list[i][2] == "" or content_type_list[i][2] == nil or localized.string_find(content_type_cache, content_type_list[i][2])) then
+						--if content_type_cache and localized.string_find(content_type_cache, content_type_list[i][2]) then
 							localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
 
 							if content_type_list[i][5] == 1 then
@@ -7053,6 +7067,9 @@ local function minification(content_type_list)
 													if faster_than_match(content_type_list[i][2]) or localized.string_find(header, content_type_list[i][2]) == nil then
 														--goto end_for_loop
 														content_type_header_match = 1
+													end
+													if content_type_list[i][2] == "" or content_type_list[i][2] == nil then
+														content_type_header_match = 0
 													end
 												end
 											end
@@ -7131,6 +7148,9 @@ local function minification(content_type_list)
 													if faster_than_match(content_type_list[i][2]) or localized.string_find(header, content_type_list[i][2]) == nil then
 														--goto end_for_loop
 														content_type_header_match = 1
+													end
+													if content_type_list[i][2] == "" or content_type_list[i][2] == nil then
+														content_type_header_match = 0
 													end
 												end
 											end
