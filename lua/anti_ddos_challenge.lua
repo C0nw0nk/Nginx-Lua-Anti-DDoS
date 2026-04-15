@@ -1878,6 +1878,23 @@ If you encounter requests hanging or subrequests issues set this to false the ca
 localized.content_type_fix = true --true or false
 
 --[[
+The way to check if we are running any private services
+We check the host or the URL or port against a matching string for example if host contains .onion we know we are using a Tor SERVICE and to apply settings for compatibility
+Allows us to easily add other privacy services and nodes to protect from attacks.
+]]
+localized.check_privacy = {
+	{localized.host,".onion$",}, --Tor
+	{localized.host,".eth$",}, --ENS
+	--{localized.URL,"usk%@",}, --Freenet
+	--{localized.URL,"%/ipfs%/",}, --IPFS inter planetary file system
+	--{localized.URL,"%/ipns%/",}, --IPNS inter planetary name system
+	--{localized.URL,"%/bzz%/",}, --SWARM network
+	--{localized.URL,"%/radicale%/",}, --Radicale
+	{localized.host,".i2p$",}, --i2p the invisible internet project
+	--{localized.ngx_var.server_port, "4444"}, --port matches node or hidden service that nginx is protecting
+}
+
+--[[
 End Configuration
 
 
@@ -2113,6 +2130,9 @@ localized.exit_status = localized_global.exit_status
 end
 if localized_global.content_type_fix ~= nil then
 localized.content_type_fix = localized_global.content_type_fix
+end
+if localized_global.check_privacy ~= nil then
+localized.check_privacy = localized_global.check_privacy
 end
 end
 
@@ -3079,17 +3099,13 @@ internal_header_setup()
 localized.check_tor_onion_cached = nil
 local function check_tor_onion()
 	if localized.check_tor_onion_cached == nil then
-		if localized.string_find(localized.string_lower(localized.host), ".onion$") --Tor
-		or localized.string_find(localized.string_lower(localized.host), ".eth$") --ENS
-		or localized.string_find(localized.string_lower(localized.URL), "usk%@") --Freenet
-		or localized.string_find(localized.string_lower(localized.URL), "%/ipfs%/") --IPFS inter planetary file system
-		or localized.string_find(localized.string_lower(localized.URL), "%/ipns%/") --IPFS inter planetary name system
-		or localized.string_find(localized.string_lower(localized.URL), "%/bzz%/") --SWARM network
-		or localized.string_find(localized.string_lower(localized.URL), "%/radicale%/") --Radicale
-		or localized.string_find(localized.string_lower(localized.host), ".i2p$") then --i2p the invisible internet project
-			localized.check_tor_onion_cached = true
-		else
-			localized.check_tor_onion_cached = false
+		for i=1,#localized.check_privacy do
+			if localized.string_find(localized.string_lower(localized.check_privacy[i][1]), localized.check_privacy[i][2]) then
+				localized.check_tor_onion_cached = true
+				break
+			else
+				localized.check_tor_onion_cached = false
+			end
 		end
 		return localized.check_tor_onion_cached
 	else
