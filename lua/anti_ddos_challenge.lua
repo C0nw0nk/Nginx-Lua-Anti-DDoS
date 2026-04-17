@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 2.8
+Script Version: 2.9
 
 Copyright Conor McKnight
 
@@ -393,7 +393,7 @@ localized.content_cache = {
 	--[[
 	{
 		".*", --regex match any site / path
-		"text/html", --content-type valid types are text to match all text formats or text/css text/javascript etc
+		"text/html", --empty string matches all "" content-type valid types are text to match all text formats or text/css text/javascript etc
 		--lua_shared_dict html_cache 10m; #HTML pages cache
 		localized.ngx.shared.html_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict html_cache 10m; #HTML pages cache
 		60, --ttl for cache or ""
@@ -1878,6 +1878,25 @@ If you encounter requests hanging or subrequests issues set this to false the ca
 localized.content_type_fix = true --true or false
 
 --[[
+The way to check if we are running any private services
+We check the host or the URL or port against a matching string for example if host contains .onion we know we are using a Tor SERVICE and to apply settings for compatibility
+Allows us to easily add other privacy services and nodes to protect from attacks.
+]]
+localized.check_privacy = {
+	{localized.host,".onion$",}, --Tor
+	{localized.host,".eth$",}, --ENS
+	--{localized.URL,"usk%@",}, --Freenet
+	--{localized.URL,"%/ipfs%/",}, --IPFS inter planetary file system
+	--{localized.URL,"%/ipns%/",}, --IPNS inter planetary name system
+	--{localized.URL,"%/bzz%/",}, --SWARM network
+	--{localized.URL,"%/radicale%/",}, --Radicale
+	{localized.host,".i2p$",}, --i2p the invisible internet project
+	{localized.host,".loki$",}, --Lokinet
+	--{localized.ngx_var.server_port, "4444"}, --port matches node or hidden service that nginx is protecting
+	--{localized.ngx_var.server_port, "43310"}, --zeronet
+}
+
+--[[
 End Configuration
 
 
@@ -2113,6 +2132,9 @@ localized.exit_status = localized_global.exit_status
 end
 if localized_global.content_type_fix ~= nil then
 localized.content_type_fix = localized_global.content_type_fix
+end
+if localized_global.check_privacy ~= nil then
+localized.check_privacy = localized_global.check_privacy
 end
 end
 
@@ -3079,10 +3101,13 @@ internal_header_setup()
 localized.check_tor_onion_cached = nil
 local function check_tor_onion()
 	if localized.check_tor_onion_cached == nil then
-		if localized.string_find(localized.string_lower(localized.host), ".onion") then
-			localized.check_tor_onion_cached = true
-		else
-			localized.check_tor_onion_cached = false
+		for i=1,#localized.check_privacy do
+			if localized.string_find(localized.string_lower(localized.check_privacy[i][1]), localized.check_privacy[i][2]) then
+				localized.check_tor_onion_cached = true
+				break
+			else
+				localized.check_tor_onion_cached = false
+			end
 		end
 		return localized.check_tor_onion_cached
 	else
@@ -6823,6 +6848,9 @@ local function minification(content_type_list)
 															--goto end_for_loop
 															content_type_header_match = 1
 														end
+														if content_type_list[i][2] == "" or content_type_list[i][2] == nil then
+															content_type_header_match = 0
+														end
 													end
 												end
 											end
@@ -6917,6 +6945,9 @@ local function minification(content_type_list)
 															--goto end_for_loop
 															content_type_header_match = 1
 														end
+														if content_type_list[i][2] == "" or content_type_list[i][2] == nil then
+															content_type_header_match = 0
+														end
 													end
 												end
 											end
@@ -6993,7 +7024,8 @@ local function minification(content_type_list)
 
 					else --if content_type_cache == nil then
 
-						if content_type_cache and localized.string_find(content_type_cache, content_type_list[i][2]) then
+						if content_type_cache and (content_type_list[i][2] == "" or content_type_list[i][2] == nil or localized.string_find(content_type_cache, content_type_list[i][2])) then
+						--if content_type_cache and localized.string_find(content_type_cache, content_type_list[i][2]) then
 							localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
 
 							if content_type_list[i][5] == 1 then
@@ -7053,6 +7085,9 @@ local function minification(content_type_list)
 													if faster_than_match(content_type_list[i][2]) or localized.string_find(header, content_type_list[i][2]) == nil then
 														--goto end_for_loop
 														content_type_header_match = 1
+													end
+													if content_type_list[i][2] == "" or content_type_list[i][2] == nil then
+														content_type_header_match = 0
 													end
 												end
 											end
@@ -7131,6 +7166,9 @@ local function minification(content_type_list)
 													if faster_than_match(content_type_list[i][2]) or localized.string_find(header, content_type_list[i][2]) == nil then
 														--goto end_for_loop
 														content_type_header_match = 1
+													end
+													if content_type_list[i][2] == "" or content_type_list[i][2] == nil then
+														content_type_header_match = 0
 													end
 												end
 											end
