@@ -1891,7 +1891,9 @@ localized.check_privacy = {
 	--{localized.URL,"%/bzz%/",}, --SWARM network
 	--{localized.URL,"%/radicale%/",}, --Radicale
 	{localized.host,".i2p$",}, --i2p the invisible internet project
+	{localized.host,".loki$",}, --Lokinet
 	--{localized.ngx_var.server_port, "4444"}, --port matches node or hidden service that nginx is protecting
+	--{localized.ngx_var.server_port, "43310"}, --zeronet
 }
 
 --[[
