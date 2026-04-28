@@ -15,7 +15,7 @@ Summary:        Nginx Lua Anti-DDoS script
 License:        MIT
 URL:            https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS
 Source0:        anti_ddos_challenge.lua
-SOURCE1:        LICENSE
+Source1:        LICENSE
 Source2:        README.md
 
 BuildArch:      noarch
@@ -53,8 +53,8 @@ install -D -m 0644 %{SOURCE1} %{buildroot}/usr/share/licenses/%{name}/LICENSE
 install -D -m 0644 %{SOURCE2} %{buildroot}/usr/share/doc/%{name}/README.md
 
 %files
-%license LICENSE
-%doc README.md
+%license /usr/share/licenses/%{name}/LICENSE
+%doc /usr/share/doc/%{name}/README.md
 %config(noreplace) /etc/nginx/anti_ddos_challenge.lua
 
 %post
