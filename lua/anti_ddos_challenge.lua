@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 3.0
+Script Version: 3.1
 
 Copyright Conor McKnight
 
@@ -390,7 +390,7 @@ setcookie($cookie_name, $cookie_value, time() + (86400 * 30), "/"); // 86400 = 1
 ?>
 ]]
 localized.content_cache = {
-	--[[
+	--[[]]
 	{
 		".*", --regex match any site / path
 		"text/html", --empty string matches all "" content-type valid types are text to match all text formats or text/css text/javascript etc
@@ -445,7 +445,14 @@ localized.content_cache = {
 			--["host"] = "www.google.com", --override this header to request being sent to backend
 			--["priority"] = "", --remove this header from the request being sent to the backened
 		},
-	},
+		nil,--{ --cache only when cookie match found use nil or empty string "" to ignore
+			--{
+			--	"logged_in", --cookie name regex ".*" for any cookie
+			--	"1", --cookie value ".*" for any value
+			--	1, --0 cache key will NOT include cookies 1 cache key will include cookies
+			--},
+		--},
+	},--[[
 	{
 		".*", --regex match any site / path
 		"video/mp4", --content-type valid types are video to match all video formats or video/mp4 video/webm etc
@@ -475,6 +482,7 @@ localized.content_cache = {
 			--["host"] = "www.google.com", --override this header to request being sent to backend
 			--["priority"] = "", --remove this header from the request being sent to the backened
 		},
+		nil, --cache only when cookie match found use nil or empty string "" to ignore
 	},
 	{
 		".*", --regex match any site / path
@@ -505,6 +513,7 @@ localized.content_cache = {
 			--["host"] = "www.google.com", --override this header to request being sent to backend
 			--["priority"] = "", --remove this header from the request being sent to the backened
 		},
+		nil, --cache only when cookie match found use nil or empty string "" to ignore
 	},
 	]]
 }
@@ -6587,6 +6596,19 @@ local function minification(content_type_list)
 						--end
 						cookie_match = 0 --set to 0
 					end
+				end
+			end
+			if content_type_list[i][19] ~= "" and content_type_list[i][19] ~= nil then
+				for a=1, #content_type_list[i][19] do
+					local cookie_name = content_type_list[i][19][a][1]
+					local cookie_value = content_type_list[i][19][a][2]
+					cookie_match, guest_or_logged_in = grab_cookies(cookie_name, cookie_value, content_type_list[i][19][a][3])
+				end
+				--localized.ngx_log(localized.ngx_LOG_TYPE, "cookie_match " .. cookie_match .. " GUEST_or_logged_in " .. guest_or_logged_in )
+				if cookie_match == 1 then
+					cookie_match = 0
+				else
+					cookie_match = 1
 				end
 			end
 			if content_type_list[i][9] ~= "" and content_type_list[i][9] ~= nil then
