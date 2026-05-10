@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 2.9
+Script Version: 3.0
 
 Copyright Conor McKnight
 
@@ -410,7 +410,7 @@ localized.content_cache = {
 		}, --bypass cache on cookie
 		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls use nil or empty string "" to not bypass on urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
-		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
+		2, --0 do not remove set-cookie header 1 remove set-cookie header on both HIT/UPDATING 2 remove from HIT ONLY 3 remove from UPDATING ONLY if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
 		localized.request_uri, --url to use you can do "/index.html", as an example localized.request_uri is best.
 		false, --true to use lua resty.http library if exist if you set this to true you can change localized.request_uri above to "https://www.google.com/", as an example.
 		{ --Content Modifier Modification/Minification / Minify HTML output
@@ -458,7 +458,7 @@ localized.content_cache = {
 		"", --nil or empty string "" to not bypass on cookies
 		"", --nil or empty string "" to not bypass on urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
-		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
+		2, --0 do not remove set-cookie header 1 remove set-cookie header on both HIT/UPDATING 2 remove from HIT ONLY 3 remove from UPDATING ONLY if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
 		localized.request_uri, --url to use you can do "/index.html", as an example localized.request_uri is best.
 		false, --true to use lua resty.http library if exist if you set this to true you can change localized.request_uri above to "https://www.google.com/", as an example.
 		"", --content modified not needed for this format
@@ -488,7 +488,7 @@ localized.content_cache = {
 		nil, --nil or empty string "" to not bypass on cookies
 		nil, --nil or empty string "" to not bypass on urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
-		1, --if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
+		2, --0 do not remove set-cookie header 1 remove set-cookie header on both HIT/UPDATING 2 remove from HIT ONLY 3 remove from UPDATING ONLY if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
 		localized.request_uri, --url to use you can do "/index.html", as an example localized.request_uri is best.
 		false, --true to use lua resty.http library if exist if you set this to true you can change localized.request_uri above to "https://www.google.com/", as an example.
 		"", --content modified not needed for this format
@@ -6907,7 +6907,7 @@ local function minification(content_type_list)
 															localized.ngx_header[headerName] = header
 														end
 													end
-													if content_type_list[i][11] == 1 and guest_or_logged_in == 0 then
+													if content_type_list[i][11] == 1 or  content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
 														localized.ngx_header["Set-Cookie"] = nil
 													end
 													localized.ngx_header["Content-Length"] = #output_minified
@@ -7004,7 +7004,7 @@ local function minification(content_type_list)
 															localized.ngx_header[headerName] = header
 														end
 													end
-													if content_type_list[i][11] == 1 and guest_or_logged_in == 0 then
+													if content_type_list[i][11] == 1 or  content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
 														localized.ngx_header["Set-Cookie"] = nil
 													end
 													localized.ngx_header["Content-Length"] = #output_minified
@@ -7049,7 +7049,7 @@ local function minification(content_type_list)
 									end
 								end
 							end
-							if content_type_list[i][11] == 1 and guest_or_logged_in == 0 or guest_or_logged_in == 1 then
+							if content_type_list[i][11] == 1 or content_type_list[i][11] == 2 and guest_or_logged_in == 0 or guest_or_logged_in == 1 then
 								localized.ngx_header["Set-Cookie"] = nil
 							end
 							localized.ngx_header["Content-Length"] = #output_minified
@@ -7128,7 +7128,7 @@ local function minification(content_type_list)
 														localized.ngx_header[headerName] = header
 													end
 												end
-												--if content_type_list[i][11] == 1 and guest_or_logged_in == 0 then
+												--if content_type_list[i][11] == 1 or  content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
 													--localized.ngx_header["Set-Cookie"] = nil
 												--end
 												localized.ngx_header["Content-Length"] = #output_minified
@@ -7209,7 +7209,7 @@ local function minification(content_type_list)
 														localized.ngx_header[headerName] = header
 													end
 												end
-												--if content_type_list[i][11] == 1 and guest_or_logged_in == 0 then
+												--if content_type_list[i][11] == 1 or  content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
 													--localized.ngx_header["Set-Cookie"] = nil
 												--end
 												localized.ngx_header["Content-Length"] = #output_minified
