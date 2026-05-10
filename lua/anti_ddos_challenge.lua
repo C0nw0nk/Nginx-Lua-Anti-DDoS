@@ -390,7 +390,7 @@ setcookie($cookie_name, $cookie_value, time() + (86400 * 30), "/"); // 86400 = 1
 ?>
 ]]
 localized.content_cache = {
-	--[[]]
+	--[[
 	{
 		".*", --regex match any site / path
 		"text/html", --empty string matches all "" content-type valid types are text to match all text formats or text/css text/javascript etc
@@ -452,7 +452,7 @@ localized.content_cache = {
 			--	1, --0 cache key will NOT include cookies 1 cache key will include cookies
 			--},
 		--},
-	},--[[
+	},
 	{
 		".*", --regex match any site / path
 		"video/mp4", --content-type valid types are video to match all video formats or video/mp4 video/webm etc
