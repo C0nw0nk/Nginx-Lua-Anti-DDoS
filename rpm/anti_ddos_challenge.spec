@@ -68,6 +68,8 @@ fi
 %changelog
 * Sun May 10 2026 C0nw0nk <C0nw0nk@github> - 3.0-1
 - Added Additional options for caching display of set-cookie headers on cached pages 0 do not remove set-cookie header 1 remove set-cookie header on both HIT/UPDATING 2 remove from HIT ONLY 3 remove from UPDATING ONLY default behaviour is 2 for safety so cache updating / miss will send cookie headers but on cache HIT no header is sent
+* Sun May 10 2026 C0nw0nk <C0nw0nk@github> - 3.0-1
+- Added Additional options for caching display of set-cookie headers on cached pages 0 do not remove set-cookie header 1 remove set-cookie header on both HIT/UPDATING 2 remove from HIT ONLY 3 remove from UPDATING ONLY default behaviour is 2 for safety so cache updating / miss will send cookie headers but on cache HIT no header is sent
 * Fri Apr 17 2026 C0nw0nk <C0nw0nk@github> - 2.9-1
 - Added Feature allow content cache to match any type by using nil or empty string previous behaviour only matched by mime-type.
 - Added Feature for Hidden services like Tor, Freenet, invisible internet project etc to be controlled via nginx.conf file and to easily have other private internet services added via a Lua table easily that way other services users want to add can do so without needing to modify the scripts code.
