@@ -1,3 +1,10 @@
+Version: 3.2
+Date: 2026-05-17
+- Added Feature ability to use redis cache server
+- Added Feature ability to use memcached server
+- Added Feature ability to use lrucache
+- Added Feature ability to use fallback servers for items store in cache incase server is down/offline
+
 Version: 3.1
 Date: 2026-05-11
 - Added Feature for Caching only when cookie exists so now not only can you always cache and bypass cache on cookie but you can also not cache unless cookie is present useful for those who only want to enable caching when users browser has the correct cookie.
