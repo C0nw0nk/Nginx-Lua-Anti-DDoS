@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 3.1
+Script Version: 3.2
 
 Copyright Conor McKnight
 
@@ -6919,7 +6919,7 @@ local function minification(content_type_list)
 				local cached = content_type_list[i][3] or ""
 				local resty_redis = 0
 				local master_break = false
-				if cached ~= "" then
+				if cached ~= "" and localized.type(cached) == "table" then
 					local connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass, fallback_servers = nil
 					for x=1,#content_type_list[i][3] do
 						--localized.ngx_log(localized.ngx_LOG_TYPE, " table var - " .. content_type_list[i][3][x] )
@@ -7652,4 +7652,3 @@ end --end minification function
 
 minification(localized.content_cache)
 end
-
