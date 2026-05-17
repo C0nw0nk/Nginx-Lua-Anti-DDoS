@@ -6,6 +6,14 @@ nginx-lua-anti-ddos-challenge (3.2-1) stable; urgency=medium
 
  -- C0nw0nk <C0nw0nk@github>  Sun, 17 May 2026 00:00:00 +0000
 
+nginx-lua-anti-ddos-challenge (3.2-1) stable; urgency=medium
+  - Added Feature ability to use redis cache server
+  - Added Feature ability to use memcached server
+  - Added Feature ability to use lrucache
+  - Added Feature ability to use fallback servers for items store in cache incase server is down/offline
+
+ -- C0nw0nk <C0nw0nk@github>  Sun, 17 May 2026 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (3.1-1) stable; urgency=medium
   - Added Feature for Caching only when cookie exists so now not only can you always cache and bypass cache on cookie but you can also not cache unless cookie is present useful for those who only want to enable caching when users browser has the correct cookie.
 
