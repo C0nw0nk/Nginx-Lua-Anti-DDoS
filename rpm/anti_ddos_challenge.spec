@@ -66,6 +66,11 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Sun May 17 2026 C0nw0nk <C0nw0nk@github> - 3.2-1
+- Added Feature ability to use redis cache server
+- Added Feature ability to use memcached server
+- Added Feature ability to use lrucache
+- Added Feature ability to use fallback servers for items store in cache incase server is down/offline
 * Mon May 11 2026 C0nw0nk <C0nw0nk@github> - 3.1-1
 - Added Feature for Caching only when cookie exists so now not only can you always cache and bypass cache on cookie but you can also not cache unless cookie is present useful for those who only want to enable caching when users browser has the correct cookie.
 * Sun May 10 2026 C0nw0nk <C0nw0nk@github> - 3.0-1
