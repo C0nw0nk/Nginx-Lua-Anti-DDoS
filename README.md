@@ -72,6 +72,38 @@ Query String Removal (It is a blacklist but it will just drop / remove the argum
 
 Minification / Compression of files removing white space and nulled out code / lines JS JavaScript, CSS Stylesheets, HTML etc
 
+Ability to use Redis as a cache storage soloution
+
+Ability to use Memcached as a cache storage soloution
+
+Ability to use lrucache as a cache storage soloution
+
+Ability to use shared.DICT memory as a cache storage soloution
+
+## Support for Additional services
+
+Supports Tor services .Tor
+
+Supports Lokinet services .Loki
+
+Supports Ethereum name services .ENS
+
+Supports The invisible internet project .i2p
+
+Supports Freenet
+
+Supports IPFS inter planetary file system
+
+Supports IPNS inter planetary name system
+
+Supports SWARM network
+
+Supports Radicale
+
+Supports any port matches node or hidden service that nginx is protecting
+
+Supports zeronet
+
 ## Customization of error pages responses and webpage outputs
 
 Custom error page interception to replace with your own error pages
