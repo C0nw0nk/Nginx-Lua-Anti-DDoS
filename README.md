@@ -138,7 +138,7 @@ Once installed into your `nginx/conf/` folder.
 
 Add this to your HTTP block or it can be in a server or location block depending where you want this script to run for individual locations the entire server or every single website on the server.
 
-```
+```lua
 lua_shared_dict antiddos 70m; #Anti-DDoS shared memory zone to track requests per each unique user
 lua_shared_dict antiddos_blocked 70m; #Anti-DDoS shared memory where blocked users are put
 lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
@@ -151,7 +151,7 @@ access_by_lua_file anti_ddos_challenge.lua;
 
 This will run for all websites on the nginx server
 
-```
+```lua
 http {
 
 #shared memory addresses in http block
@@ -169,7 +169,7 @@ access_by_lua_file anti_ddos_challenge.lua;
 
 This will make it run for this website only
 
-```
+```lua
 http {
 #shared memory addresses in http block
 lua_shared_dict antiddos 70m; #Anti-DDoS shared memory zone to track requests per each unique user
@@ -187,7 +187,7 @@ access_by_lua_file anti_ddos_challenge.lua;
 
 This will run in this location block only
 
-```
+```lua
 http {
 #shared memory addresses in http block
 lua_shared_dict antiddos 70m; #Anti-DDoS shared memory zone to track requests per each unique user
