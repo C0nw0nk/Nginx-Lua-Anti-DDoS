@@ -64,6 +64,12 @@ Ability to inspect cookies for exploits.
 
 ## Caching Speed and Performance
 
+Webpage Caching Ability/Feature to Cache webpages and Bypass Cache based on cookies or URL's
+
+Webpage Caching Ability/Feature to Cache only when Cookies or URL's exist
+
+Webpage Caching Ability/Feature to Cache only if page size is Larger than or Smaller than a certain size
+
 Query String Sorting
 
 Query String Whitelist
