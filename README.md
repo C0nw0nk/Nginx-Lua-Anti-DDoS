@@ -1,8 +1,10 @@
 # This is the development branch the main difference between this branch and the main branch is it includes os.clock() to measure execution times for the script.
 
-[![Languages](https://img.shields.io/github/languages/count/C0nw0nk/Nginx-Lua-Anti-DDoS) ![Top language](https://img.shields.io/github/languages/top/C0nw0nk/Nginx-Lua-Anti-DDoS) ![File size](https://img.shields.io/github/size/C0nw0nk/Nginx-Lua-Anti-DDoS/lua/anti_ddos_challenge.lua)](https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/funding)
+[![Languages](https://img.shields.io/github/languages/count/C0nw0nk/Nginx-Lua-Anti-DDoS) ![Top language](https://img.shields.io/github/languages/top/C0nw0nk/Nginx-Lua-Anti-DDoS) ![File size](https://img.shields.io/github/size/C0nw0nk/Nginx-Lua-Anti-DDoS/lua/anti_ddos_challenge.lua)](https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/funding) [![Build and Publish RPM/DEB Packages](https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/actions/workflows/build-publish.yml/badge.svg)](https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/actions/workflows/build-publish.yml)
 
 [![Cloudflare I am Under Attack Mode!](https://blog.cloudflare.com/content/images/im_under_attack_page.png.scaled500.png)](https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/funding)
+
+[Master Branch for Modern Nginx Lua Builds](https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/tree/master) - [Old Outdated Nginx Lua Builds use this branch](https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/tree/old-outdated-nginx-lua-builds)
 
 # Nginx-Lua-Anti-DDoS
 A Anti-DDoS script to protect Nginx web servers using Lua with a Javascript based authentication puzzle inspired by Cloudflare I am under attack mode I built my own Anti-DDoS authentication HTML page puzzle intergrating my Lua, Javascript, HTML and HTTP knowledge.
@@ -23,6 +25,12 @@ These are some of the features I built into the script so far.
 ## Security
 
 Limit IP requests / Flooding
+
+Ability to use Remote servers for Anti-DDoS data/key storage
+
+Ability to use redis cache server for anti-ddos protection
+
+Ability to use memcached server for anti-ddos protection
 
 Automatically turn on Under Attack mode if DDoS detected
 
@@ -64,6 +72,12 @@ Ability to inspect cookies for exploits.
 
 ## Caching Speed and Performance
 
+Webpage Caching Ability/Feature to Cache webpages and Bypass Cache based on cookies or URL's
+
+Webpage Caching Ability/Feature to Cache only when Cookies or URL's exist
+
+Webpage Caching Ability/Feature to Cache only if page size is Larger than or Smaller than a certain size
+
 Query String Sorting
 
 Query String Whitelist
@@ -71,6 +85,38 @@ Query String Whitelist
 Query String Removal (It is a blacklist but it will just drop / remove the argument from the URL not block the request)
 
 Minification / Compression of files removing white space and nulled out code / lines JS JavaScript, CSS Stylesheets, HTML etc
+
+Ability to use Redis as a cache storage soloution
+
+Ability to use Memcached as a cache storage soloution
+
+Ability to use lrucache as a cache storage soloution
+
+Ability to use shared.DICT memory as a cache storage soloution
+
+## Support for Additional services
+
+Supports Tor services .Tor
+
+Supports Lokinet services .Loki
+
+Supports Ethereum name services .ENS
+
+Supports The invisible internet project .i2p
+
+Supports Freenet
+
+Supports IPFS inter planetary file system
+
+Supports IPNS inter planetary name system
+
+Supports SWARM network
+
+Supports Radicale
+
+Supports any port matches node or hidden service that nginx is protecting
+
+Supports zeronet
 
 ## Customization of error pages responses and webpage outputs
 
@@ -106,7 +152,7 @@ Once installed into your `nginx/conf/` folder.
 
 Add this to your HTTP block or it can be in a server or location block depending where you want this script to run for individual locations the entire server or every single website on the server.
 
-```
+```lua
 lua_shared_dict antiddos 70m; #Anti-DDoS shared memory zone to track requests per each unique user
 lua_shared_dict antiddos_blocked 70m; #Anti-DDoS shared memory where blocked users are put
 lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
@@ -119,7 +165,7 @@ access_by_lua_file anti_ddos_challenge.lua;
 
 This will run for all websites on the nginx server
 
-```
+```lua
 http {
 
 #shared memory addresses in http block
@@ -137,7 +183,7 @@ access_by_lua_file anti_ddos_challenge.lua;
 
 This will make it run for this website only
 
-```
+```lua
 http {
 #shared memory addresses in http block
 lua_shared_dict antiddos 70m; #Anti-DDoS shared memory zone to track requests per each unique user
@@ -155,7 +201,7 @@ access_by_lua_file anti_ddos_challenge.lua;
 
 This will run in this location block only
 
-```
+```lua
 http {
 #shared memory addresses in http block
 lua_shared_dict antiddos 70m; #Anti-DDoS shared memory zone to track requests per each unique user
