@@ -24,6 +24,12 @@ These are some of the features I built into the script so far.
 
 Limit IP requests / Flooding
 
+Ability to use Remote servers for Anti-DDoS data/key storage
+
+Ability to use redis cache server for anti-ddos protection
+
+Ability to use memcached server for anti-ddos protection
+
 Automatically turn on Under Attack mode if DDoS detected
 
 I am Under Attack Mode (DDoS Authentication HTML Page)
