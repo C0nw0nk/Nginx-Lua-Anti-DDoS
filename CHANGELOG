@@ -1,3 +1,9 @@
+Version: 3.3
+Date: 2026-05-23
+- Added Features ability to use Remote servers for Anti-DDoS data/key storage
+- Added Feature ability to use redis cache server for anti-ddos protection
+- Added Feature ability to use memcached server for anti-ddos protection
+
 Version: 3.2
 Date: 2026-05-17
 - Added Feature ability to use redis cache server
