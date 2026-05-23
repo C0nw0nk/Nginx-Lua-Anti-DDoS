@@ -66,6 +66,10 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Sat May 23 2026 C0nw0nk <C0nw0nk@github> - 3.3-1
+- Added Features ability to use Remote servers for Anti-DDoS data/key storage
+- Added Feature ability to use redis cache server for anti-ddos protection
+- Added Feature ability to use memcached server for anti-ddos protection
 * Sun May 17 2026 C0nw0nk <C0nw0nk@github> - 3.2-1
 - Added Feature ability to use redis cache server
 - Added Feature ability to use memcached server
