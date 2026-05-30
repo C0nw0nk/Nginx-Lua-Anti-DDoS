@@ -73,6 +73,13 @@ fi
 - resty.redis.cluster.fast https://doc.openresty.com/en/xray/priv-libs/lua-resty-redis-cluster-fast/#connect
 - resty.redis.fast https://doc.openresty.com/en/xray/priv-libs/lua-resty-redis-fast/#lua-interface
 - resty.memcached.fast https://doc.openresty.com/en/xray/priv-libs/#lua-resty-memcached-fast
+* Sat May 30 2026 C0nw0nk <C0nw0nk@github> - 3.4-1
+- Added Feature Support for other external libraries for remote cache / storage.
+- Added support for Redis Cluster `rediscluster` maintained by https://github.com/api7/lua-resty-redis-cluster
+- Added support for Private Openresty XRay libraries
+- resty.redis.cluster.fast https://doc.openresty.com/en/xray/priv-libs/lua-resty-redis-cluster-fast/#connect
+- resty.redis.fast https://doc.openresty.com/en/xray/priv-libs/lua-resty-redis-fast/#lua-interface
+- resty.memcached.fast https://doc.openresty.com/en/xray/priv-libs/#lua-resty-memcached-fast
 * Sat May 23 2026 C0nw0nk <C0nw0nk@github> - 3.3-1
 - Added Features ability to use Remote servers for Anti-DDoS data/key storage
 - Added Feature ability to use redis cache server for anti-ddos protection
