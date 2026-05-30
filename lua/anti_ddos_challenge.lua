@@ -175,7 +175,7 @@ Where you would use `localized.ngx.shared.antiddos` just use `localized.remote_s
 ]]
 --[[
 localized.remote_servers_table = {
-	1, --storage server for cache redis = 1 memcached = 2 lrucache = 3 ngx.shared.dict = 4 resty.redis.fast = 5 resty.redis.cluster.fast = 6 resty.memcached.fast = 7 rediscluster = 8
+	1, --storage server for cache redis = 1 memcached = 2 lrucache = 3 ngx.shared.dict = 4 resty.redis.fast = 5 resty.redis.cluster.fast = 6 resty.memcached.fast = 7 rediscluster = 8 Rediscluster example https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/Using-Resty-Redis-Cluster-library
 	"127.0.0.1", --ipaddress or "unix:/path/to/unix.sock" if using socket set port to nil
 	6379, --port memcached 11211 redis 6379
 	nil,--1000, --connect_timeout 1 second
