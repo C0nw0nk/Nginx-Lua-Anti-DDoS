@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 3.3
+Script Version: 3.4
 
 Copyright Conor McKnight
 
@@ -175,7 +175,7 @@ Where you would use `localized.ngx.shared.antiddos` just use `localized.remote_s
 ]]
 --[[
 localized.remote_servers_table = {
-	1, --storage server for cache redis = 1 memcached = 2 lrucache = 3 ngx.shared.dict = 4
+	1, --storage server for cache redis = 1 memcached = 2 lrucache = 3 ngx.shared.dict = 4 resty.redis.fast = 5 resty.redis.cluster.fast = 6 resty.memcached.fast = 7 rediscluster = 8 Rediscluster example https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/Using-Resty-Redis-Cluster-library
 	"127.0.0.1", --ipaddress or "unix:/path/to/unix.sock" if using socket set port to nil
 	6379, --port memcached 11211 redis 6379
 	nil,--1000, --connect_timeout 1 second
@@ -185,11 +185,22 @@ localized.remote_servers_table = {
 	nil,--100, --keepalive pool_size
 	nil,--"user", --auth_user
 	nil,--"pass", --auth_pass
-	{--11th table fallback incase server offline or goes down
-		{2,"127.0.0.2",11211,}, --memcache
-		{3, localized_global.lrucache,}, --lru cache https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/lrucache-setup-example
-		{4, localized.ngx.shared.antiddos,}, --shared.dict
-	},
+	nil,--{--11th table fallback incase server offline or goes down
+	--	{2,"127.0.0.2",11211,nil,nil,nil,nil,nil,nil,nil,nil,{pool="name_of_pool",pool_size=1024,}, }, --memcache
+	--	{3, localized_global.lrucache,}, --lru cache https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/lrucache-setup-example
+	--	{4, localized.ngx.shared.antiddos,}, --shared.dict
+	--},
+	--{--12th table for connection options :connect(host, port, options_table?)
+	--	pool = "name_of_pool",
+	--	pool_size = 1024, --Specifies the max size of the connection pool
+	--	cluster = "cluster", --https://doc.openresty.com/en/xray/priv-libs/lua-resty-redis-cluster-fast/#connect
+	--	other_nodes = {
+	--		{"127.0.0.1",6380},
+	--		{"127.0.0.1",6381},
+	--		{"127.0.0.1",6382},
+	--	},
+	--	no_slaves = true,
+	--},
 }]]
 
 localized.anti_ddos_table = {
@@ -422,23 +433,6 @@ localized.content_cache = {
 		"text/html", --empty string matches all "" content-type valid types are text to match all text formats or text/css text/javascript etc
 		--lua_shared_dict html_cache 10m; #HTML pages cache
 		localized.ngx.shared.html_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict html_cache 10m; #HTML pages cache or lua table `localized.remote_servers_table` for advanced options
-		--{
-		--	1, --storage server for cache redis = 1 memcached = 2 lrucache = 3 ngx.shared.dict = 4
-		--	"127.0.0.1", --ipaddress or "unix:/path/to/unix.sock" if using socket set port to nil
-		--	6379, --port memcached 11211 redis 6379
-		--	nil,--1000, --connect_timeout 1 second
-		--	nil,--1000, --send_timeout 1 second
-		--	nil,--1000, --read_timeout 1 second
-		--	nil,--10000, --keepalive max_idle_timeout 10 seconds
-		--	nil,--100, --keepalive pool_size
-		--	nil,--"user", --auth_user
-		--	nil,--"pass", --auth_pass
-		--	{--11th table fallback incase server offline or goes down
-		--		{2,"127.0.0.2",11211,}, --memcache
-		--		{3, localized_global.lrucache,}, --lru cache https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/lrucache-setup-example
-		--		{4, localized.ngx.shared.html_cache,}, --shared.dict
-		--	},
-		--},
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
 		{200,206,}, --response status codes to cache
@@ -500,24 +494,7 @@ localized.content_cache = {
 		".*", --regex match any site / path
 		"video/mp4", --content-type valid types are video to match all video formats or video/mp4 video/webm etc
 		--lua_shared_dict mp4_cache 300m; #video mp4 cache
-		localized.ngx.shared.mp4_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict mp4_cache 300m; #video mp4 cache  or lua table for advanced options
-		--{
-		--	1, --storage server for cache redis = 1 memcached = 2 lrucache = 3 ngx.shared.dict = 4
-		--	"127.0.0.1", --ipaddress or "unix:/path/to/unix.sock" if using socket set port to nil
-		--	6379, --port memcached 11211 redis 6379
-		--	nil,--1000, --connect_timeout 1 second
-		--	nil,--1000, --send_timeout 1 second
-		--	nil,--1000, --read_timeout 1 second
-		--	nil,--10000, --keepalive max_idle_timeout 10 seconds
-		--	nil,--100, --keepalive pool_size
-		--	nil,--"user", --auth_user
-		--	nil,--"pass", --auth_pass
-		--	{--11th table fallback incase server offline or goes down
-		--		{2,"127.0.0.2",11211,}, --memcache
-		--		{3, localized_global.lrucache,}, --lru cache https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/lrucache-setup-example
-		--		{4, localized.ngx.shared.html_cache,}, --shared.dict
-		--	},
-		--},
+		localized.ngx.shared.mp4_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict mp4_cache 300m; #video mp4 cache  or lua table `localized.remote_servers_table` for advanced options
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
 		{200,206,}, --response status codes to cache
@@ -554,24 +531,7 @@ localized.content_cache = {
 		".*", --regex match any site / path
 		"image", --content-type for image/png image/jpeg image/x-icon etc
 		--lua_shared_dict image_cache 300m; #image cache
-		localized.ngx.shared.image_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict image_cache 300m; #image cache  or lua table for advanced options
-		--{
-		--	1, --storage server for cache redis = 1 memcached = 2 lrucache = 3 ngx.shared.dict = 4
-		--	"127.0.0.1", --ipaddress or "unix:/path/to/unix.sock" if using socket set port to nil
-		--	6379, --port memcached 11211 redis 6379
-		--	nil,--1000, --connect_timeout 1 second
-		--	nil,--1000, --send_timeout 1 second
-		--	nil,--1000, --read_timeout 1 second
-		--	nil,--10000, --keepalive max_idle_timeout 10 seconds
-		--	nil,--100, --keepalive pool_size
-		--	nil,--"user", --auth_user
-		--	nil,--"pass", --auth_pass
-		--	{--11th table fallback incase server offline or goes down
-		--		{2,"127.0.0.2",11211,}, --memcache
-		--		{3, localized_global.lrucache,}, --lru cache https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/lrucache-setup-example
-		--		{4, localized.ngx.shared.html_cache,}, --shared.dict
-		--	},
-		--},
+		localized.ngx.shared.image_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict image_cache 300m; #image cache  or lua table `localized.remote_servers_table` for advanced options
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
 		{200,206,}, --response status codes to cache
@@ -3094,6 +3054,39 @@ local function remote_cache(input_table, logging)
 		return localized.cached_restyredis
 	end
 
+	localized.cached_restyredis_fast = nil
+	local function check_resty_redis_fast()
+		if localized.cached_restyredis_fast ~= nil then
+			return localized.cached_restyredis_fast
+		end
+		local pcall = pcall
+		local require = require
+		localized.cached_restyredis_fast = pcall(require, "resty.redis.fast") --check if resty redis fast library exists will be true or false
+		return localized.cached_restyredis_fast
+	end
+
+	localized.cached_restyredis_cluster_fast = nil
+	local function check_resty_redis_cluster_fast()
+		if localized.cached_restyredis_cluster_fast ~= nil then
+			return localized.cached_restyredis_cluster_fast
+		end
+		local pcall = pcall
+		local require = require
+		localized.cached_restyredis_cluster_fast = pcall(require, "resty.redis.cluster.fast") --check if resty redis cluster fast library exists will be true or false
+		return localized.cached_restyredis_cluster_fast
+	end
+
+	localized.cached_redis_cluster = nil
+	local function check_redis_cluster()
+		if localized.cached_redis_cluster ~= nil then
+			return localized.cached_redis_cluster
+		end
+		local pcall = pcall
+		local require = require
+		localized.cached_redis_cluster = pcall(require, "rediscluster") --check if redis cluster library exists will be true or false
+		return localized.cached_redis_cluster
+	end
+
 	localized.cached_restymemcached = nil
 	local function check_resty_memcached()
 		if localized.cached_restymemcached ~= nil then
@@ -3103,6 +3096,17 @@ local function remote_cache(input_table, logging)
 		local require = require
 		localized.cached_restymemcached = pcall(require, "resty.memcached") --check if resty memcached library exists will be true or false
 		return localized.cached_restymemcached
+	end
+
+	localized.cached_restymemcached_fast = nil
+	local function check_resty_memcached_fast()
+		if localized.cached_restymemcached_fast ~= nil then
+			return localized.cached_restymemcached_fast
+		end
+		local pcall = pcall
+		local require = require
+		localized.cached_restymemcached_fast = pcall(require, "resty.memcached.fast") --check if resty memcached fast library exists will be true or false
+		return localized.cached_restymemcached_fast
 	end
 
 	localized.cached_restylrucache = nil
@@ -3123,7 +3127,7 @@ local function remote_cache(input_table, logging)
 	localized.resty_memcached = 0
 	local master_break = false
 	if cached ~= "" and cached ~= nil and localized.type(cached) == "table" then
-		local connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass, fallback_servers = nil
+		local connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass, fallback_servers, libconoptions = nil
 		for x=1,#input_table do
 			--localized.ngx_log(localized.ngx_LOG_TYPE, " table var - " .. input_table[x] )
 			if x == 1 then
@@ -3179,6 +3183,58 @@ local function remote_cache(input_table, logging)
 					cached = input_table[2]
 					break
 				end
+				if input_table[x] == 5 then
+					--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis_fast()) )
+					if check_resty_redis_fast() then
+						localized.libcached = require "resty.redis.fast"
+						cached = localized.libcached:new()
+						localized.resty_redis = 1
+					else
+						if logging == 1 then
+							localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+						end
+						return
+					end
+				end
+				if input_table[x] == 6 then
+					--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis_cluster_fast()) )
+					if check_resty_redis_cluster_fast() then
+						localized.libcached = require "resty.redis.cluster.fast"
+						cached = localized.libcached:new()
+						localized.resty_redis = 1
+					else
+						if logging == 1 then
+							localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+						end
+						return
+					end
+				end
+				if input_table[x] == 7 then
+					--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_resty_memcached_fast()) )
+					if check_resty_memcached_fast() then
+						localized.libcached = require "resty.memcached.fast"
+						cached = localized.libcached:new()
+						localized.resty_memcached = 1
+					else
+						if logging == 1 then
+							localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+						end
+						return
+					end
+				end
+				if input_table[x] == 8 and input_table[12] ~= nil then
+					--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_redis_cluster()) )
+					if check_redis_cluster() then
+						localized.libcached = require "rediscluster"
+						cached = localized.libcached:new(input_table[12]) --12th var libconoptions
+						localized.resty_redis = 1
+					else
+						if logging == 1 then
+							localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+						end
+						return
+					end
+				end
 			end
 			if x == 2 then
 				--ip address or socket
@@ -3217,9 +3273,12 @@ local function remote_cache(input_table, logging)
 			if x == 11 then
 				fallback_servers = input_table[x]
 			end
+			if x == 12 then
+				libconoptions = input_table[x]
+			end
 		end
 
-		local function connect_server(connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass)
+		local function connect_server(connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass, libconoptions)
 			if connect_timeout ~= nil and send_timeout ~= nil and read_timeout ~= nil then
 				cached:set_timeouts(connect_timeout, send_timeout, read_timeout)
 			end
@@ -3227,7 +3286,7 @@ local function remote_cache(input_table, logging)
 				cached:set_timeout(connect_timeout)
 			end
 
-			if libconaddr ~= nil and libconport == nil then
+			if libconaddr ~= nil and libconport == nil and libconoptions == nil then
 				local ok, err = cached:connect(libconaddr)
 				if not ok then
 					if logging == 1 then
@@ -3237,7 +3296,27 @@ local function remote_cache(input_table, logging)
 				end
 			end
 
-			if libconaddr ~= nil and libconport ~= nil then
+			if libconaddr ~= nil and libconport ~= nil and libconoptions ~= nil then
+				local ok, err = cached:connect(libconaddr, libconport, libconoptions)
+				if not ok then
+					if logging == 1 then
+						localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to connect: " .. err )
+					end
+					return false
+				end
+			end
+
+			if libconaddr ~= nil and libconport == nil and libconoptions ~= nil then
+				local ok, err = cached:connect(libconaddr, libconport, libconoptions)
+				if not ok then
+					if logging == 1 then
+						localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to connect: " .. err )
+					end
+					return false
+				end
+			end
+
+			if libconaddr ~= nil and libconport ~= nil and libconoptions == nil then
 				local ok, err = cached:connect(libconaddr, libconport)
 				if not ok then
 					if logging == 1 then
@@ -3281,7 +3360,7 @@ local function remote_cache(input_table, logging)
 		--connect_server()
 
 		if localized.resty_redis == 1 or localized.resty_memcached == 1 then
-			if connect_server(connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass) == false and fallback_servers ~= nil then
+			if connect_server(connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass, libconoptions) == false and fallback_servers ~= nil then
 				for y=1,#fallback_servers do
 					localized.resty_redis = 0 --reset to 0
 					localized.resty_lrucache = 0 --reset to 0
@@ -3349,6 +3428,58 @@ local function remote_cache(input_table, logging)
 									break
 								end
 							end
+							if fallback_servers[y][z] == 5 then
+								--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis_fast()) )
+								if check_resty_redis_fast() then
+									localized.libcached = require "resty.redis.fast"
+									cached = localized.libcached:new()
+									localized.resty_redis = 1
+								else
+									if logging == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+									end
+									return
+								end
+							end
+							if fallback_servers[y][z] == 6 then
+								--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis_cluster_fast()) )
+								if check_resty_redis_cluster_fast() then
+									localized.libcached = require "resty.redis.cluster.fast"
+									cached = localized.libcached:new()
+									localized.resty_redis = 1
+								else
+									if logging == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+									end
+									return
+								end
+							end
+							if fallback_servers[y][z] == 7 then
+								--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_resty_memcached_fast()) )
+								if check_resty_memcached_fast() then
+									localized.libcached = require "resty.memcached.fast"
+									cached = localized.libcached:new()
+									localized.resty_memcached = 1
+								else
+									if logging == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+									end
+									return
+								end
+							end
+							if fallback_servers[y][z] == 8 and fallback_servers[y][12] ~= nil then
+								--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_redis_cluster()) )
+								if check_redis_cluster() then
+									localized.libcached = require "rediscluster"
+									cached = localized.libcached:new(fallback_servers[y][12]) --12th var libconoptions
+									localized.resty_redis = 1
+								else
+									if logging == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+									end
+									return
+								end
+							end
 						end
 						if z == 2 then
 							--ip address or socket
@@ -3384,8 +3515,11 @@ local function remote_cache(input_table, logging)
 						if z == 10 then
 							auth_pass = fallback_servers[y][z]
 						end
+						if z == 12 then
+							libconoptions = fallback_servers[y][z]
+						end
 						if localized.resty_redis == 1 or localized.resty_memcached == 1 then
-							if connect_server(connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass) == true then
+							if connect_server(connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass, libconoptions) == true then
 								master_break = true
 								break
 							end
@@ -7369,6 +7503,39 @@ local function minification(content_type_list)
 					return localized.cached_restyredis
 				end
 
+				localized.cached_restyredis_fast = nil
+				local function check_resty_redis_fast()
+					if localized.cached_restyredis_fast ~= nil then
+						return localized.cached_restyredis_fast
+					end
+					local pcall = pcall
+					local require = require
+					localized.cached_restyredis_fast = pcall(require, "resty.redis.fast") --check if resty redis fast library exists will be true or false
+					return localized.cached_restyredis_fast
+				end
+
+				localized.cached_restyredis_cluster_fast = nil
+				local function check_resty_redis_cluster_fast()
+					if localized.cached_restyredis_cluster_fast ~= nil then
+						return localized.cached_restyredis_cluster_fast
+					end
+					local pcall = pcall
+					local require = require
+					localized.cached_restyredis_cluster_fast = pcall(require, "resty.redis.cluster.fast") --check if resty redis cluster fast library exists will be true or false
+					return localized.cached_restyredis_cluster_fast
+				end
+
+				localized.cached_redis_cluster = nil
+				local function check_redis_cluster()
+					if localized.cached_redis_cluster ~= nil then
+						return localized.cached_redis_cluster
+					end
+					local pcall = pcall
+					local require = require
+					localized.cached_redis_cluster = pcall(require, "rediscluster") --check if redis cluster library exists will be true or false
+					return localized.cached_redis_cluster
+				end
+
 				localized.cached_restymemcached = nil
 				local function check_resty_memcached()
 					if localized.cached_restymemcached ~= nil then
@@ -7378,6 +7545,17 @@ local function minification(content_type_list)
 					local require = require
 					localized.cached_restymemcached = pcall(require, "resty.memcached") --check if resty memcached library exists will be true or false
 					return localized.cached_restymemcached
+				end
+
+				localized.cached_restymemcached_fast = nil
+				local function check_resty_memcached_fast()
+					if localized.cached_restymemcached_fast ~= nil then
+						return localized.cached_restymemcached_fast
+					end
+					local pcall = pcall
+					local require = require
+					localized.cached_restymemcached_fast = pcall(require, "resty.memcached.fast") --check if resty memcached fast library exists will be true or false
+					return localized.cached_restymemcached_fast
 				end
 
 				localized.cached_restylrucache = nil
@@ -7395,7 +7573,7 @@ local function minification(content_type_list)
 				local resty_redis, resty_lrucache, resty_shdict, resty_memcached = 0
 				local master_break = false
 				if cached ~= "" and localized.type(cached) == "table" then
-					local connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass, fallback_servers = nil
+					local connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass, fallback_servers, libconoptions = nil
 					for x=1,#content_type_list[i][3] do
 						--localized.ngx_log(localized.ngx_LOG_TYPE, " table var - " .. content_type_list[i][3][x] )
 						if x == 1 then
@@ -7451,6 +7629,58 @@ local function minification(content_type_list)
 								cached = content_type_list[i][3][2]
 								break
 							end
+							if content_type_list[i][3][x] == 5 then
+								--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis_fast()) )
+								if check_resty_redis_fast() then
+									localized.libcached = require "resty.redis.fast"
+									cached = localized.libcached:new()
+									resty_redis = 1
+								else
+									if content_type_list[i][5] == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+									end
+									return
+								end
+							end
+							if content_type_list[i][3][x] == 6 then
+								--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis_cluster_fast()) )
+								if check_resty_redis_cluster_fast() then
+									localized.libcached = require "resty.redis.cluster.fast"
+									cached = localized.libcached:new()
+									resty_redis = 1
+								else
+									if content_type_list[i][5] == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+									end
+									return
+								end
+							end
+							if content_type_list[i][3][x] == 7 then
+								--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_resty_memcached_fast()) )
+								if check_resty_memcached_fast() then
+									localized.libcached = require "resty.memcached.fast"
+									cached = localized.libcached:new()
+									resty_memcached = 1
+								else
+									if content_type_list[i][5] == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+									end
+									return
+								end
+							end
+							if content_type_list[i][3][x] == 8 and content_type_list[i][3][12] ~= nil then
+								--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_redis_cluster()) )
+								if check_redis_cluster() then
+									localized.libcached = require "rediscluster"
+									cached = localized.libcached:new(content_type_list[i][3][12]) --12th var libconoptions
+									resty_redis = 1
+								else
+									if content_type_list[i][5] == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+									end
+									return
+								end
+							end
 						end
 						if x == 2 then
 							--ip address or socket
@@ -7489,9 +7719,12 @@ local function minification(content_type_list)
 						if x == 11 then
 							fallback_servers = content_type_list[i][3][x]
 						end
+						if x == 12 then
+							libconoptions = content_type_list[i][3][x]
+						end
 					end
 
-					local function connect_server(connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass)
+					local function connect_server(connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass, libconoptions)
 						if connect_timeout ~= nil and send_timeout ~= nil and read_timeout ~= nil then
 							cached:set_timeouts(connect_timeout, send_timeout, read_timeout)
 						end
@@ -7499,7 +7732,7 @@ local function minification(content_type_list)
 							cached:set_timeout(connect_timeout)
 						end
 
-						if libconaddr ~= nil and libconport == nil then
+						if libconaddr ~= nil and libconport == nil and libconoptions == nil then
 							local ok, err = cached:connect(libconaddr)
 							if not ok then
 								if content_type_list[i][5] == 1 then
@@ -7509,7 +7742,27 @@ local function minification(content_type_list)
 							end
 						end
 
-						if libconaddr ~= nil and libconport ~= nil then
+						if libconaddr ~= nil and libconport ~= nil and libconoptions ~= nil then
+							local ok, err = cached:connect(libconaddr, libconport, libconoptions)
+							if not ok then
+								if content_type_list[i][5] == 1 then
+									localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to connect: " .. err )
+								end
+								return false
+							end
+						end
+
+						if libconaddr ~= nil and libconport == nil and libconoptions ~= nil then
+							local ok, err = cached:connect(libconaddr, libconport, libconoptions)
+							if not ok then
+								if content_type_list[i][5] == 1 then
+									localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to connect: " .. err )
+								end
+								return false
+							end
+						end
+
+						if libconaddr ~= nil and libconport ~= nil and libconoptions == nil then
 							local ok, err = cached:connect(libconaddr, libconport)
 							if not ok then
 								if content_type_list[i][5] == 1 then
@@ -7553,7 +7806,7 @@ local function minification(content_type_list)
 					--connect_server()
 
 					if resty_redis == 1 or resty_memcached == 1 then
-						if connect_server(connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass) == false and fallback_servers ~= nil then
+						if connect_server(connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass, libconoptions) == false and fallback_servers ~= nil then
 							for y=1,#fallback_servers do
 								resty_redis, resty_lrucache, resty_shdict, resty_memcached = 0 --reset to 0
 								if master_break then break end
@@ -7618,6 +7871,58 @@ local function minification(content_type_list)
 												break
 											end
 										end
+										if fallback_servers[y][z] == 5 then
+											--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis_fast()) )
+											if check_resty_redis_fast() then
+												localized.libcached = require "resty.redis.fast"
+												cached = localized.libcached:new()
+												resty_redis = 1
+											else
+												if content_type_list[i][5] == 1 then
+													localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+												end
+												return
+											end
+										end
+										if fallback_servers[y][z] == 6 then
+											--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis_cluster_fast()) )
+											if check_resty_redis_cluster_fast() then
+												localized.libcached = require "resty.redis.cluster.fast"
+												cached = localized.libcached:new()
+												resty_redis = 1
+											else
+												if content_type_list[i][5] == 1 then
+													localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+												end
+												return
+											end
+										end
+										if fallback_servers[y][z] == 7 then
+											--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_resty_memcached_fast()) )
+											if check_resty_memcached_fast() then
+												localized.libcached = require "resty.memcached.fast"
+												cached = localized.libcached:new()
+												resty_memcached = 1
+											else
+												if content_type_list[i][5] == 1 then
+													localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+												end
+												return
+											end
+										end
+										if fallback_servers[y][z] == 8 and fallback_servers[y][12] ~= nil then
+											--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_redis_cluster()) )
+											if check_redis_cluster() then
+												localized.libcached = require "rediscluster"
+												cached = localized.libcached:new(fallback_servers[y][12]) --12th var libconoptions
+												resty_redis = 1
+											else
+												if content_type_list[i][5] == 1 then
+													localized.ngx_log(localized.ngx_LOG_TYPE, "There is a problem with the library you are trying to use for cache storage. Please make sure you have included the library.")
+												end
+												return
+											end
+										end
 									end
 									if z == 2 then
 										--ip address or socket
@@ -7653,8 +7958,11 @@ local function minification(content_type_list)
 									if z == 10 then
 										auth_pass = fallback_servers[y][z]
 									end
+									if z == 12 then
+										libconoptions = fallback_servers[y][z]
+									end
 									if resty_redis == 1 or resty_memcached == 1 then
-										if connect_server(connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass) == true then
+										if connect_server(connect_timeout, send_timeout, read_timeout, libconaddr, libconport, max_idle_timeout, pool_size, auth_user, auth_pass, libconoptions) == true then
 											master_break = true
 											break
 										end
