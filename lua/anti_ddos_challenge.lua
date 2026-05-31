@@ -3039,9 +3039,8 @@ local function proxy_header_ip_check(ip_table)
 end
 
 local function remote_cache(input_table, logging)
-	local tab_cached_name = localized.tostring(input_table)
-	if localized[tab_cached_name] ~= nil then
-		return localized[tab_cached_name]
+	if localized[input_table] ~= nil then
+		return localized[input_table]
 	end
 
 	localized.cached_restyredis = nil
@@ -3530,7 +3529,7 @@ local function remote_cache(input_table, logging)
 			end
 		end
 	end
-	localized[tab_cached_name] = cached
+	localized[input_table] = cached
 	return cached --all checks passed
 end
 
