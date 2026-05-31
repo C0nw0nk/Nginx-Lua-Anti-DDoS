@@ -1,3 +1,7 @@
+Version: 3.5
+Date:2026-05-31
+- Improved cache for dynamic inputs remote_cache() would return the same ngx.shared.DICT for all calls now it can return different based on table input.
+
 Version: 3.4
 Date: 2026-05-30
 - Added Feature Support for other external libraries for remote cache / storage.
