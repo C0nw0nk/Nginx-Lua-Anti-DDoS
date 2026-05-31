@@ -66,6 +66,8 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Sun May 31 2026 C0nw0nk <C0nw0nk@github> - 3.5-1
+- Improved cache for dynamic inputs remote_cache() would return the same ngx.shared.DICT for all calls now it can return different based on table input.
 * Sat May 30 2026 C0nw0nk <C0nw0nk@github> - 3.4-1
 - Added Feature Support for other external libraries for remote cache / storage.
 - Added support for Redis Cluster `rediscluster` maintained by https://github.com/api7/lua-resty-redis-cluster
