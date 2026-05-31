@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 3.4
+Script Version: 3.5
 
 Copyright Conor McKnight
 
@@ -3039,8 +3039,8 @@ local function proxy_header_ip_check(ip_table)
 end
 
 local function remote_cache(input_table, logging)
-	if localized.remote_cache ~= nil then
-		return localized.remote_cache
+	if localized[input_table] ~= nil then
+		return localized[input_table]
 	end
 
 	localized.cached_restyredis = nil
@@ -3529,7 +3529,7 @@ local function remote_cache(input_table, logging)
 			end
 		end
 	end
-	localized.remote_cache = cached
+	localized[input_table] = cached
 	return cached --all checks passed
 end
 
