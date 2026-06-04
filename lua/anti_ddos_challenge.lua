@@ -3048,15 +3048,19 @@ local function remote_cache(input_table, logging, keep, close_conn)
 	end
 	if localized.dummy ~= nil and keep ~= nil and close_conn == nil then
 		if localized.dummy[input_table].max_idle_timeout ~= nil and localized.dummy[input_table].pool_size ~= nil then
+			if localized.dummy[input_table].socket_status == 1 then --socket already closed
+				return
+			end
 			if localized.type(localized.dummy[input_table].max_idle_timeout) ~= "function" and localized.type(localized.dummy[input_table].pool_size) ~= "function" then
 				local ok, err = localized[input_table]:set_keepalive(localized.dummy[input_table].max_idle_timeout, localized.dummy[input_table].pool_size)
 				if not ok then
 					if logging == 1 then
-						if err ~= "closed" then --incase of different remote connect settings per path or user splits them up ignore already closed connections
+						--if err ~= "closed" then --ignore already closed connections
 							localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to set keepalive: " .. err )
-						end
+						--end
 					end
 				end
+				localized.dummy[input_table].socket_status = 1
 				return
 			else
 				return
@@ -3065,15 +3069,19 @@ local function remote_cache(input_table, logging, keep, close_conn)
 	end
 	if localized.dummy ~= nil and keep == nil and close_conn ~= nil then
 		if localized.dummy[input_table].close_connection ~= nil then
+			if localized.dummy[input_table].socket_status == 1 then --socket already closed
+				return
+			end
 			if localized.type(localized.dummy[input_table].close_connection) ~= "function" then
 				local ok, err = localized[input_table]:close()
 				if not ok then
 					if logging == 1 then
-						if err ~= "closed" then --incase of different remote connect settings per path or user splits them up ignore already closed connections
+						--if err ~= "closed" then --ignore already closed connections
 							localized.ngx_log(localized.ngx_LOG_TYPE, "Failed to close: " .. err )
-						end
+						--end
 					end
 				end
+				localized.dummy[input_table].socket_status = 1
 				return
 			else
 				return
