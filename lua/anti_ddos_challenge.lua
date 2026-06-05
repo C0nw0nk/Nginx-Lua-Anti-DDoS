@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 3.6
+Script Version: 3.7
 
 Copyright Conor McKnight
 
@@ -3590,8 +3590,8 @@ local function remote_cache(input_table, logging, keep, close_conn)
 	return cached --all checks passed
 end
 
-local function close_connection()
-	if localized.anti_ddos_table ~= nil and #localized.anti_ddos_table > 0 and localized.dummy ~= nil then
+local function close_connection(method)
+	if localized.anti_ddos_table ~= nil and #localized.anti_ddos_table > 0 and localized.dummy ~= nil and method == nil then
 		for i=1,#localized.anti_ddos_table do --for each host/path in our table
 			local v = localized.anti_ddos_table[i]
 			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
@@ -3620,6 +3620,23 @@ local function close_connection()
 							remote_cache(tab_blocked_addr, tab_logging, nil, 1)
 							remote_cache(tab_ddos_counter, tab_logging, nil, 1)
 						end
+					end
+				end
+				break
+			end
+		end
+	end
+	if localized.content_cache ~= nil and #localized.content_cache > 0 and localized.dummy ~= nil and method == 1 then
+		for i=1,#localized.content_cache do --for each host/path in our table
+			local v = localized.content_cache[i]
+			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
+				if localized.resty_redis == 1 or localized.resty_memcached == 1 then
+					if localized.dummy ~= nil then
+						local tab_cached, tab_logging = v[3], v[5]
+						--keepalive
+						remote_cache(tab_cached, tab_logging, 1)
+						--close_connection
+						remote_cache(tab_cached, tab_logging, nil, 1)
 					end
 				end
 				break
@@ -7776,7 +7793,7 @@ local function minification(content_type_list)
 													--localized.ngx_status = res.status
 													localized.ngx_status = response_status_match(res.status)
 													localized.ngx_say(output_minified)
-													close_connection()
+													close_connection(1)
 													localized.ngx_exit(response_status_match(content_type_list[i][6][z]))
 													--localized.ngx_exit(content_type_list[i][6][z])
 													break
@@ -7886,7 +7903,7 @@ local function minification(content_type_list)
 													--localized.ngx_status = res.status
 													localized.ngx_status = response_status_match(res.status)
 													localized.ngx_say(output_minified)
-													close_connection()
+													close_connection(1)
 													localized.ngx_exit(response_status_match(content_type_list[i][6][z]))
 													--localized.ngx_exit(content_type_list[i][6][z])
 													break
@@ -7932,7 +7949,7 @@ local function minification(content_type_list)
 							--localized.ngx_status = res_status
 							localized.ngx_status = response_status_match(res_status)
 							localized.ngx_say(output_minified)
-							close_connection()
+							close_connection(1)
 							localized.ngx_exit(localized.tonumber(response_status_match(res_status)))
 							--localized.ngx_exit(res_status)
 
@@ -8012,7 +8029,7 @@ local function minification(content_type_list)
 												--localized.ngx_status = res.status
 												localized.ngx_status = response_status_match(res.status)
 												localized.ngx_say(output_minified)
-												close_connection()
+												close_connection(1)
 												localized.ngx_exit(response_status_match(content_type_list[i][6][z]))
 												--localized.ngx_exit(content_type_list[i][6][z])
 												break
@@ -8094,7 +8111,7 @@ local function minification(content_type_list)
 												--localized.ngx_status = res.status
 												localized.ngx_status = response_status_match(res.status)
 												localized.ngx_say(output_minified)
-												close_connection()
+												close_connection(1)
 												localized.ngx_exit(response_status_match(content_type_list[i][6][z]))
 												--localized.ngx_exit(content_type_list[i][6][z])
 												break
@@ -8127,4 +8144,9 @@ end --end minification function
 minification(localized.content_cache)
 end
 
+if localized.anti_ddos_table ~= nil and #localized.anti_ddos_table > 0 then
 close_connection()
+end
+if localized.content_cache ~= nil and #localized.content_cache > 0 then
+close_connection(1)
+end
