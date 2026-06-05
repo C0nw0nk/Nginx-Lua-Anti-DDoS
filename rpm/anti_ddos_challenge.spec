@@ -66,6 +66,8 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Fri Jun 05 2026 C0nw0nk <C0nw0nk@github> - 3.7-1
+- Added Connection Handling for content-cache
 * Thu Jun 04 2026 C0nw0nk <C0nw0nk@github> - 3.6-1
 - Added security feature maximum number of request headers browsers allowed to send.
 - Remote caching / storage allow users to control keep alive connections and to close connections once information is passed.
