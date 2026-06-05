@@ -4,6 +4,12 @@ nginx-lua-anti-ddos-challenge (3.6-1) stable; urgency=medium
 
  -- C0nw0nk <C0nw0nk@github>  Thu, 04 Jun 2026 00:00:00 +0000
 
+nginx-lua-anti-ddos-challenge (3.6-1) stable; urgency=medium
+  - Added security feature maximum number of request headers browsers allowed to send.
+  - Remote caching / storage allow users to control keep alive connections and to close connections once information is passed.
+
+ -- C0nw0nk <C0nw0nk@github>  Thu, 04 Jun 2026 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (3.5-1) stable; urgency=medium
   - Improved cache for dynamic inputs remote_cache() would return the same ngx.shared.DICT for all calls now it can return different based on table input.
 

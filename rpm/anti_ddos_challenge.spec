@@ -69,6 +69,9 @@ fi
 * Thu Jun 04 2026 C0nw0nk <C0nw0nk@github> - 3.6-1
 - Added security feature maximum number of request headers browsers allowed to send.
 - Remote caching / storage allow users to control keep alive connections and to close connections once information is passed.
+* Thu Jun 04 2026 C0nw0nk <C0nw0nk@github> - 3.6-1
+- Added security feature maximum number of request headers browsers allowed to send.
+- Remote caching / storage allow users to control keep alive connections and to close connections once information is passed.
 * Sun May 31 2026 C0nw0nk <C0nw0nk@github> - 3.5-1
 - Improved cache for dynamic inputs remote_cache() would return the same ngx.shared.DICT for all calls now it can return different based on table input.
 * Sun May 31 2026 C0nw0nk <C0nw0nk@github> - 3.5-1
