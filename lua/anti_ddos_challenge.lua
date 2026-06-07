@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 3.7
+Script Version: 3.8
 
 Copyright Conor McKnight
 
@@ -401,7 +401,17 @@ localized.anti_ddos_table = {
 		1, --0 will continue to log 1 disable writting to log file when under attack to prevent disk I/O usage denial of service
 
 		--https://nginx.org/en/docs/http/ngx_http_core_module.html#max_headers
-		500, --Maximum number of headers client allowed to send in request
+		500, --Maximum number of headers client allowed to send in request use nil to ignore
+		localized.ngx_HTTP_CLOSE, --close their connection
+		1, --1 to add ip to ban list 0 to just send response above close the connection
+
+		1000, --Maximum number of request uri arguments /?arg1=1&arg2=2 use nil to ignore
+		localized.ngx_HTTP_CLOSE, --close their connection
+		1, --1 to add ip to ban list 0 to just send response above close the connection
+
+		2000, --Maximum request uri length this will be url path excluding domain names /example/path?arg1=1&arg2=2 use nil to ignore
+		localized.ngx_HTTP_CLOSE, --close their connection
+		1, --1 to add ip to ban list 0 to just send response above close the connection
 
 	},
 }
@@ -5555,14 +5565,93 @@ local function anti_ddos()
 						local req_headers = localized.ngx_req_get_headers()
 						local counter = 0
 						for key, value in localized.next, req_headers do
-							counter=counter+1
+							if localized.type(value) == "table" then
+								for i=1, #value do
+									counter=counter+1
+								end
+							else
+								counter=counter+1
+							end
 						end
 						if counter >= v[34] then
-							if v[7] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Max number of headers exceeds allowed = " .. v[34] .. " - total client sent = " .. counter .. " - " .. ip)
+							if ip_whitelist_flood_checks(localized.ip_whitelist) and check_tor_onion() == false then --if true then block ip
+								if v[36] > 0 then
+									if v[7] == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Max number of headers exceeds allowed = " .. v[34] .. " - total client sent = " .. counter .. " - " .. ip)
+									end
+									--Block IP
+									if localized.resty_redis == 1 then
+										localized.blocked_addr:set(ip, localized.currenttime)
+										localized.blocked_addr:expire(ip, block_duration)
+									else
+										localized.blocked_addr:set(ip, localized.currenttime, block_duration)
+									end
+								end
+							end
+							if v[35] ~= 444 and v[35] ~= 204 then --no point with gzip on these
+								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
 							end
 							close_connection()
-							localized.ngx_exit(v[11])
+							localized.ngx_exit(v[35])
+						end
+					end
+
+					if v[37] ~= nil then
+						local args = localized.ngx_req_get_uri_args()
+						local counter = 0
+						for key, value in localized.next, args do
+							if localized.type(value) == "table" then
+								for i=1, #value do
+									counter=counter+1
+								end
+							else
+								counter=counter+1
+							end
+						end
+						if counter >= v[37] then
+							if ip_whitelist_flood_checks(localized.ip_whitelist) and check_tor_onion() == false then --if true then block ip
+								if v[39] > 0 then
+									if v[7] == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Max number of request URI args exceeds allowed = " .. v[37] .. " - total client sent = " .. counter .. " - " .. ip)
+									end
+									--Block IP
+									if localized.resty_redis == 1 then
+										localized.blocked_addr:set(ip, localized.currenttime)
+										localized.blocked_addr:expire(ip, block_duration)
+									else
+										localized.blocked_addr:set(ip, localized.currenttime, block_duration)
+									end
+								end
+							end
+							if v[38] ~= 444 and v[38] ~= 204 then --no point with gzip on these
+								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+							end
+							close_connection()
+							localized.ngx_exit(v[38])
+						end
+					end
+
+					if v[40] ~= nil then
+						if #localized.request_uri >= v[40] then
+							if ip_whitelist_flood_checks(localized.ip_whitelist) and check_tor_onion() == false then --if true then block ip
+								if v[42] > 0 then
+									if v[7] == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Max request URI length exceeds allowed = " .. v[40] .. " - total client URI length = " .. #localized.request_uri .. " - " .. ip)
+									end
+									--Block IP
+									if localized.resty_redis == 1 then
+										localized.blocked_addr:set(ip, localized.currenttime)
+										localized.blocked_addr:expire(ip, block_duration)
+									else
+										localized.blocked_addr:set(ip, localized.currenttime, block_duration)
+									end
+								end
+							end
+							if v[41] ~= 444 and v[41] ~= 204 then --no point with gzip on these
+								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+							end
+							close_connection()
+							localized.ngx_exit(v[41])
 						end
 					end
 
@@ -5706,14 +5795,60 @@ local function anti_ddos()
 						local req_headers = localized.ngx_req_get_headers()
 						local counter = 0
 						for key, value in localized.next, req_headers do
-							counter=counter+1
+							if localized.type(value) == "table" then
+								for i=1, #value do
+									counter=counter+1
+								end
+							else
+								counter=counter+1
+							end
 						end
 						if counter >= v[34] then
 							if v[7] == 1 then
 								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Max number of headers exceeds allowed = " .. v[34] .. " - total client sent = " .. counter .. " - " .. ip)
 							end
+							if v[35] ~= 444 and v[35] ~= 204 then --no point with gzip on these
+								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+							end
 							close_connection()
-							localized.ngx_exit(v[11])
+							localized.ngx_exit(v[35])
+						end
+					end
+
+					if v[37] ~= nil then
+						local args = localized.ngx_req_get_uri_args()
+						local counter = 0
+						for key, value in localized.next, args do
+							if localized.type(value) == "table" then
+								for i=1, #value do
+									counter=counter+1
+								end
+							else
+								counter=counter+1
+							end
+						end
+						if counter >= v[37] then
+							if v[7] == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Max number of request URI args exceeds allowed = " .. v[37] .. " - total client sent = " .. counter .. " - " .. ip)
+							end
+							if v[38] ~= 444 and v[38] ~= 204 then --no point with gzip on these
+								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+							end
+							close_connection()
+							localized.ngx_exit(v[38])
+						end
+					end
+
+					if v[40] ~= nil then
+						if #localized.request_uri >= v[40] then
+							if v[7] == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Max request URI length exceeds allowed = " .. v[40] .. " - total client URI length = " .. #localized.request_uri .. " - " .. ip)
+							end
+							if v[41] ~= 444 and v[41] ~= 204 then --no point with gzip on these
+								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
+							end
+							close_connection()
+							localized.ngx_exit(v[41])
 						end
 					end
 
