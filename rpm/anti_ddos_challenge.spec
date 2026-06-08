@@ -66,6 +66,14 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Mon Jun 08 2026 C0nw0nk <C0nw0nk@github> - 3.8-1
+- Added Security Features
+- Maximum number of headers browsers send improvements optional banning of users who exceed limits.
+- Maximum number of uri arguments allowed /?arg1=1&arg2=2
+- Maximum request URI length research on this shows most browsers have url limits if a url from a website is longer than 2000 chars it causes problems so the limit is 2000.
+- Added support for resty.shell
+- Added support for ngx.io
+- Remove os.date and use own function non blocking io operation.
 * Fri Jun 05 2026 C0nw0nk <C0nw0nk@github> - 3.7-1
 - Added Connection Handling for content-cache
 * Thu Jun 04 2026 C0nw0nk <C0nw0nk@github> - 3.6-1

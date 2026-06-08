@@ -1,3 +1,14 @@
+nginx-lua-anti-ddos-challenge (3.8-1) stable; urgency=medium
+  - Added Security Features
+  - Maximum number of headers browsers send improvements optional banning of users who exceed limits.
+  - Maximum number of uri arguments allowed /?arg1=1&arg2=2
+  - Maximum request URI length research on this shows most browsers have url limits if a url from a website is longer than 2000 chars it causes problems so the limit is 2000.
+  - Added support for resty.shell
+  - Added support for ngx.io
+  - Remove os.date and use own function non blocking io operation.
+
+ -- C0nw0nk <C0nw0nk@github>  Mon, 08 Jun 2026 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (3.7-1) stable; urgency=medium
   - Added Connection Handling for content-cache
 
