@@ -7874,14 +7874,14 @@ local function minification(content_type_list)
 					if not check_ngx_io() and localized.read_file == nil then
 						localized.read_file = io.open
 					end
-					local fh, err = localized.read_file(request_body_file, "rb")
+					local fh, err = localized.read_file(request_body_file, "r")
 					if err then
 						localized.ngx_status = localized.ngx_HTTP_INTERNAL_SERVER_ERROR
 						localized.ngx_log(localized.ngx_LOG_TYPE, "error reading request_body_file:", err)
 						return
 						--goto end_for_loop
 					end
-					request_body = fh:read("*all")
+					request_body = fh:read("*a")
 					fh:close()
 				end
 				if request_body == nil then
