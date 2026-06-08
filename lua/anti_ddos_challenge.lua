@@ -2222,6 +2222,7 @@ end
 --localized.proxy_header_table = nil
 --localized.ip_whitelist = nil
 --localized.anti_ddos_table = nil
+--localized.expire_time = 86400 --One day
 --localized.refresh_auth = 5000 --changed to a long time so the page wont refresh while making changes
 
 --[[
