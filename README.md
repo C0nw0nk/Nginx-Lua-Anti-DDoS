@@ -16,6 +16,8 @@ This can protect you from many different forms of DDoS works with both HTTP and 
 No limit on attack size
 Uptime guarantee
 
+100% nonblocking I/O
+
 # Features :
 
 These are some of the features I built into the script so far.
