@@ -7871,7 +7871,7 @@ local function minification(content_type_list)
 						local read_file = require "ngx.io"
 						localized.read_file = read_file.open
 					end
-					if not check_ngx_io() then
+					if not check_ngx_io() and localized.read_file == nil then
 						localized.read_file = io.open
 					end
 					local fh, err = localized.read_file(request_body_file, "rb")
