@@ -37,8 +37,8 @@ localized.tonumber = tonumber
 localized.tostring = tostring
 localized.next = next
 localized.type = type
-localized.os_date = os.date
 localized.math_random = math.random
+localized.math_ceil = math.ceil
 localized.math_floor = math.floor
 localized.math_sin = math.sin
 localized.math_pow = math.pow
@@ -148,6 +148,8 @@ localized.URL = localized.scheme .. "://" .. localized.host .. localized.request
 localized.user_agent = localized.ngx_var_http_user_agent or "" --user agent of browser
 localized.currenttime = localized.ngx_time() --Current time on server
 localized.os_time_saved = localized.currenttime-24*60*60
+local function get_date_from_unix(wanted_type, unix_time) if localized.get_date_from_unix_cached == nil then localized.get_date_from_unix_cached = {} local day_count, year, days, month = function(yr) return (yr % 4 == 0 and (yr % 100 ~= 0 or yr % 400 == 0)) and 366 or 365 end, 1970, localized.math_ceil(unix_time/86400) while days >= day_count(year) do days = days - day_count(year) year = year + 1 end local days_count = days local week = 0 local count = 0 for i=1, 52 do count = 7*i if count <= days_count then localized.get_date_from_unix_cached.week = i end end local tab_overflow = function(seed, table) for i = 1, #table do if seed - table[i] <= 0 then return i, seed end seed = seed - table[i] end end month, days = tab_overflow(days, {31,(day_count(year) == 366 and 29 or 28),31,30,31,30,31,31,30,31,30,31}) local hours, minutes, seconds = localized.math_floor(unix_time / 3600 % 24), localized.math_floor(unix_time / 60 % 60), localized.math_floor(unix_time % 60) localized.get_date_from_unix_cached.period = hours > 12 and "pm" or "am" localized.get_date_from_unix_cached.seconds = seconds localized.get_date_from_unix_cached.minutes = minutes localized.get_date_from_unix_cached.hours = hours localized.get_date_from_unix_cached.days = days localized.get_date_from_unix_cached.month = month localized.get_date_from_unix_cached.year = year end if wanted_type == "%M" then return localized.get_date_from_unix_cached.minutes end if wanted_type == "%H" then return localized.get_date_from_unix_cached.hours end if wanted_type == "%d" then return localized.get_date_from_unix_cached.days end if wanted_type == "%W" then return localized.get_date_from_unix_cached.week end if wanted_type == "%m" then return localized.get_date_from_unix_cached.month end if wanted_type == "%Y" then return localized.get_date_from_unix_cached.year end if wanted_type == "%z" then return localized.get_date_from_unix_cached.year+9 end if wanted_type == "%Y%m%d" then if localized.get_date_from_unix_cached.ymd == nil then localized.get_date_from_unix_cached.ymd = localized.string_gsub(localized.ngx.today(), "[-]", "") end return localized.get_date_from_unix_cached.ymd end if localized.get_date_from_unix_cached.full == nil then localized.get_date_from_unix_cached.full = localized.string_format("%d/%d/%04d %02d:%02d:%02d %s", localized.get_date_from_unix_cached.days, localized.get_date_from_unix_cached.month, localized.get_date_from_unix_cached.year, localized.get_date_from_unix_cached.hours, localized.get_date_from_unix_cached.minutes, localized.get_date_from_unix_cached.seconds, localized.get_date_from_unix_cached.period) end return localized.get_date_from_unix_cached.full end
+localized.os_date = get_date_from_unix
 --localized.os_clock = os.clock() --nulled out dev func to test speed
 --[[
 End localization
@@ -2220,6 +2222,8 @@ end
 --Test clear the IP whitelists
 --localized.proxy_header_table = nil
 --localized.ip_whitelist = nil
+--localized.anti_ddos_table = nil
+--localized.refresh_auth = 5000 --changed to a long time so the page wont refresh while making changes
 
 --[[
 Begin Required Functions
@@ -3655,6 +3659,72 @@ local function close_connection(method)
 	end
 end
 
+--[[
+localized.os_date above is a one line so nobody tampers with it and to keep config simple but i am putting it here for readability
+to sum this up calling os.date is a sys call and can be a blocking io operation my function is nonblocking.
+https://github.com/openresty/lua-nginx-module#ngxtoday as the docs tell you Lua's os.date library is a syscall and could be slow or a bottle neck
+]]
+--[[
+local function get_date_from_unix(wanted_type, unix_time)
+	if localized.get_date_from_unix_cached == nil then
+		localized.get_date_from_unix_cached = {}
+		local day_count, year, days, month = function(yr) return (yr % 4 == 0 and (yr % 100 ~= 0 or yr % 400 == 0)) and 366 or 365 end, 1970, localized.math_ceil(unix_time/86400)
+		while days >= day_count(year) do
+			days = days - day_count(year) year = year + 1
+		end
+		local days_count = days
+		local week = 0
+		local count = 0
+		for i=1, 52 do
+			count = 7*i
+			if count <= days_count then localized.get_date_from_unix_cached.week = i end
+		end
+		local tab_overflow = function(seed, table) for i = 1, #table do if seed - table[i] <= 0 then return i, seed end seed = seed - table[i] end end
+		month, days = tab_overflow(days, {31,(day_count(year) == 366 and 29 or 28),31,30,31,30,31,31,30,31,30,31})
+		local hours, minutes, seconds = localized.math_floor(unix_time / 3600 % 24), localized.math_floor(unix_time / 60 % 60), localized.math_floor(unix_time % 60)
+		localized.get_date_from_unix_cached.period = hours > 12 and "pm" or "am"
+		localized.get_date_from_unix_cached.seconds = seconds
+		localized.get_date_from_unix_cached.minutes = minutes
+		localized.get_date_from_unix_cached.hours = hours
+		localized.get_date_from_unix_cached.days = days
+		localized.get_date_from_unix_cached.month = month
+		localized.get_date_from_unix_cached.year = year
+	end
+	if wanted_type == "%M" then
+		return localized.get_date_from_unix_cached.minutes
+	end
+	if wanted_type == "%H" then
+		return localized.get_date_from_unix_cached.hours
+	end
+	if wanted_type == "%d" then
+		return localized.get_date_from_unix_cached.days
+	end
+	if wanted_type == "%W" then
+		return localized.get_date_from_unix_cached.week
+	end
+	if wanted_type == "%m" then
+		return localized.get_date_from_unix_cached.month
+	end
+	if wanted_type == "%Y" then
+		return localized.get_date_from_unix_cached.year
+	end
+	if wanted_type == "%z" then
+		return localized.get_date_from_unix_cached.year+9
+	end
+	if wanted_type == "%Y%m%d" then
+		if localized.get_date_from_unix_cached.ymd == nil then
+			localized.get_date_from_unix_cached.ymd = localized.string_gsub(localized.ngx.today(), "[-]", "")
+		end
+		return localized.get_date_from_unix_cached.ymd
+	end
+	if localized.get_date_from_unix_cached.full == nil then
+		localized.get_date_from_unix_cached.full = localized.string_format("%d/%d/%04d %02d:%02d:%02d %s", localized.get_date_from_unix_cached.days, localized.get_date_from_unix_cached.month, localized.get_date_from_unix_cached.year, localized.get_date_from_unix_cached.hours, localized.get_date_from_unix_cached.minutes, localized.get_date_from_unix_cached.seconds, localized.get_date_from_unix_cached.period)
+	end
+	return localized.get_date_from_unix_cached.full
+end
+--get_date_from_unix("%W",localized.os_time_saved)
+]]
+
 local function internal_header_setup()
 	if localized.anti_ddos_table ~= nil and #localized.anti_ddos_table > 0 then --do ip block checks before we bother generating headers
 		for i=1,#localized.anti_ddos_table do --for each host/path in our table
@@ -3866,11 +3936,25 @@ local function ip_whitelist_flood_checks(ip_table)
 end
 
 local function check_system(number,command,logging,ip)
+	localized.cached_restyshell = nil
+	local function check_resty_shell()
+		if localized.cached_restyshell ~= nil then
+			return localized.cached_restyshell
+		end
+		local pcall = pcall
+		local require = require
+		localized.cached_restyshell = pcall(require, "resty.shell") --check if resty shell library exists will be true or false
+		return localized.cached_restyshell
+	end
+	if check_resty_shell() and localized.os_exe == nil then
+		local shell = require "resty.shell"
+		localized.os_exe = shell.run
+	end
+	if not check_resty_shell() then
+		localized.os_execute = io.popen --openresty xray shows this is cpu intensive so if user has resty.shell we use that above this is a fallback method
+	end
 	if localized.package == nil then
 		localized.package = package
-	end
-	if localized.os_exe == nil then
-		localized.os_execute = os.execute --might be better way with io.popen
 	end
 	if localized.system_os == nil then
 		localized.system_os = localized.string_match(localized.package.cpath, "%p[".. localized.string_sub(localized.package.config, 1, 1 ) .."]?%p(%a+)")
@@ -7773,7 +7857,24 @@ local function minification(content_type_list)
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " request_body_file is " .. request_body_file )
 				end
 				if request_body_file ~= "" then
-					local fh, err = io.open(request_body_file, "rb")
+					localized.cached_ngx_io = nil
+					local function check_ngx_io()
+						if localized.cached_ngx_io ~= nil then
+							return localized.cached_ngx_io
+						end
+						local pcall = pcall
+						local require = require
+						localized.cached_ngx_io = pcall(require, "ngx.io") --check if ngx.io library exists will be true or false
+						return localized.cached_ngx_io
+					end
+					if check_ngx_io() and localized.read_file == nil then
+						local read_file = require "ngx.io"
+						localized.read_file = read_file.open
+					end
+					if not check_ngx_io() then
+						localized.read_file = io.open
+					end
+					local fh, err = localized.read_file(request_body_file, "rb")
 					if err then
 						localized.ngx_status = localized.ngx_HTTP_INTERNAL_SERVER_ERROR
 						localized.ngx_log(localized.ngx_LOG_TYPE, "error reading request_body_file:", err)
