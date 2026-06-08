@@ -3950,7 +3950,7 @@ local function check_system(number,command,logging,ip)
 		local shell = require "resty.shell"
 		localized.os_exe = shell.run
 	end
-	if not check_resty_shell() then
+	if not check_resty_shell() and localized.os_exe == nil then
 		localized.os_execute = io.popen --openresty xray shows this is cpu intensive so if user has resty.shell we use that above this is a fallback method
 	end
 	if localized.package == nil then
