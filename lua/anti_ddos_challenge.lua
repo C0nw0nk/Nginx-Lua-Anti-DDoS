@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 3.8
+Script Version: 3.9
 
 Copyright Conor McKnight
 
@@ -204,6 +204,10 @@ localized.remote_servers_table = {
 	--},
 	nil,--13th close_connection handling setting this to 1 will close connections after use, to use this instead of keepalive max_idle_timeout and pool_size above set the above to nil, having both above and this value as nil resty library will resort to default connection handling behaviour
 }]]
+localized.remote_servers_table = {
+	4, --ngx.shared.DICT memory zone
+	localized.ngx.shared.antiddos, --shared memory zone
+}
 
 localized.anti_ddos_table = {
 	{
@@ -305,9 +309,9 @@ localized.anti_ddos_table = {
 		
 		Or lua table `localized.remote_servers_table` for advanced options you can use Redis, Memcached, lrucache etc.
 		]]
-		localized.ngx.shared.antiddos, --this zone monitors each unique ip and number of requests they stack up or lua table `localized.remote_servers_table` for advanced options
-		localized.ngx.shared.antiddos_blocked, --this zone is where ips are put that exceed the max limit or lua table `localized.remote_servers_table` for advanced options
-		localized.ngx.shared.ddos_counter, --this zone is for the total number of ips in the list that are currently blocked or lua table `localized.remote_servers_table` for advanced options
+		localized.remote_servers_table,--localized.ngx.shared.antiddos, --this zone monitors each unique ip and number of requests they stack up or lua table `localized.remote_servers_table` for advanced options
+		localized.remote_servers_table,--localized.ngx.shared.antiddos_blocked, --this zone is where ips are put that exceed the max limit or lua table `localized.remote_servers_table` for advanced options
+		localized.remote_servers_table,--localized.ngx.shared.ddos_counter, --this zone is for the total number of ips in the list that are currently blocked or lua table `localized.remote_servers_table` for advanced options
 
 		--Unique identifyer to use IP address works well but set this to Auto if you expect proxy traffic like from cloudflare
 		--localized.ngx_var_binary_remote_addr, --if you use binary remote addr and the antiddos shared address is 10m in size you can store 160k ip addresses before you need to increase the memory dedicated
@@ -377,7 +381,7 @@ localized.anti_ddos_table = {
 		--Javascript puzzle flood protection
 		--In the event of an attack a user who fails to solve the javascript puzzle after a certain number of times will have their ip blocked
 		--lua_shared_dict jspuzzle_tracker 70m; #Anti-DDoS shared memory zone monitors each unique ip and number of times they stack up failing to solve the puzzle
-		localized.ngx.shared.jspuzzle_tracker, --this zone monitors each unique ip and number of times they stack up failing to solve the puzzle or lua table `localized.remote_servers_table` for advanced options
+		localized.remote_servers_table,--localized.ngx.shared.jspuzzle_tracker, --this zone monitors each unique ip and number of times they stack up failing to solve the puzzle or lua table `localized.remote_servers_table` for advanced options
 		35, --35 second window
 		4, --max 4 failures in 35s
 
@@ -386,7 +390,7 @@ localized.anti_ddos_table = {
 		--Default is nil or "" to not do anything
 		nil,
 		--[[
-		{ --Compaitbility across multiple systems will auto detect if your running windows the script will choose the Windows CMD same for linux, MacOS etc that way you can use the same script via network share or across multiple platforms
+		{ --Compaitbility across multiple systems will auto detect if your running windows the script will choose the Windows CMD same for linux, MacOS etc that way you can use the same script via network share or across multiple platforms this is nonblocking becuase you can use https://github.com/openresty/lua-resty-shell#name
 			--Windows
 			"start cmd /c netsh advfirewall firewall add rule name=\"Block In "..localized.ngx_var_remote_addr.."\" protocol=any dir=in remoteip="..localized.ngx_var_remote_addr.." action=block",
 			--Linux
@@ -447,7 +451,7 @@ localized.content_cache = {
 		".*", --regex match any site / path
 		"text/html", --empty string matches all "" content-type valid types are text to match all text formats or text/css text/javascript etc
 		--lua_shared_dict html_cache 10m; #HTML pages cache
-		localized.ngx.shared.html_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict html_cache 10m; #HTML pages cache or lua table `localized.remote_servers_table` for advanced options
+		localized.remote_servers_table,--localized.ngx.shared.html_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict html_cache 10m; #HTML pages cache or lua table `localized.remote_servers_table` for advanced options
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
 		{200,206,}, --response status codes to cache
@@ -509,7 +513,7 @@ localized.content_cache = {
 		".*", --regex match any site / path
 		"video/mp4", --content-type valid types are video to match all video formats or video/mp4 video/webm etc
 		--lua_shared_dict mp4_cache 300m; #video mp4 cache
-		localized.ngx.shared.mp4_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict mp4_cache 300m; #video mp4 cache  or lua table `localized.remote_servers_table` for advanced options
+		localized.remote_servers_table,--localized.ngx.shared.mp4_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict mp4_cache 300m; #video mp4 cache  or lua table `localized.remote_servers_table` for advanced options
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
 		{200,206,}, --response status codes to cache
@@ -546,7 +550,7 @@ localized.content_cache = {
 		".*", --regex match any site / path
 		"image", --content-type for image/png image/jpeg image/x-icon etc
 		--lua_shared_dict image_cache 300m; #image cache
-		localized.ngx.shared.image_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict image_cache 300m; #image cache  or lua table `localized.remote_servers_table` for advanced options
+		localized.remote_servers_table,--localized.ngx.shared.image_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict image_cache 300m; #image cache  or lua table `localized.remote_servers_table` for advanced options
 		60, --ttl for cache or ""
 		1, --enable logging 1 to enable 0 to disable
 		{200,206,}, --response status codes to cache
@@ -1989,12 +1993,14 @@ This way for each website or nginx config or vhost virtual host you can use the 
 Example: nginx.conf inside the http block
 http {
 init_by_lua '
+if localized_global == nil then --if global not exists
 localized_global = {} --define global var that script can read
+end
 localized_global.secret = " enigma" --nginx config now sets secret key and the script will use the secret key from here
 localized_global.credits = 2 --disable ddos credits
 --clear the IP whitelists
-localized_global.proxy_header_table = nil
-localized_global.ip_whitelist = nil
+localized_global.proxy_header_table = {}
+localized_global.ip_whitelist = {}
 ';
 }
 ]]
@@ -2219,9 +2225,9 @@ end
 --localized.URL = localized.scheme .. "://" .. localized.host .. localized.request_uri
 
 --Test clear the IP whitelists
---localized.proxy_header_table = nil
---localized.ip_whitelist = nil
---localized.anti_ddos_table = nil
+--localized.proxy_header_table = {}
+--localized.ip_whitelist = {}
+--localized.anti_ddos_table = {}
 --localized.expire_time = 86400 --One day
 --localized.refresh_auth = 5000 --changed to a long time so the page wont refresh while making changes
 
@@ -3226,7 +3232,9 @@ local function remote_cache(input_table, logging, keep, close_conn)
 						cached = input_table[2]
 						--[[
 						init_by_lua_block {
+						if localized_global == nil then --if global not exists
 						localized_global = {} --define global var that script can read
+						end
 						local libcached = require "resty.lrucache"
 						localized_global.lrucache = libcached.new(100)
 						}
@@ -3457,7 +3465,9 @@ local function remote_cache(input_table, logging, keep, close_conn)
 									cached = fallback_servers[y][2]
 									--[[
 									init_by_lua_block {
+									if localized_global == nil then --if global not exists
 									localized_global = {} --define global var that script can read
+									end
 									local libcached = require "resty.lrucache"
 									localized_global.lrucache = libcached.new(100)
 									}
@@ -5277,7 +5287,7 @@ local function anti_ddos()
 		--Rate limit check
 		if count > rate_limit_requests then
 			if logging == 1 then
-				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Rate limit exceeded by IP: " .. ip .. " (Max requests = " .. rate_limit_requests.. " client has made (" .. count .. " requests)")
+				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Rate limit exceeded by IP: " .. ip .. " Max requests = " .. rate_limit_requests.. " client has made " .. count .. " requests")
 			end
 
 			--if shdict then --backwards compatibility for lua
