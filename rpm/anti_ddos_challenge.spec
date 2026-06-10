@@ -66,6 +66,9 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Wed Jun 10 2026 C0nw0nk <C0nw0nk@github> - 3.9-1
+- Default script values to use same shared memory spaces making the use lighter for new users.
+- Change some examples for better and remove braces from ddos log output. tidy up code.
 * Mon Jun 08 2026 C0nw0nk <C0nw0nk@github> - 3.8-1
 - Added Security Features
 - Maximum number of headers browsers send improvements optional banning of users who exceed limits.
