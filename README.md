@@ -156,9 +156,6 @@ Add this to your HTTP block or it can be in a server or location block depending
 
 ```lua
 lua_shared_dict antiddos 70m; #Anti-DDoS shared memory zone to track requests per each unique user
-lua_shared_dict antiddos_blocked 70m; #Anti-DDoS shared memory where blocked users are put
-lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
-lua_shared_dict jspuzzle_tracker 70m; #Anti-DDoS shared memory zone monitors each unique ip and number of times they stack up failing to solve the puzzle
 
 access_by_lua_file anti_ddos_challenge.lua;
 ```
@@ -172,9 +169,6 @@ http {
 
 #shared memory addresses in http block
 lua_shared_dict antiddos 70m; #Anti-DDoS shared memory zone to track requests per each unique user
-lua_shared_dict antiddos_blocked 70m; #Anti-DDoS shared memory where blocked users are put
-lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
-lua_shared_dict jspuzzle_tracker 70m; #Anti-DDoS shared memory zone monitors each unique ip and number of times they stack up failing to solve the puzzle
 
 #nginx config settings etc
 access_by_lua_file anti_ddos_challenge.lua;
@@ -189,9 +183,6 @@ This will make it run for this website only
 http {
 #shared memory addresses in http block
 lua_shared_dict antiddos 70m; #Anti-DDoS shared memory zone to track requests per each unique user
-lua_shared_dict antiddos_blocked 70m; #Anti-DDoS shared memory where blocked users are put
-lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
-lua_shared_dict jspuzzle_tracker 70m; #Anti-DDoS shared memory zone monitors each unique ip and number of times they stack up failing to solve the puzzle
 }
 
 server {
@@ -207,9 +198,6 @@ This will run in this location block only
 http {
 #shared memory addresses in http block
 lua_shared_dict antiddos 70m; #Anti-DDoS shared memory zone to track requests per each unique user
-lua_shared_dict antiddos_blocked 70m; #Anti-DDoS shared memory where blocked users are put
-lua_shared_dict ddos_counter 10m; #Anti-DDoS shared memory zone to track total number of blocked users
-lua_shared_dict jspuzzle_tracker 70m; #Anti-DDoS shared memory zone monitors each unique ip and number of times they stack up failing to solve the puzzle
 }
 
 location / {
