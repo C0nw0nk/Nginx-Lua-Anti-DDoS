@@ -16,7 +16,7 @@ This can protect you from many different forms of DDoS works with both HTTP and 
 No limit on attack size
 Uptime guarantee
 
-100% nonblocking I/O
+100% asynchronous nonblocking I/O
 
 # Features :
 
