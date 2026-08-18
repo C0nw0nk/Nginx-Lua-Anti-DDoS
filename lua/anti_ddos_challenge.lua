@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 3.9
+Script Version: 4.0
 
 Copyright Conor McKnight
 
@@ -417,6 +417,10 @@ localized.anti_ddos_table = {
 		2000, --Maximum request uri length this will be url path excluding domain names /example/path?arg1=1&arg2=2 use nil to ignore
 		localized.ngx_HTTP_CLOSE, --close their connection
 		1, --1 to add ip to ban list 0 to just send response above close the connection
+
+		--Protection from excessive log writes when under attack if less than 100 ips in the blocklist
+		--An attack from 1 single ip address could spam and fill your logs with "Blocked IP attempt:" this sets a limit on requests to prevent that from happening
+		60, --nil to disable this 60 = max number of blocked requests in our above Rate limit * second window to protect frome excessive log writes
 
 	},
 }
@@ -1557,7 +1561,8 @@ localized.send_ip_to_backend_custom_headers = {
 		{
 			{"CF-Connecting-IP",}, --CF-Connecting-IP Cloudflare CDN
 			{"True-Client-IP",}, --True-Client-IP Akamai CDN
-			{"X-Client-IP",} --Amazon Cloudfront
+			{"X-Client-IP",}, --Amazon Cloudfront
+			{"X-Real-IP",}, --emby
 		},
 	},
 	--[[
@@ -1587,6 +1592,9 @@ localized.custom_headers = {
 			{"X-Content-Type-Options","nosniff",}, --block MIME-type sniffing
 			{"X-XSS-Protection","1; mode=block",}, --block cross-site scripting (XSS) attacks
 			{"x-turbo-charged-by",nil,}, --remove x-turbo-charged-by LiteSpeed
+			{"Private-Network-Access-Id",nil,}, --remove emby
+			{"Private-Network-Access-Name",nil,}, --remove emby
+			{"X-Plex-Protocol",nil,}, --remove plex
 		},
 	},
 	--[[
@@ -3753,6 +3761,7 @@ local function internal_header_setup()
 					--localized.ddos_counter = v[21] or nil
 				end
 				if localized.blocked_addr ~= nil and localized.ddos_counter ~= nil then
+					local rate_limit_window = v[8]
 					local block_duration = v[10]
 					local rate_limit_exit_status = v[11]
 
@@ -3765,7 +3774,7 @@ local function internal_header_setup()
 					end
 					if v[33] == 1 then
 						if total_requests > v[24] then --Automatically enable I am Under Attack Mode so disable logging
-							v[7] = 0 --disable logging to prevent denil of service from excessive log file writes using up disk I/O
+							v[7] = 0 --disable logging to prevent denial of service from excessive log file writes using up disk I/O
 						end
 					end
 
@@ -3773,6 +3782,35 @@ local function internal_header_setup()
 					local ip = localized.ngx_var_remote_addr
 					local blocked_time = localized.blocked_addr:get(ip) --if for some reason their real ip is in the block list block them else fall back to other checks
 					if blocked_time and blocked_time ~= localized.ngx.null then
+
+						--stats total blocked requests in rate limit window
+						local incr = localized.ddos_counter:get("blocked_total_traffic") or nil
+						if incr == nil or incr == localized.ngx.null then
+							if localized.resty_redis == 1 then
+								localized.ddos_counter:set("blocked_total_traffic", 1)
+								localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+							else
+								localized.ddos_counter:set("blocked_total_traffic", 1, rate_limit_window)
+							end
+						else
+							local incr = localized.ddos_counter:get("blocked_total_traffic")
+							if localized.resty_redis == 1 then
+								localized.ddos_counter:set("blocked_total_traffic", incr+1)
+								localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+							else
+								localized.ddos_counter:set("blocked_total_traffic", incr+1, rate_limit_window)
+							end
+							if incr ~= nil then
+								incr = localized.tonumber(incr)
+							end
+							--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] requests = " .. incr .. " - Max requests = " .. v[43])
+							if v[33] == 1 then
+								if v[43] ~= nil and incr > v[43] then
+									v[7] = 0 --disable logging to prevent denial of service from excessive log file writes using up disk I/O
+								end
+							end
+						end
+
 						if v[7] == 1 then
 							if v[23] == 1 then
 								if total_requests < v[24] then --Less than required amount to trigger Automatically enable I am Under Attack Mode so enable logging
@@ -3795,7 +3833,7 @@ local function internal_header_setup()
 					end
 					--end real ip
 					--concatenate tables make sure both these tables are the same
-					if localized.ip_whitelist ~= nil and localized.proxy_header_table ~= nil then
+					if localized.ip_whitelist ~= nil and localized.proxy_header_table ~= nil and #localized.ip_whitelist ~= 0 and #localized.proxy_header_table ~= 0 then
 						localized.merge_table = TableConcat(localized.ip_whitelist, localized.proxy_header_table)
 						localized.merge_table[#localized.merge_table+1] = localized.ngx_var.server_addr --make sure our own server address is whitelisted just incase
 						localized.ip_whitelist = localized.merge_table
@@ -3821,6 +3859,35 @@ local function internal_header_setup()
 					end
 					local blocked_time = localized.blocked_addr:get(ip)
 					if blocked_time and blocked_time ~= localized.ngx.null then
+
+						--stats total blocked requests in rate limit window
+						local incr = localized.ddos_counter:get("blocked_total_traffic") or nil
+						if incr == nil or incr == localized.ngx.null then
+							if localized.resty_redis == 1 then
+								localized.ddos_counter:set("blocked_total_traffic", 1)
+								localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+							else
+								localized.ddos_counter:set("blocked_total_traffic", 1, rate_limit_window)
+							end
+						else
+							local incr = localized.ddos_counter:get("blocked_total_traffic")
+							if localized.resty_redis == 1 then
+								localized.ddos_counter:set("blocked_total_traffic", incr+1)
+								localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+							else
+								localized.ddos_counter:set("blocked_total_traffic", incr+1, rate_limit_window)
+							end
+							if incr ~= nil then
+								incr = localized.tonumber(incr)
+							end
+							--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] requests = " .. incr .. " - Max requests = " .. v[43])
+							if v[33] == 1 then
+								if v[43] ~= nil and incr > v[43] then
+									v[7] = 0 --disable logging to prevent denial of service from excessive log file writes using up disk I/O
+								end
+							end
+						end
+
 						if v[7] == 1 then
 							if v[23] == 1 then
 								if total_requests < v[24] then --Less than required amount to trigger Automatically enable I am Under Attack Mode so enable logging
@@ -5298,7 +5365,8 @@ local function anti_ddos()
 					--end
 				--end
 			--else --older lua version
-			
+
+				--stats total blocked addresses in the duration window
 				local incr = localized.ddos_counter:get("blocked_ip") or nil
 				if incr == nil or incr == localized.ngx.null then
 					if localized.resty_redis == 1 then
@@ -5316,9 +5384,54 @@ local function anti_ddos()
 						localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
 					end
 				end
+
+				--stats total blocked requests in rate limit window
+				local incr = localized.ddos_counter:get("blocked_total_traffic") or nil
+				if incr == nil or incr == localized.ngx.null then
+					if localized.resty_redis == 1 then
+						localized.ddos_counter:set("blocked_total_traffic", count)
+						localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+					else
+						localized.ddos_counter:set("blocked_total_traffic", count, rate_limit_window)
+					end
+				else
+					local incr = localized.ddos_counter:get("blocked_total_traffic")
+					if localized.resty_redis == 1 then
+						localized.ddos_counter:set("blocked_total_traffic", incr+count)
+						localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+					else
+						localized.ddos_counter:set("blocked_total_traffic", incr+count, rate_limit_window)
+					end
+				end
+
 			--end
 
 			return true
+		else
+
+			--stats total requests in the rate limit window
+			local incr = localized.ddos_counter:get("total_traffic") or nil
+			if incr == nil or incr == localized.ngx.null then
+				if localized.resty_redis == 1 then
+					localized.ddos_counter:set("total_traffic", 1)
+					localized.ddos_counter:expire("total_traffic", rate_limit_window)
+				else
+					localized.ddos_counter:set("total_traffic", 1, rate_limit_window)
+				end
+			else
+				local incr = localized.ddos_counter:get("total_traffic")
+				if localized.resty_redis == 1 then
+					localized.ddos_counter:set("total_traffic", incr+1)
+					localized.ddos_counter:expire("total_traffic", rate_limit_window)
+				else
+					localized.ddos_counter:set("total_traffic", incr+1, rate_limit_window)
+				end
+				--if incr ~= nil then
+				--	incr = localized.tonumber(incr)
+				--end
+				--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] total traffic of all users requests in rate limit window excluding blocked traffic = " .. incr)
+			end
+
 		end
 
 		return false
@@ -5361,7 +5474,7 @@ local function anti_ddos()
 					end
 					if v[33] == 1 then
 						if total_requests > v[24] then --Automatically enable I am Under Attack Mode so disable logging
-							v[7] = 0 --disable logging to prevent denil of service from excessive log file writes using up disk I/O
+							v[7] = 0 --disable logging to prevent denial of service from excessive log file writes using up disk I/O
 						end
 					end
 
