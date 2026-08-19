@@ -72,6 +72,12 @@ fi
 - Security Protection: Remove information disclosure. The Emby web server adds headers. Private-Network-Access-Id and Private-Network-Access-Name can be used for fingerprinting.
 - Security Protection: Remove information disclosure. The Plex web server adds the header X-Plex-Protocol.
 - Added feature: more stats on blocked traffic and allowed traffic what can be used here https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/Anti%E2%80%90DDoS-Stats-and-Metrics
+* Tue Aug 18 2026 C0nw0nk <C0nw0nk@github> - 4.0-1
+- Added feature: protection from excessive log writing DoS when blocked IPs are less than the limit. For example, the default limit is 100 IPs. If 100 IPs attack you and fill up the block list, logging is turned off to prevent CPU consumption. When the blocklist is empty or has fewer than 100 IPs, a single IP could essentially spam and cause Nginx to use up CPU writing logs; this resolves that issue.
+- Add True Client IP for the Emby web server.
+- Security Protection: Remove information disclosure. The Emby web server adds headers. Private-Network-Access-Id and Private-Network-Access-Name can be used for fingerprinting.
+- Security Protection: Remove information disclosure. The Plex web server adds the header X-Plex-Protocol.
+- Added feature: more stats on blocked traffic and allowed traffic what can be used here https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/Anti%E2%80%90DDoS-Stats-and-Metrics
 * Wed Jun 10 2026 C0nw0nk <C0nw0nk@github> - 3.9-1
 - Default script values to use same shared memory spaces making the use lighter for new users.
 - Change some examples for better and remove braces from ddos log output. tidy up code.
