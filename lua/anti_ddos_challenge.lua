@@ -222,7 +222,7 @@ localized.anti_ddos_table = {
 		--localized.ngx_HTTP_CLOSE, --444 connection reset 0 bytes per response
 
 		--Limit minimum request size to this in bytes requests smaller than this size will be blocked.
-		40, --0 for no minimum limit size in bytes including request headers
+		10, --0 for no minimum limit size in bytes including request headers
 		--limit max request size to this in bytes so 1000 bytes is 1kb you can do 1e+9 = 1GB Gigabyte for large sizes
 		1000000, --0 is unlimited or will fall back to the nginx config value client_max_body_size 1m; https://nginx.org/en/docs/http/ngx_http_core_module.html#client_max_body_size
 		--status code to exit with when request size is larger than allowed size
@@ -232,8 +232,8 @@ localized.anti_ddos_table = {
 		1,
 
 		--Rate limiting settings
-		5, --5 second window
-		60, --max 60 requests in 5s
+		0.5, --500 millisecond window
+		10000, --max 10000 requests in 500ms
 		86400, --86400 seconds = 24 hour block time for ip flooding
 		localized.ngx_HTTP_CLOSE, --444 connection reset 0 bytes per response
 
@@ -248,13 +248,13 @@ localized.anti_ddos_table = {
 		0, --0 blacklist 1 whitelist
 		{ --Range header protection SlowHTTP / Slowloris have a range header attack option this is useful to protect against that
 			--If you set to 0 for blacklist specify each type you want to prevent range headers on like this.
-			{"text",}, --block range headers on html/css/js pages
+			--{"text",}, --block range headers on html/css/js pages
 			--{"image",}, --block range headers on images
 			--{"application",}, --block range headers on applications
 			--{"multipart",}, --block range headers on multipart content
 			{ --all types limit
 				"", --empty for any type
-				10, --Limit occurances block requests with to many 0-5,5-10,10-15,15-30,30-35 multipart/byteranges set to empty string "", to allow any amount https://nginx.org/en/docs/http/ngx_http_core_module.html#max_ranges
+				100, --Limit occurances block requests with to many 0-5,5-10,10-15,15-30,30-35 multipart/byteranges set to empty string "", to allow any amount https://nginx.org/en/docs/http/ngx_http_core_module.html#max_ranges
 			},
 
 			--[[
@@ -338,11 +338,11 @@ localized.anti_ddos_table = {
 		},
 
 		{ --Any $request_method that you want to prohibit use this. Most sites legitimate expected request header is GET and POST thats it. Any other header request types you can block.
-			{
-				"HEAD", --https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods#safe_idempotent_and_cacheable_request_methods
-				localized.ngx_HTTP_CLOSE, --close their connection
-				1, --1 to add ip to ban list 0 to just send response above close the connection
-			},
+			--{
+			--	"HEAD", --https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods#safe_idempotent_and_cacheable_request_methods
+			--	localized.ngx_HTTP_CLOSE, --close their connection
+			--	1, --1 to add ip to ban list 0 to just send response above close the connection
+			--},
 			{
 				"PATCH", --https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Methods#safe_idempotent_and_cacheable_request_methods
 				localized.ngx_HTTP_CLOSE, --close their connection
