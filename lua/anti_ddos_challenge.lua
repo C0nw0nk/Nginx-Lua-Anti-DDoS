@@ -2236,12 +2236,12 @@ end
 end
 
 --Test as Tor network
-localized.host = "localhost.onion"
+--localized.host = "localhost.onion"
 --localized.URL = localized.scheme .. "://" .. localized.host .. localized.request_uri
 
 --Test clear the IP whitelists
-localized.proxy_header_table = {}
-localized.ip_whitelist = {}
+--localized.proxy_header_table = {}
+--localized.ip_whitelist = {}
 --localized.anti_ddos_table = {}
 --localized.expire_time = 86400 --One day
 --localized.refresh_auth = 5000 --changed to a long time so the page wont refresh while making changes
