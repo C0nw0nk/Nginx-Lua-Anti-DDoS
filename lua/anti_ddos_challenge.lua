@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 4.0
+Script Version: 4.1
 
 Copyright Conor McKnight
 
@@ -176,7 +176,7 @@ Where you would use `localized.ngx.shared.antiddos` just use `localized.remote_s
 ]]
 --[[
 localized.remote_servers_table = {
-	1, --storage server for cache redis = 1 memcached = 2 lrucache = 3 ngx.shared.dict = 4 resty.redis.fast = 5 resty.redis.cluster.fast = 6 resty.memcached.fast = 7 rediscluster = 8 Rediscluster example https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/Using-Resty-Redis-Cluster-library
+	1, --storage server for cache redis = 1 memcached = 2 (memcached only works with seconds not milliseconds) lrucache = 3 ngx.shared.dict = 4 resty.redis.fast = 5 resty.redis.cluster.fast = 6 resty.memcached.fast = 7 rediscluster = 8 Rediscluster example https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/Using-Resty-Redis-Cluster-library
 	"127.0.0.1", --ipaddress or "unix:/path/to/unix.sock" if using socket set port to nil
 	6379, --port memcached 11211 redis 6379
 	nil,--1000, --connect_timeout 1 second
@@ -232,7 +232,7 @@ localized.anti_ddos_table = {
 		1,
 
 		--Rate limiting settings
-		0.5, --500 millisecond window
+		0.5, --500 millisecond window if using memcache for memory storage use seconds not milliseconds memcache does not support milliseconds
 		10000, --max 10000 requests in 500ms
 		86400, --86400 seconds = 24 hour block time for ip flooding
 		localized.ngx_HTTP_CLOSE, --444 connection reset 0 bytes per response
@@ -382,8 +382,8 @@ localized.anti_ddos_table = {
 		--In the event of an attack a user who fails to solve the javascript puzzle after a certain number of times will have their ip blocked
 		--lua_shared_dict jspuzzle_tracker 70m; #Anti-DDoS shared memory zone monitors each unique ip and number of times they stack up failing to solve the puzzle
 		localized.remote_servers_table,--localized.ngx.shared.jspuzzle_tracker, --this zone monitors each unique ip and number of times they stack up failing to solve the puzzle or lua table `localized.remote_servers_table` for advanced options
-		35, --35 second window
-		4, --max 4 failures in 35s
+		1, --1 second window if using memcache for memory storage use seconds not milliseconds memcache does not support milliseconds
+		1000, --max 1000 requests in 1s
 
 		--When a IP is in the blocklist for flooding or attacking to prevent their request even reaching the nginx process you can use this to execute custom scripts or commands on your server to block the ip before it even reaches the nginx process
 		--You can do this with linux so anyone who gets blocked will be blocked at the server / router level before they reach your nginx process.
@@ -422,6 +422,10 @@ localized.anti_ddos_table = {
 		--An attack from 1 single ip address could spam and fill your logs with "Blocked IP attempt:" this sets a limit on requests to prevent that from happening
 		60, --nil to disable this 60 = max number of blocked requests in our above Rate limit * second window to protect frome excessive log writes
 
+		1, --0 = do not extend bans 1 = IP's in blocklist making new requests have bans extended
+
+		0, --0 = ip tracking in rate limit window is not extended on each request 1 = ip tracking in rate limit window on each request is extended
+
 	},
 }
 
@@ -456,7 +460,7 @@ localized.content_cache = {
 		"text/html", --empty string matches all "" content-type valid types are text to match all text formats or text/css text/javascript etc
 		--lua_shared_dict html_cache 10m; #HTML pages cache
 		localized.remote_servers_table,--localized.ngx.shared.html_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict html_cache 10m; #HTML pages cache or lua table `localized.remote_servers_table` for advanced options
-		60, --ttl for cache or ""
+		60, --ttl for cache or "" if using memcache for memory storage use seconds not milliseconds memcache does not support milliseconds
 		1, --enable logging 1 to enable 0 to disable
 		{200,206,}, --response status codes to cache
 		{"GET",}, --request method to cache
@@ -512,13 +516,14 @@ localized.content_cache = {
 			--	1, --0 cache key will NOT include cookies 1 cache key will include cookies
 			--},
 		--},
+		1, --0 = do not extend cache ttl on HIT 1 = extend cache ttl on HIT
 	},
 	{
 		".*", --regex match any site / path
 		"video/mp4", --content-type valid types are video to match all video formats or video/mp4 video/webm etc
 		--lua_shared_dict mp4_cache 300m; #video mp4 cache
 		localized.remote_servers_table,--localized.ngx.shared.mp4_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict mp4_cache 300m; #video mp4 cache  or lua table `localized.remote_servers_table` for advanced options
-		60, --ttl for cache or ""
+		60, --ttl for cache or "" if using memcache for memory storage use seconds not milliseconds memcache does not support milliseconds
 		1, --enable logging 1 to enable 0 to disable
 		{200,206,}, --response status codes to cache
 		{"GET",}, --request method to cache
@@ -549,13 +554,14 @@ localized.content_cache = {
 			--	1, --0 cache key will NOT include cookies 1 cache key will include cookies
 			--},
 		--},
+		1, --0 = do not extend cache ttl on HIT 1 = extend cache ttl on HIT
 	},
 	{
 		".*", --regex match any site / path
 		"image", --content-type for image/png image/jpeg image/x-icon etc
 		--lua_shared_dict image_cache 300m; #image cache
 		localized.remote_servers_table,--localized.ngx.shared.image_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict image_cache 300m; #image cache  or lua table `localized.remote_servers_table` for advanced options
-		60, --ttl for cache or ""
+		60, --ttl for cache or "" if using memcache for memory storage use seconds not milliseconds memcache does not support milliseconds
 		1, --enable logging 1 to enable 0 to disable
 		{200,206,}, --response status codes to cache
 		{"GET",}, --request method to cache
@@ -586,6 +592,7 @@ localized.content_cache = {
 			--	1, --0 cache key will NOT include cookies 1 cache key will include cookies
 			--},
 		--},
+		1, --0 = do not extend cache ttl on HIT 1 = extend cache ttl on HIT
 	},
 	]]
 }
@@ -2229,12 +2236,12 @@ end
 end
 
 --Test as Tor network
---localized.host = "localhost.onion"
+localized.host = "localhost.onion"
 --localized.URL = localized.scheme .. "://" .. localized.host .. localized.request_uri
 
 --Test clear the IP whitelists
---localized.proxy_header_table = {}
---localized.ip_whitelist = {}
+localized.proxy_header_table = {}
+localized.ip_whitelist = {}
 --localized.anti_ddos_table = {}
 --localized.expire_time = 86400 --One day
 --localized.refresh_auth = 5000 --changed to a long time so the page wont refresh while making changes
@@ -3209,6 +3216,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis()) )
 					if check_resty_redis() then
 						localized.libcached = require "resty.redis"
+						--localized.libcached.add_commands("ttl")
 						cached = localized.libcached:new()
 						localized.resty_redis = 1
 					else
@@ -3442,6 +3450,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 								--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis()) )
 								if check_resty_redis() then
 									localized.libcached = require "resty.redis"
+									--localized.libcached.add_commands("ttl")
 									cached = localized.libcached:new()
 									localized.resty_redis = 1
 								else
@@ -3796,9 +3805,24 @@ local function internal_header_setup()
 							local incr = localized.ddos_counter:get("blocked_total_traffic")
 							if localized.resty_redis == 1 then
 								localized.ddos_counter:set("blocked_total_traffic", incr+1)
-								localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+								if v[45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
+									--localized.ddos_counter:expire("blocked_total_traffic", localized.ddos_counter:ttl("blocked_total_traffic")) --no support for ttl yet ?
+									localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+								else
+									localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+								end
 							else
-								localized.ddos_counter:set("blocked_total_traffic", incr+1, rate_limit_window)
+								if v[45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
+									if localized.resty_memcached == 1 then
+										localized.ddos_counter:set("blocked_total_traffic", incr+1, rate_limit_window)
+									elseif localized.resty_lrucache == 1 then
+										localized.ddos_counter:set("blocked_total_traffic", incr+1, rate_limit_window)
+									else
+										localized.ddos_counter:set("blocked_total_traffic", incr+1, localized.ddos_counter:ttl("blocked_total_traffic"))
+									end
+								else
+									localized.ddos_counter:set("blocked_total_traffic", incr+1, rate_limit_window)
+								end
 							end
 							if incr ~= nil then
 								incr = localized.tonumber(incr)
@@ -3812,18 +3836,24 @@ local function internal_header_setup()
 						end
 
 						if v[7] == 1 then
-							if v[23] == 1 then
+							if v[23] == 1 or v[23] == 0 then
 								if total_requests < v[24] then --Less than required amount to trigger Automatically enable I am Under Attack Mode so enable logging
 									--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL )
-									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+									if v[44] ~= nil and v[44] == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+									else
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+									end
 								end
 							end
 						end
-						if localized.resty_redis == 1 then
-							localized.blocked_addr:set(ip, localized.currenttime)
-							localized.blocked_addr:expire(ip, block_duration)
-						else
-							localized.blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
+						if v[44] ~= nil and v[44] == 1 then
+							if localized.resty_redis == 1 then
+								localized.blocked_addr:set(ip, localized.currenttime)
+								localized.blocked_addr:expire(ip, block_duration)
+							else
+								localized.blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
+							end
 						end
 						if rate_limit_exit_status ~= 444 and rate_limit_exit_status ~= 204 then --no point with gzip on these
 							localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip --this can slow down nginx tested via 100,000,000 requests nulled out on the block pages
@@ -3873,9 +3903,24 @@ local function internal_header_setup()
 							local incr = localized.ddos_counter:get("blocked_total_traffic")
 							if localized.resty_redis == 1 then
 								localized.ddos_counter:set("blocked_total_traffic", incr+1)
-								localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+								if v[45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
+									--localized.ddos_counter:expire("blocked_total_traffic", localized.ddos_counter:ttl("blocked_total_traffic")) --no support for ttl yet ?
+									localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+								else
+									localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+								end
 							else
-								localized.ddos_counter:set("blocked_total_traffic", incr+1, rate_limit_window)
+								if v[45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
+									if localized.resty_memcached == 1 then
+										localized.ddos_counter:set("blocked_total_traffic", incr+1, rate_limit_window)
+									elseif localized.resty_lrucache == 1 then
+										localized.ddos_counter:set("blocked_total_traffic", incr+1, rate_limit_window)
+									else
+										localized.ddos_counter:set("blocked_total_traffic", incr+1, localized.ddos_counter:ttl("blocked_total_traffic"))
+									end
+								else
+									localized.ddos_counter:set("blocked_total_traffic", incr+1, rate_limit_window)
+								end
 							end
 							if incr ~= nil then
 								incr = localized.tonumber(incr)
@@ -3889,18 +3934,24 @@ local function internal_header_setup()
 						end
 
 						if v[7] == 1 then
-							if v[23] == 1 then
+							if v[23] == 1 or v[23] == 0 then
 								if total_requests < v[24] then --Less than required amount to trigger Automatically enable I am Under Attack Mode so enable logging
 									--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL )
-									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+									if v[44] ~= nil and v[44] == 1 then
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+									else
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+									end
 								end
 							end
 						end
-						if localized.resty_redis == 1 then
-							localized.blocked_addr:set(ip, localized.currenttime)
-							localized.blocked_addr:expire(ip, block_duration)
-						else
-							localized.blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
+						if v[44] ~= nil and v[44] == 1 then
+							if localized.resty_redis == 1 then
+								localized.blocked_addr:set(ip, localized.currenttime)
+								localized.blocked_addr:expire(ip, block_duration)
+							else
+								localized.blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
+							end
 						end
 						if rate_limit_exit_status ~= 444 and rate_limit_exit_status ~= 204 then --no point with gzip on these
 							localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip --this can slow down nginx tested via 100,000,000 requests nulled out on the block pages
@@ -4130,9 +4181,24 @@ local function blocked_address_check(log_message, jsval)
 								count = localized.jspuzzle_memory_zone:get(key)
 								if localized.resty_redis == 1 then
 									localized.jspuzzle_memory_zone:set(key, count+1)
-									localized.jspuzzle_memory_zone:expire(key, jspuzzle_rate_limit_window)
+									if localized.anti_ddos_table[i][45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
+										--localized.jspuzzle_memory_zone:expire(key, localized.jspuzzle_memory_zone:ttl(key)) --no support for ttl yet ?
+										localized.jspuzzle_memory_zone:expire(key, jspuzzle_rate_limit_window)
+									else
+										localized.jspuzzle_memory_zone:expire(key, jspuzzle_rate_limit_window)
+									end
 								else
-									localized.jspuzzle_memory_zone:set(key, count+1, jspuzzle_rate_limit_window)
+									if localized.anti_ddos_table[i][45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
+										if localized.resty_memcached == 1 then
+											localized.jspuzzle_memory_zone:set(key, count+1, jspuzzle_rate_limit_window)
+										elseif localized.resty_lrucache == 1 then
+											localized.jspuzzle_memory_zone:set(key, count+1, jspuzzle_rate_limit_window)
+										else
+											localized.jspuzzle_memory_zone:set(key, count+1, localized.jspuzzle_memory_zone:ttl(key))
+										end
+									else
+										localized.jspuzzle_memory_zone:set(key, count+1, jspuzzle_rate_limit_window)
+									end
 								end
 								count = localized.jspuzzle_memory_zone:get(key)
 							end
@@ -4171,9 +4237,24 @@ local function blocked_address_check(log_message, jsval)
 										local incr = localized.ddos_counter:get("blocked_ip")
 										if localized.resty_redis == 1 then
 											localized.ddos_counter:set("blocked_ip", incr+1)
-											localized.ddos_counter:expire("blocked_ip", block_duration)
+											if localized.anti_ddos_table[i][45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
+												--localized.ddos_counter:expire("blocked_ip", localized.ddos_counter:ttl("blocked_ip")) --no support for ttl yet ?
+												localized.ddos_counter:expire("blocked_ip", block_duration)
+											else
+												localized.ddos_counter:expire("blocked_ip", block_duration)
+											end
 										else
-											localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+											if localized.anti_ddos_table[i][45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
+												if localized.resty_memcached == 1 then
+													localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+												elseif localized.resty_lrucache == 1 then
+													localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+												else
+													localized.ddos_counter:set("blocked_ip", incr+1, localized.ddos_counter:ttl("blocked_ip"))
+												end
+											else
+												localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+											end
 										end
 									end
 									if localized.anti_ddos_table[i][7] == 1 then
@@ -4212,9 +4293,24 @@ local function blocked_address_check(log_message, jsval)
 							local incr = localized.ddos_counter:get("blocked_ip")
 							if localized.resty_redis == 1 then
 								localized.ddos_counter:set("blocked_ip", incr+1)
-								localized.ddos_counter:expire("blocked_ip", block_duration)
+								if localized.anti_ddos_table[i][45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
+									--localized.ddos_counter:expire("blocked_ip", localized.ddos_counter:ttl("blocked_ip")) --no support for ttl yet ?
+									localized.ddos_counter:expire("blocked_ip", block_duration)
+								else
+									localized.ddos_counter:expire("blocked_ip", block_duration)
+								end
 							else
-								localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+								if localized.anti_ddos_table[i][45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
+									if localized.resty_memcached == 1 then
+										localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+									elseif localized.resty_lrucache == 1 then
+										localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+									else
+										localized.ddos_counter:set("blocked_ip", incr+1, localized.ddos_counter:ttl("blocked_ip"))
+									end
+								else
+									localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+								end
 							end
 						end
 						if localized.anti_ddos_table[i][7] == 1 then
@@ -5313,7 +5409,7 @@ local function anti_ddos()
 	end
 
 	--Rate limit per user
-	local function check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, ddos_counter, logging)
+	local function check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, ddos_counter, logging, ip_extend)
 		local key = "r" .. ip --set identifyer as r and ip for to not use up to much memory
 		local count, err = "" --create locals to use
 
@@ -5340,9 +5436,24 @@ local function anti_ddos()
 				count = localized.request_limit:get(key)
 				if localized.resty_redis == 1 then
 					localized.request_limit:set(key, count+1)
-					localized.request_limit:expire(key, rate_limit_window)
+					if ip_extend == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
+						--localized.request_limit:expire(key, localized.request_limit:ttl(key)) --no support for ttl yet ?
+						localized.request_limit:expire(key, rate_limit_window)
+					else
+						localized.request_limit:expire(key, rate_limit_window)
+					end
 				else
-					localized.request_limit:set(key, count+1, rate_limit_window)
+					if ip_extend == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
+						if localized.resty_memcached == 1 then
+							localized.request_limit:set(key, count+1, rate_limit_window)
+						elseif localized.resty_lrucache == 1 then
+							localized.request_limit:set(key, count+1, rate_limit_window)
+						else
+							localized.request_limit:set(key, count+1, localized.request_limit:ttl(key))
+						end
+					else
+						localized.request_limit:set(key, count+1, rate_limit_window)
+					end
 				end
 				count = localized.request_limit:get(key)
 			end
@@ -5379,9 +5490,24 @@ local function anti_ddos()
 					local incr = localized.ddos_counter:get("blocked_ip")
 					if localized.resty_redis == 1 then
 						localized.ddos_counter:set("blocked_ip", incr+1)
-						localized.ddos_counter:expire("blocked_ip", block_duration)
+						if ip_extend == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
+							--localized.ddos_counter:expire("blocked_ip", localized.ddos_counter:ttl("blocked_ip")) --no support for ttl yet ?
+							localized.ddos_counter:expire("blocked_ip", block_duration)
+						else
+							localized.ddos_counter:expire("blocked_ip", block_duration)
+						end
 					else
-						localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+						if ip_extend == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
+							if localized.resty_memcached == 1 then
+								localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+							elseif localized.resty_lrucache == 1 then
+								localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+							else
+								localized.ddos_counter:set("blocked_ip", incr+1, localized.ddos_counter:ttl("blocked_ip"))
+							end
+						else
+							localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+						end
 					end
 				end
 
@@ -5398,9 +5524,24 @@ local function anti_ddos()
 					local incr = localized.ddos_counter:get("blocked_total_traffic")
 					if localized.resty_redis == 1 then
 						localized.ddos_counter:set("blocked_total_traffic", incr+count)
-						localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+						if ip_extend == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
+							--localized.ddos_counter:expire("blocked_total_traffic", localized.ddos_counter:ttl("blocked_total_traffic")) --no support for ttl yet ?
+							localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+						else
+							localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+						end
 					else
-						localized.ddos_counter:set("blocked_total_traffic", incr+count, rate_limit_window)
+						if ip_extend == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
+							if localized.resty_memcached == 1 then
+								localized.ddos_counter:set("blocked_total_traffic", incr+count, rate_limit_window)
+							elseif localized.resty_lrucache == 1 then
+								localized.ddos_counter:set("blocked_total_traffic", incr+count, rate_limit_window)
+							else
+								localized.ddos_counter:set("blocked_total_traffic", incr+count, localized.ddos_counter:ttl("blocked_total_traffic"))
+							end
+						else
+							localized.ddos_counter:set("blocked_total_traffic", incr+count, rate_limit_window)
+						end
 					end
 				end
 
@@ -5422,9 +5563,24 @@ local function anti_ddos()
 				local incr = localized.ddos_counter:get("total_traffic")
 				if localized.resty_redis == 1 then
 					localized.ddos_counter:set("total_traffic", incr+1)
-					localized.ddos_counter:expire("total_traffic", rate_limit_window)
+					if ip_extend == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
+						--localized.ddos_counter:expire("total_traffic", localized.ddos_counter:ttl("total_traffic")) --no support for ttl yet ?
+						localized.ddos_counter:expire("total_traffic", rate_limit_window)
+					else
+						localized.ddos_counter:expire("total_traffic", rate_limit_window)
+					end
 				else
-					localized.ddos_counter:set("total_traffic", incr+1, rate_limit_window)
+					if ip_extend == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
+						if localized.resty_memcached == 1 then
+							localized.ddos_counter:set("total_traffic", incr+1, rate_limit_window)
+						elseif localized.resty_lrucache == 1 then
+							localized.ddos_counter:set("total_traffic", incr+1, rate_limit_window)
+						else
+							localized.ddos_counter:set("total_traffic", incr+1, localized.ddos_counter:ttl("total_traffic"))
+						end
+					else
+						localized.ddos_counter:set("total_traffic", incr+1, rate_limit_window)
+					end
 				end
 				--if incr ~= nil then
 				--	incr = localized.tonumber(incr)
@@ -5575,15 +5731,21 @@ local function anti_ddos()
 								if v[23] == 1 then
 									if total_requests < v[24] then --Less than required amount to trigger Automatically enable I am Under Attack Mode so enable logging
 										--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL )
-										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+										if v[44] ~= nil and v[44] == 1 then
+											localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+										else
+											localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+										end
 									end
 								end
 							end
-							if localized.resty_redis == 1 then
-								localized.blocked_addr:set(ip, localized.currenttime)
-								localized.blocked_addr:expire(ip, block_duration)
-							else
-								localized.blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
+							if v[44] ~= nil and v[44] == 1 then
+								if localized.resty_redis == 1 then
+									localized.blocked_addr:set(ip, localized.currenttime)
+									localized.blocked_addr:expire(ip, block_duration)
+								else
+									localized.blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
+								end
 							end
 							if rate_limit_exit_status ~= 444 and rate_limit_exit_status ~= 204 then --no point with gzip on these
 								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip --this can slow down nginx tested via 100,000,000 requests nulled out on the block pages
@@ -5600,7 +5762,7 @@ local function anti_ddos()
 						end
 
 						if ip_whitelist_flood_checks(localized.ip_whitelist) and check_tor_onion() == false then --if true then block ip
-							if check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, ddos_counter, v[7]) then
+							if check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, ddos_counter, v[7], v[45]) then
 								--Block IP
 								if localized.resty_redis == 1 then
 									localized.blocked_addr:set(ip, localized.currenttime)
@@ -7798,6 +7960,10 @@ local function minification(content_type_list)
 					cookie_match = 1
 				end
 			end
+			local ip_extend = nil
+			if content_type_list[i][20] ~= "" and content_type_list[i][20] ~= nil then
+				ip_extend = content_type_list[i][20]
+			end
 			if content_type_list[i][9] ~= "" and content_type_list[i][9] ~= nil then
 				for a=1, #content_type_list[i][9] do
 					if faster_than_match(content_type_list[i][9][a]) or localized.string_find(localized.request_uri, content_type_list[i][9][a] ) then
@@ -8287,6 +8453,21 @@ local function minification(content_type_list)
 							local output_minified = cached:get(key)
 							local res_status = cached:get("s"..key)
 
+							if ip_extend == 1 then
+								if localized.resty_redis == 1 then
+									cached:set("content-type"..key, cached:get("content-type"..key))
+									cached:expire("content-type"..key, ttl)
+									cached:set(key, cached:get(key))
+									cached:expire(key, ttl)
+									cached:set("s"..key, cached:get("s"..key))
+									cached:expire("s"..key, ttl)
+								else
+									cached:set("content-type"..key, cached:get("content-type"..key), ttl)
+									cached:set(key, cached:get(key), ttl)
+									cached:set("s"..key, cached:get("s"..key), ttl)
+								end
+							end
+
 							--localized.ngx_header.content_type = content_type_list[i][2]
 							if content_type_list[i][10] == 1 then
 								localized.ngx_header["X-Cache-Status"] = "HIT"
@@ -8296,6 +8477,14 @@ local function minification(content_type_list)
 									local header_name = localized.string_lower(content_type_list[i][17][a])
 									local check_header = cached:get(header_name..key) or nil
 									if check_header ~= nil and check_header ~= localized.ngx.null then
+										if ip_extend == 1 then
+											if localized.resty_redis == 1 then
+												cached:set(header_name..key, cached:get(header_name..key))
+												cached:expire(header_name..key, ttl)
+											else
+												cached:set(header_name..key, cached:get(header_name..key), ttl)
+											end
+										end
 										--localized.ngx_log(localized.ngx_LOG_TYPE, " check_header " .. check_header )
 										localized.ngx_header[header_name] = check_header
 									end
