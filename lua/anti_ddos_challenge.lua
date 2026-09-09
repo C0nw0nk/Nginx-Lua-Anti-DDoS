@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 4.1
+Script Version: 4.2
 
 Copyright Conor McKnight
 
@@ -208,6 +208,15 @@ localized.remote_servers_table = {
 	4, --ngx.shared.DICT memory zone
 	localized.ngx.shared.antiddos, --shared memory zone
 }
+
+--[[
+for data stored in memory/shared or remotely stored you can protect it with encryption
+for sensative information being stored on redis servers memcached etc or cached pages that could contain email addresses bank information etc this will encrypt that data
+if you dont trust a third party you have to use for hosting / storage this will prevent them snooping / data mining and stealing even in the event they get hacked your data remains encrypted
+]]
+localized.encrypt_storage = 0 --0 = disabled 1 = xor encryption
+localized.encrypt_storage_secret = " enigma" --password that encrypts our stored/cached data
+localized.storage_compression = 0 --0 disabled 1 = ZSTD Z standard compression
 
 localized.anti_ddos_table = {
 	{
@@ -2233,6 +2242,15 @@ end
 if localized_global.check_privacy ~= nil then
 localized.check_privacy = localized_global.check_privacy
 end
+if localized_global.encrypt_storage ~= nil then
+localized.encrypt_storage = localized_global.encrypt_storage
+end
+if localized_global.encrypt_storage_secret ~= nil then
+localized.encrypt_storage_secret = localized_global.encrypt_storage_secret
+end
+if localized_global.storage_compression ~= nil then
+localized.storage_compression = localized_global.storage_compression
+end
 end
 
 --Test as Tor network
@@ -3050,6 +3068,55 @@ local function TableConcat(t1,t2)
 	return t1
 end
 
+--XOR Encryption/Decryption
+local function xor_crypt(data, key)
+	local function isnumber(value)
+		return localized.tonumber(value) and true or false
+	end
+	local result = {}
+	local key_len = #key
+	if localized.type(data) ~= "number" and isnumber(data) ~= true then
+		for i=1, #data do
+			--Get byte values for data and corresponding key character
+			local data_byte = localized.string_byte(data, i)
+			local key_byte = localized.string_byte(key, ((i - 1) % key_len) + 1)
+			--Perform XOR and convert back to a character and put into a string
+			--result[#result+1] = localized.string_char(data_byte ~ key_byte) --not compatible
+			result[#result+1] = localized.string_char(localized.bit_bxor(data_byte, key_byte))
+		end
+		return localized.table_concat(result)
+	else
+		return data --dont need to encrypt numeric data of hit counts only strings ips and sensative data worth protecting
+	end
+end
+
+local function secure_storage(get_or_set, input)
+	local output = nil
+	--TODO other encryption methods like https://github.com/openresty/lua-resty-string#synopsis
+	if localized.encrypt_storage == 1 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --xor encryption
+		if get_or_set == 0 then --get = 0
+			output =  xor_crypt(input, localized.encrypt_storage_secret)
+		elseif get_or_set == 1 then --set = 1
+			output =  xor_crypt(input, localized.encrypt_storage_secret)
+		elseif get_or_set == 2 then --expire = 2
+			output =  xor_crypt(input, localized.encrypt_storage_secret)
+		elseif get_or_set == 3 then --ttl = 3
+			output =  xor_crypt(input, localized.encrypt_storage_secret)
+		elseif get_or_set == 4 then --value = 4
+			output =  xor_crypt(input, localized.encrypt_storage_secret)
+		else --undefined
+			output =  xor_crypt(input, localized.encrypt_storage_secret)
+		end
+	elseif localized.encrypt_storage == 0 or localized.encrypt_storage == nil or localized.encrypt_storage_secret == nil or localized.encrypt_storage_secret == "" then --no encryption
+		output = input
+	end
+	--TODO ZSTD/GZIP/ZLIB/BROTLI compression to save storage space
+	--if localized.storage_compression == 1 then --ZSTD Z standard compression
+		--output = compress(output) --do compression
+	--end
+	return output
+end
+
 localized.proxy_header_ip_check_count = 0
 local function proxy_header_ip_check(ip_table)
 	if localized.proxy_header_ip_check_count >= 1 then --so we dont run multiple times we serve the cached output instead
@@ -3774,7 +3841,7 @@ local function internal_header_setup()
 					local block_duration = v[10]
 					local rate_limit_exit_status = v[11]
 
-					local total_requests = localized.ddos_counter:get("blocked_ip") or 0
+					local total_requests = localized.ddos_counter:get(secure_storage(0, "blocked_ip")) or 0
 					if total_requests == nil or total_requests == localized.ngx.null then
 						total_requests = 0
 					end
@@ -3789,39 +3856,39 @@ local function internal_header_setup()
 
 					--start real ip block
 					local ip = localized.ngx_var_remote_addr
-					local blocked_time = localized.blocked_addr:get(ip) --if for some reason their real ip is in the block list block them else fall back to other checks
+					local blocked_time = localized.blocked_addr:get(secure_storage(0, ip)) --if for some reason their real ip is in the block list block them else fall back to other checks
 					if blocked_time and blocked_time ~= localized.ngx.null then
 
 						--stats total blocked requests in rate limit window
-						local incr = localized.ddos_counter:get("blocked_total_traffic") or nil
+						local incr = localized.ddos_counter:get(secure_storage(0, "blocked_total_traffic")) or nil
 						if incr == nil or incr == localized.ngx.null then
 							if localized.resty_redis == 1 then
-								localized.ddos_counter:set("blocked_total_traffic", 1)
-								localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+								localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, 1))
+								localized.ddos_counter:expire(secure_storage(2, "blocked_total_traffic"), rate_limit_window)
 							else
-								localized.ddos_counter:set("blocked_total_traffic", 1, rate_limit_window)
+								localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, 1), rate_limit_window)
 							end
 						else
-							local incr = localized.ddos_counter:get("blocked_total_traffic")
+							local incr = localized.ddos_counter:get(secure_storage(0, "blocked_total_traffic"))
 							if localized.resty_redis == 1 then
-								localized.ddos_counter:set("blocked_total_traffic", incr+1)
+								localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, incr+1))
 								if v[45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
-									--localized.ddos_counter:expire("blocked_total_traffic", localized.ddos_counter:ttl("blocked_total_traffic")) --no support for ttl yet ?
-									localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+									--localized.ddos_counter:expire(secure_storage(2, "blocked_total_traffic"), localized.ddos_counter:ttl(secure_storage(3, "blocked_total_traffic"))) --no support for ttl yet ?
+									localized.ddos_counter:expire(secure_storage(2, "blocked_total_traffic"), rate_limit_window)
 								else
-									localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+									localized.ddos_counter:expire(secure_storage(2, "blocked_total_traffic"), rate_limit_window)
 								end
 							else
 								if v[45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
 									if localized.resty_memcached == 1 then
-										localized.ddos_counter:set("blocked_total_traffic", incr+1, rate_limit_window)
+										localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, incr+1), rate_limit_window)
 									elseif localized.resty_lrucache == 1 then
-										localized.ddos_counter:set("blocked_total_traffic", incr+1, rate_limit_window)
+										localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, incr+1), rate_limit_window)
 									else
-										localized.ddos_counter:set("blocked_total_traffic", incr+1, localized.ddos_counter:ttl("blocked_total_traffic"))
+										localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, incr+1), localized.ddos_counter:ttl(secure_storage(3, "blocked_total_traffic")))
 									end
 								else
-									localized.ddos_counter:set("blocked_total_traffic", incr+1, rate_limit_window)
+									localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, incr+1), rate_limit_window)
 								end
 							end
 							if incr ~= nil then
@@ -3849,10 +3916,10 @@ local function internal_header_setup()
 						end
 						if v[44] ~= nil and v[44] == 1 then
 							if localized.resty_redis == 1 then
-								localized.blocked_addr:set(ip, localized.currenttime)
-								localized.blocked_addr:expire(ip, block_duration)
+								localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime))
+								localized.blocked_addr:expire(secure_storage(2, ip), block_duration)
 							else
-								localized.blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
+								localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime), block_duration) --update with current time to extend ban duration
 							end
 						end
 						if rate_limit_exit_status ~= 444 and rate_limit_exit_status ~= 204 then --no point with gzip on these
@@ -3887,39 +3954,39 @@ local function internal_header_setup()
 							ip = localized.ngx_var_remote_addr
 						end
 					end
-					local blocked_time = localized.blocked_addr:get(ip)
+					local blocked_time = localized.blocked_addr:get(secure_storage(0, ip))
 					if blocked_time and blocked_time ~= localized.ngx.null then
 
 						--stats total blocked requests in rate limit window
-						local incr = localized.ddos_counter:get("blocked_total_traffic") or nil
+						local incr = localized.ddos_counter:get(secure_storage(0, "blocked_total_traffic")) or nil
 						if incr == nil or incr == localized.ngx.null then
 							if localized.resty_redis == 1 then
-								localized.ddos_counter:set("blocked_total_traffic", 1)
-								localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+								localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, 1))
+								localized.ddos_counter:expire(secure_storage(2, "blocked_total_traffic"), rate_limit_window)
 							else
-								localized.ddos_counter:set("blocked_total_traffic", 1, rate_limit_window)
+								localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, 1), rate_limit_window)
 							end
 						else
-							local incr = localized.ddos_counter:get("blocked_total_traffic")
+							local incr = localized.ddos_counter:get(secure_storage(0, "blocked_total_traffic"))
 							if localized.resty_redis == 1 then
-								localized.ddos_counter:set("blocked_total_traffic", incr+1)
+								localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, incr+1))
 								if v[45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
-									--localized.ddos_counter:expire("blocked_total_traffic", localized.ddos_counter:ttl("blocked_total_traffic")) --no support for ttl yet ?
-									localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+									--localized.ddos_counter:expire(secure_storage(2, "blocked_total_traffic"), localized.ddos_counter:ttl(secure_storage(3, "blocked_total_traffic"))) --no support for ttl yet ?
+									localized.ddos_counter:expire(secure_storage(2, "blocked_total_traffic"), rate_limit_window)
 								else
-									localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+									localized.ddos_counter:expire(secure_storage(2, "blocked_total_traffic"), rate_limit_window)
 								end
 							else
 								if v[45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
 									if localized.resty_memcached == 1 then
-										localized.ddos_counter:set("blocked_total_traffic", incr+1, rate_limit_window)
+										localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, incr+1), rate_limit_window)
 									elseif localized.resty_lrucache == 1 then
-										localized.ddos_counter:set("blocked_total_traffic", incr+1, rate_limit_window)
+										localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, incr+1), rate_limit_window)
 									else
-										localized.ddos_counter:set("blocked_total_traffic", incr+1, localized.ddos_counter:ttl("blocked_total_traffic"))
+										localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, incr+1), localized.ddos_counter:ttl(secure_storage(3, "blocked_total_traffic")))
 									end
 								else
-									localized.ddos_counter:set("blocked_total_traffic", incr+1, rate_limit_window)
+									localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, incr+1), rate_limit_window)
 								end
 							end
 							if incr ~= nil then
@@ -3947,10 +4014,10 @@ local function internal_header_setup()
 						end
 						if v[44] ~= nil and v[44] == 1 then
 							if localized.resty_redis == 1 then
-								localized.blocked_addr:set(ip, localized.currenttime)
-								localized.blocked_addr:expire(ip, block_duration)
+								localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime))
+								localized.blocked_addr:expire(secure_storage(2, ip), block_duration)
 							else
-								localized.blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
+								localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime), block_duration) --update with current time to extend ban duration
 							end
 						end
 						if rate_limit_exit_status ~= 444 and rate_limit_exit_status ~= 204 then --no point with gzip on these
@@ -4169,38 +4236,38 @@ local function blocked_address_check(log_message, jsval)
 							local key = "pr" .. ip --set identifyer as pr and ip for to not use up to much memory
 							local count = "" --create locals to use
 
-							count = localized.jspuzzle_memory_zone:get(key) or nil
+							count = localized.jspuzzle_memory_zone:get(secure_storage(0, key)) or nil
 							if count == nil or count == localized.ngx.null then
 								if localized.resty_redis == 1 then
-									localized.jspuzzle_memory_zone:set(key, 1)
-									localized.jspuzzle_memory_zone:expire(key, jspuzzle_rate_limit_window)
+									localized.jspuzzle_memory_zone:set(secure_storage(1, key), secure_storage(4, 1))
+									localized.jspuzzle_memory_zone:expire(secure_storage(2, key), jspuzzle_rate_limit_window)
 								else
-									localized.jspuzzle_memory_zone:set(key, 1, jspuzzle_rate_limit_window)
+									localized.jspuzzle_memory_zone:set(secure_storage(1, key), secure_storage(4, 1), jspuzzle_rate_limit_window)
 								end
 							else
-								count = localized.jspuzzle_memory_zone:get(key)
+								count = localized.jspuzzle_memory_zone:get(secure_storage(0, key))
 								if localized.resty_redis == 1 then
-									localized.jspuzzle_memory_zone:set(key, count+1)
+									localized.jspuzzle_memory_zone:set(secure_storage(1, key), secure_storage(4, count+1))
 									if localized.anti_ddos_table[i][45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
-										--localized.jspuzzle_memory_zone:expire(key, localized.jspuzzle_memory_zone:ttl(key)) --no support for ttl yet ?
-										localized.jspuzzle_memory_zone:expire(key, jspuzzle_rate_limit_window)
+										--localized.jspuzzle_memory_zone:expire(secure_storage(2, key), localized.jspuzzle_memory_zone:ttl(secure_storage(3, key))) --no support for ttl yet ?
+										localized.jspuzzle_memory_zone:expire(secure_storage(2, key), jspuzzle_rate_limit_window)
 									else
-										localized.jspuzzle_memory_zone:expire(key, jspuzzle_rate_limit_window)
+										localized.jspuzzle_memory_zone:expire(secure_storage(2, key), jspuzzle_rate_limit_window)
 									end
 								else
 									if localized.anti_ddos_table[i][45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
 										if localized.resty_memcached == 1 then
-											localized.jspuzzle_memory_zone:set(key, count+1, jspuzzle_rate_limit_window)
+											localized.jspuzzle_memory_zone:set(secure_storage(1, key), secure_storage(4, count+1), jspuzzle_rate_limit_window)
 										elseif localized.resty_lrucache == 1 then
-											localized.jspuzzle_memory_zone:set(key, count+1, jspuzzle_rate_limit_window)
+											localized.jspuzzle_memory_zone:set(secure_storage(1, key), secure_storage(4, count+1), jspuzzle_rate_limit_window)
 										else
-											localized.jspuzzle_memory_zone:set(key, count+1, localized.jspuzzle_memory_zone:ttl(key))
+											localized.jspuzzle_memory_zone:set(secure_storage(1, key), secure_storage(4, count+1), localized.jspuzzle_memory_zone:ttl(secure_storage(3, key)))
 										end
 									else
-										localized.jspuzzle_memory_zone:set(key, count+1, jspuzzle_rate_limit_window)
+										localized.jspuzzle_memory_zone:set(secure_storage(1, key), secure_storage(4, count+1), jspuzzle_rate_limit_window)
 									end
 								end
-								count = localized.jspuzzle_memory_zone:get(key)
+								count = localized.jspuzzle_memory_zone:get(secure_storage(0, key))
 							end
 							if count ~= nil then
 								count = localized.tonumber(count)
@@ -4211,10 +4278,10 @@ local function blocked_address_check(log_message, jsval)
 									if ip_whitelist_flood_checks(localized.ip_whitelist) and check_tor_onion() == false then --if true then block ip
 										--Block IP
 										if localized.resty_redis == 1 then
-											localized.blocked_addr:set(ip, localized.currenttime)
-											localized.blocked_addr:expire(ip, block_duration)
+											localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime))
+											localized.blocked_addr:expire(secure_storage(2, ip), block_duration)
 										else
-											localized.blocked_addr:set(ip, localized.currenttime, block_duration)
+											localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime), block_duration)
 										end
 										if localized.anti_ddos_table[i][32] ~= nil and localized.anti_ddos_table[i][32] ~= "" then
 											if #localized.anti_ddos_table[i][32] > 0 then
@@ -4225,35 +4292,35 @@ local function blocked_address_check(log_message, jsval)
 										end
 										localized.blocked_address_check_count = localized.blocked_address_check_count+2
 									end
-									local incr = localized.ddos_counter:get("blocked_ip") or nil
+									local incr = localized.ddos_counter:get(secure_storage(0, "blocked_ip")) or nil
 									if incr == nil or incr == localized.ngx.null then
 										if localized.resty_redis == 1 then
-											localized.ddos_counter:set("blocked_ip", 1)
-											localized.ddos_counter:expire("blocked_ip", block_duration)
+											localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, 1))
+											localized.ddos_counter:expire(secure_storage(2, "blocked_ip"), block_duration)
 										else
-											localized.ddos_counter:set("blocked_ip", 1, block_duration)
+											localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, 1), block_duration)
 										end
 									else
-										local incr = localized.ddos_counter:get("blocked_ip")
+										local incr = localized.ddos_counter:get(secure_storage(0, "blocked_ip"))
 										if localized.resty_redis == 1 then
-											localized.ddos_counter:set("blocked_ip", incr+1)
+											localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, incr+1))
 											if localized.anti_ddos_table[i][45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
-												--localized.ddos_counter:expire("blocked_ip", localized.ddos_counter:ttl("blocked_ip")) --no support for ttl yet ?
-												localized.ddos_counter:expire("blocked_ip", block_duration)
+												--localized.ddos_counter:expire(secure_storage(2, "blocked_ip"), localized.ddos_counter:ttl(secure_storage(3, "blocked_ip"))) --no support for ttl yet ?
+												localized.ddos_counter:expire(secure_storage(2, "blocked_ip"), block_duration)
 											else
-												localized.ddos_counter:expire("blocked_ip", block_duration)
+												localized.ddos_counter:expire(secure_storage(2, "blocked_ip"), block_duration)
 											end
 										else
 											if localized.anti_ddos_table[i][45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
 												if localized.resty_memcached == 1 then
-													localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+													localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, incr+1), block_duration)
 												elseif localized.resty_lrucache == 1 then
-													localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+													localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, incr+1), block_duration)
 												else
-													localized.ddos_counter:set("blocked_ip", incr+1, localized.ddos_counter:ttl("blocked_ip"))
+													localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, incr+1), localized.ddos_counter:ttl(secure_storage(3, "blocked_ip")))
 												end
 											else
-												localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+												localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, incr+1), block_duration)
 											end
 										end
 									end
@@ -4267,10 +4334,10 @@ local function blocked_address_check(log_message, jsval)
 						if ip_whitelist_flood_checks(localized.ip_whitelist) and check_tor_onion() == false then --if true then block ip
 							--Block IP
 							if localized.resty_redis == 1 then
-								localized.blocked_addr:set(ip, localized.currenttime)
-								localized.blocked_addr:expire(ip, block_duration)
+								localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime))
+								localized.blocked_addr:expire(secure_storage(2, ip), block_duration)
 							else
-								localized.blocked_addr:set(ip, localized.currenttime, block_duration)
+								localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime), block_duration)
 							end
 							if localized.anti_ddos_table[i][32] ~= nil and localized.anti_ddos_table[i][32] ~= "" then
 								if #localized.anti_ddos_table[i][32] > 0 then
@@ -4281,35 +4348,35 @@ local function blocked_address_check(log_message, jsval)
 							end
 							localized.blocked_address_check_count = localized.blocked_address_check_count+2
 						end
-						local incr = localized.ddos_counter:get("blocked_ip") or nil
+						local incr = localized.ddos_counter:get(secure_storage(0, "blocked_ip")) or nil
 						if incr == nil or incr == localized.ngx.null then
 							if localized.resty_redis == 1 then
-								localized.ddos_counter:set("blocked_ip", 1)
-								localized.ddos_counter:expire("blocked_ip", block_duration)
+								localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, 1))
+								localized.ddos_counter:expire(secure_storage(2, "blocked_ip"), block_duration)
 							else
-								localized.ddos_counter:set("blocked_ip", 1, block_duration)
+								localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, 1), block_duration)
 							end
 						else
-							local incr = localized.ddos_counter:get("blocked_ip")
+							local incr = localized.ddos_counter:get(secure_storage(0, "blocked_ip"))
 							if localized.resty_redis == 1 then
-								localized.ddos_counter:set("blocked_ip", incr+1)
+								localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, incr+1))
 								if localized.anti_ddos_table[i][45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
-									--localized.ddos_counter:expire("blocked_ip", localized.ddos_counter:ttl("blocked_ip")) --no support for ttl yet ?
-									localized.ddos_counter:expire("blocked_ip", block_duration)
+									--localized.ddos_counter:expire(secure_storage(2, "blocked_ip"), localized.ddos_counter:ttl(secure_storage(3, "blocked_ip"))) --no support for ttl yet ?
+									localized.ddos_counter:expire(secure_storage(2, "blocked_ip"), block_duration)
 								else
-									localized.ddos_counter:expire("blocked_ip", block_duration)
+									localized.ddos_counter:expire(secure_storage(2, "blocked_ip"), block_duration)
 								end
 							else
 								if localized.anti_ddos_table[i][45] == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
 									if localized.resty_memcached == 1 then
-										localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+										localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, incr+1), block_duration)
 									elseif localized.resty_lrucache == 1 then
-										localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+										localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, incr+1), block_duration)
 									else
-										localized.ddos_counter:set("blocked_ip", incr+1, localized.ddos_counter:ttl("blocked_ip"))
+										localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, incr+1), localized.ddos_counter:ttl(secure_storage(3, "blocked_ip")))
 									end
 								else
-									localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+									localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, incr+1), block_duration)
 								end
 							end
 						end
@@ -5423,39 +5490,39 @@ local function anti_ddos()
 			--end
 		--else --older lua version
 
-			count = localized.request_limit:get(key) or nil
+			count = localized.request_limit:get(secure_storage(0, key)) or nil
 			if count == nil or count == localized.ngx.null then
 				if localized.resty_redis == 1 then
-					localized.request_limit:set(key, 1)
-					localized.request_limit:expire(key, rate_limit_window)
+					localized.request_limit:set(secure_storage(1, key), secure_storage(4, 1))
+					localized.request_limit:expire(secure_storage(2, key), rate_limit_window)
 				else
-					localized.request_limit:set(key, 1, rate_limit_window)
+					localized.request_limit:set(secure_storage(1, key), secure_storage(4, 1), rate_limit_window)
 				end
 				return false
 			else
-				count = localized.request_limit:get(key)
+				count = localized.request_limit:get(secure_storage(0, key))
 				if localized.resty_redis == 1 then
-					localized.request_limit:set(key, count+1)
+					localized.request_limit:set(secure_storage(1, key), secure_storage(4, count+1))
 					if ip_extend == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
-						--localized.request_limit:expire(key, localized.request_limit:ttl(key)) --no support for ttl yet ?
-						localized.request_limit:expire(key, rate_limit_window)
+						--localized.request_limit:expire(secure_storage(2, key), localized.request_limit:ttl(secure_storage(3, key))) --no support for ttl yet ?
+						localized.request_limit:expire(secure_storage(2, key), rate_limit_window)
 					else
-						localized.request_limit:expire(key, rate_limit_window)
+						localized.request_limit:expire(secure_storage(2, key), rate_limit_window)
 					end
 				else
 					if ip_extend == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
 						if localized.resty_memcached == 1 then
-							localized.request_limit:set(key, count+1, rate_limit_window)
+							localized.request_limit:set(secure_storage(1, key), secure_storage(4, count+1), rate_limit_window)
 						elseif localized.resty_lrucache == 1 then
-							localized.request_limit:set(key, count+1, rate_limit_window)
+							localized.request_limit:set(secure_storage(1, key), secure_storage(4, count+1), rate_limit_window)
 						else
-							localized.request_limit:set(key, count+1, localized.request_limit:ttl(key))
+							localized.request_limit:set(secure_storage(1, key), secure_storage(4, count+1), localized.request_limit:ttl(secure_storage(3, key)))
 						end
 					else
-						localized.request_limit:set(key, count+1, rate_limit_window)
+						localized.request_limit:set(secure_storage(1, key), secure_storage(4, count+1), rate_limit_window)
 					end
 				end
-				count = localized.request_limit:get(key)
+				count = localized.request_limit:get(secure_storage(0, key))
 			end
 		--end
 		if count ~= nil then
@@ -5478,69 +5545,69 @@ local function anti_ddos()
 			--else --older lua version
 
 				--stats total blocked addresses in the duration window
-				local incr = localized.ddos_counter:get("blocked_ip") or nil
+				local incr = localized.ddos_counter:get(secure_storage(0, "blocked_ip")) or nil
 				if incr == nil or incr == localized.ngx.null then
 					if localized.resty_redis == 1 then
-						localized.ddos_counter:set("blocked_ip", 1)
-						localized.ddos_counter:expire("blocked_ip", block_duration)
+						localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, 1))
+						localized.ddos_counter:expire(secure_storage(2, "blocked_ip"), block_duration)
 					else
-						localized.ddos_counter:set("blocked_ip", 1, block_duration)
+						localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, 1), block_duration)
 					end
 				else
-					local incr = localized.ddos_counter:get("blocked_ip")
+					local incr = localized.ddos_counter:get(secure_storage(0, "blocked_ip"))
 					if localized.resty_redis == 1 then
-						localized.ddos_counter:set("blocked_ip", incr+1)
+						localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, incr+1))
 						if ip_extend == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
-							--localized.ddos_counter:expire("blocked_ip", localized.ddos_counter:ttl("blocked_ip")) --no support for ttl yet ?
-							localized.ddos_counter:expire("blocked_ip", block_duration)
+							--localized.ddos_counter:expire(secure_storage(2, "blocked_ip"), localized.ddos_counter:ttl(secure_storage(3, "blocked_ip"))) --no support for ttl yet ?
+							localized.ddos_counter:expire(secure_storage(2, "blocked_ip"), block_duration)
 						else
-							localized.ddos_counter:expire("blocked_ip", block_duration)
+							localized.ddos_counter:expire(secure_storage(2, "blocked_ip"), block_duration)
 						end
 					else
 						if ip_extend == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
 							if localized.resty_memcached == 1 then
-								localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+								localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, incr+1), block_duration)
 							elseif localized.resty_lrucache == 1 then
-								localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+								localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, incr+1), block_duration)
 							else
-								localized.ddos_counter:set("blocked_ip", incr+1, localized.ddos_counter:ttl("blocked_ip"))
+								localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, incr+1), localized.ddos_counter:ttl(secure_storage(3, "blocked_ip")))
 							end
 						else
-							localized.ddos_counter:set("blocked_ip", incr+1, block_duration)
+							localized.ddos_counter:set(secure_storage(1, "blocked_ip"), secure_storage(4, incr+1), block_duration)
 						end
 					end
 				end
 
 				--stats total blocked requests in rate limit window
-				local incr = localized.ddos_counter:get("blocked_total_traffic") or nil
+				local incr = localized.ddos_counter:get(secure_storage(0, "blocked_total_traffic")) or nil
 				if incr == nil or incr == localized.ngx.null then
 					if localized.resty_redis == 1 then
-						localized.ddos_counter:set("blocked_total_traffic", count)
-						localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+						localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, count))
+						localized.ddos_counter:expire(secure_storage(2, "blocked_total_traffic"), rate_limit_window)
 					else
-						localized.ddos_counter:set("blocked_total_traffic", count, rate_limit_window)
+						localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, count), rate_limit_window)
 					end
 				else
-					local incr = localized.ddos_counter:get("blocked_total_traffic")
+					local incr = localized.ddos_counter:get(secure_storage(0, "blocked_total_traffic"))
 					if localized.resty_redis == 1 then
-						localized.ddos_counter:set("blocked_total_traffic", incr+count)
+						localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, incr+count))
 						if ip_extend == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
-							--localized.ddos_counter:expire("blocked_total_traffic", localized.ddos_counter:ttl("blocked_total_traffic")) --no support for ttl yet ?
-							localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+							--localized.ddos_counter:expire(secure_storage(2, "blocked_total_traffic"), localized.ddos_counter:ttl(secure_storage(3, "blocked_total_traffic"))) --no support for ttl yet ?
+							localized.ddos_counter:expire(secure_storage(2, "blocked_total_traffic"), rate_limit_window)
 						else
-							localized.ddos_counter:expire("blocked_total_traffic", rate_limit_window)
+							localized.ddos_counter:expire(secure_storage(2, "blocked_total_traffic"), rate_limit_window)
 						end
 					else
 						if ip_extend == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
 							if localized.resty_memcached == 1 then
-								localized.ddos_counter:set("blocked_total_traffic", incr+count, rate_limit_window)
+								localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, incr+count), rate_limit_window)
 							elseif localized.resty_lrucache == 1 then
-								localized.ddos_counter:set("blocked_total_traffic", incr+count, rate_limit_window)
+								localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, incr+count), rate_limit_window)
 							else
-								localized.ddos_counter:set("blocked_total_traffic", incr+count, localized.ddos_counter:ttl("blocked_total_traffic"))
+								localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, incr+count), localized.ddos_counter:ttl(secure_storage(3, "blocked_total_traffic")))
 							end
 						else
-							localized.ddos_counter:set("blocked_total_traffic", incr+count, rate_limit_window)
+							localized.ddos_counter:set(secure_storage(1, "blocked_total_traffic"), secure_storage(4, incr+count), rate_limit_window)
 						end
 					end
 				end
@@ -5551,35 +5618,35 @@ local function anti_ddos()
 		else
 
 			--stats total requests in the rate limit window
-			local incr = localized.ddos_counter:get("total_traffic") or nil
+			local incr = localized.ddos_counter:get(secure_storage(0, "total_traffic")) or nil
 			if incr == nil or incr == localized.ngx.null then
 				if localized.resty_redis == 1 then
-					localized.ddos_counter:set("total_traffic", 1)
-					localized.ddos_counter:expire("total_traffic", rate_limit_window)
+					localized.ddos_counter:set(secure_storage(1, "total_traffic"), secure_storage(4, 1))
+					localized.ddos_counter:expire(secure_storage(2, "total_traffic"), rate_limit_window)
 				else
-					localized.ddos_counter:set("total_traffic", 1, rate_limit_window)
+					localized.ddos_counter:set(secure_storage(1, "total_traffic"), secure_storage(4, 1), rate_limit_window)
 				end
 			else
-				local incr = localized.ddos_counter:get("total_traffic")
+				local incr = localized.ddos_counter:get(secure_storage(0, "total_traffic"))
 				if localized.resty_redis == 1 then
-					localized.ddos_counter:set("total_traffic", incr+1)
+					localized.ddos_counter:set(secure_storage(1, "total_traffic"), secure_storage(4, incr+1))
 					if ip_extend == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
-						--localized.ddos_counter:expire("total_traffic", localized.ddos_counter:ttl("total_traffic")) --no support for ttl yet ?
-						localized.ddos_counter:expire("total_traffic", rate_limit_window)
+						--localized.ddos_counter:expire(secure_storage(2, "total_traffic"), localized.ddos_counter:ttl(secure_storage(3, "total_traffic"))) --no support for ttl yet ?
+						localized.ddos_counter:expire(secure_storage(2, "total_traffic"), rate_limit_window)
 					else
-						localized.ddos_counter:expire("total_traffic", rate_limit_window)
+						localized.ddos_counter:expire(secure_storage(2, "total_traffic"), rate_limit_window)
 					end
 				else
 					if ip_extend == 0 and localized.ngx.config.ngx_lua_version ~= nil and localized.ngx.config.ngx_lua_version >= 10011 then --v0.10.11 --:ttl introduced
 						if localized.resty_memcached == 1 then
-							localized.ddos_counter:set("total_traffic", incr+1, rate_limit_window)
+							localized.ddos_counter:set(secure_storage(1, "total_traffic"), secure_storage(4, incr+1), rate_limit_window)
 						elseif localized.resty_lrucache == 1 then
-							localized.ddos_counter:set("total_traffic", incr+1, rate_limit_window)
+							localized.ddos_counter:set(secure_storage(1, "total_traffic"), secure_storage(4, incr+1), rate_limit_window)
 						else
-							localized.ddos_counter:set("total_traffic", incr+1, localized.ddos_counter:ttl("total_traffic"))
+							localized.ddos_counter:set(secure_storage(1, "total_traffic"), secure_storage(4, incr+1), localized.ddos_counter:ttl(secure_storage(3, "total_traffic")))
 						end
 					else
-						localized.ddos_counter:set("total_traffic", incr+1, rate_limit_window)
+						localized.ddos_counter:set(secure_storage(1, "total_traffic"), secure_storage(4, incr+1), rate_limit_window)
 					end
 				end
 				--if incr ~= nil then
@@ -5624,7 +5691,7 @@ local function anti_ddos()
 					local range_table = v[18]
 					local ip = v[22]
 
-					local total_requests = localized.ddos_counter:get("blocked_ip") or 0
+					local total_requests = localized.ddos_counter:get(secure_storage(0, "blocked_ip")) or 0
 					if total_requests == nil or total_requests == localized.ngx.null then
 						total_requests = 0
 					end
@@ -5717,15 +5784,15 @@ local function anti_ddos()
 					end
 
 					--[[ --dev test to show to log file each users request count
-					local incr = localized.ddos_counter:get("blocked_ip") or 0
+					local incr = localized.ddos_counter:get(secure_storage(0, "blocked_ip")) or 0
 					if incr ~= nil and incr ~= localized.ngx.null then
-						local incr = localized.ddos_counter:get("blocked_ip")
+						local incr = localized.ddos_counter:get(secure_storage(0, "blocked_ip"))
 						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Total number of IP's in block list : " .. incr)
 					end
 					]]
 
 					if localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
-						local blocked_time = localized.blocked_addr:get(ip)
+						local blocked_time = localized.blocked_addr:get(secure_storage(0, ip))
 						if blocked_time and blocked_time ~= localized.ngx.null then
 							if v[7] == 1 then
 								if v[23] == 1 then
@@ -5741,10 +5808,10 @@ local function anti_ddos()
 							end
 							if v[44] ~= nil and v[44] == 1 then
 								if localized.resty_redis == 1 then
-									localized.blocked_addr:set(ip, localized.currenttime)
-									localized.blocked_addr:expire(ip, block_duration)
+									localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime))
+									localized.blocked_addr:expire(secure_storage(2, ip), block_duration)
 								else
-									localized.blocked_addr:set(ip, localized.currenttime, block_duration) --update with current time to extend ban duration
+									localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime), block_duration) --update with current time to extend ban duration
 								end
 							end
 							if rate_limit_exit_status ~= 444 and rate_limit_exit_status ~= 204 then --no point with gzip on these
@@ -5765,10 +5832,10 @@ local function anti_ddos()
 							if check_rate_limit(ip, rate_limit_window, rate_limit_requests, block_duration, request_limit, ddos_counter, v[7], v[45]) then
 								--Block IP
 								if localized.resty_redis == 1 then
-									localized.blocked_addr:set(ip, localized.currenttime)
-									localized.blocked_addr:expire(ip, block_duration)
+									localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime))
+									localized.blocked_addr:expire(secure_storage(2, ip), block_duration)
 								else
-									localized.blocked_addr:set(ip, localized.currenttime, block_duration)
+									localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime), block_duration)
 								end
 								if v[32] ~= nil and v[32] ~= "" then
 									if #v[32] > 0 then
@@ -5789,10 +5856,10 @@ local function anti_ddos()
 							if check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table, v[7]) then
 								--Block IP
 								if localized.resty_redis == 1 then
-									localized.blocked_addr:set(ip, localized.currenttime)
-									localized.blocked_addr:expire(ip, block_duration)
+									localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime))
+									localized.blocked_addr:expire(secure_storage(2, ip), block_duration)
 								else
-									localized.blocked_addr:set(ip, localized.currenttime, block_duration)
+									localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime), block_duration)
 								end
 								if v[32] ~= nil and v[32] ~= "" then
 									if #v[32] > 0 then
@@ -5851,10 +5918,10 @@ local function anti_ddos()
 													end
 													--Block IP
 													if localized.resty_redis == 1 then
-														localized.blocked_addr:set(ip, localized.currenttime)
-														localized.blocked_addr:expire(ip, block_duration)
+														localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime))
+														localized.blocked_addr:expire(secure_storage(2, ip), block_duration)
 													else
-														localized.blocked_addr:set(ip, localized.currenttime, block_duration)
+														localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime), block_duration)
 													end
 												end
 											end
@@ -5874,10 +5941,10 @@ local function anti_ddos()
 														end
 														--Block IP
 														if localized.resty_redis == 1 then
-															localized.blocked_addr:set(ip, localized.currenttime)
-															localized.blocked_addr:expire(ip, block_duration)
+															localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime))
+															localized.blocked_addr:expire(secure_storage(2, ip), block_duration)
 														else
-															localized.blocked_addr:set(ip, localized.currenttime, block_duration)
+															localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime), block_duration)
 														end
 													end
 												end
@@ -5904,10 +5971,10 @@ local function anti_ddos()
 										end
 										--Block IP
 										if localized.resty_redis == 1 then
-											localized.blocked_addr:set(ip, localized.currenttime)
-											localized.blocked_addr:expire(ip, block_duration)
+											localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime))
+											localized.blocked_addr:expire(secure_storage(2, ip), block_duration)
 										else
-											localized.blocked_addr:set(ip, localized.currenttime, block_duration)
+											localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime), block_duration)
 										end
 									end
 								end
@@ -5950,10 +6017,10 @@ local function anti_ddos()
 									end
 									--Block IP
 									if localized.resty_redis == 1 then
-										localized.blocked_addr:set(ip, localized.currenttime)
-										localized.blocked_addr:expire(ip, block_duration)
+										localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime))
+										localized.blocked_addr:expire(secure_storage(2, ip), block_duration)
 									else
-										localized.blocked_addr:set(ip, localized.currenttime, block_duration)
+										localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime), block_duration)
 									end
 								end
 							end
@@ -5985,10 +6052,10 @@ local function anti_ddos()
 									end
 									--Block IP
 									if localized.resty_redis == 1 then
-										localized.blocked_addr:set(ip, localized.currenttime)
-										localized.blocked_addr:expire(ip, block_duration)
+										localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime))
+										localized.blocked_addr:expire(secure_storage(2, ip), block_duration)
 									else
-										localized.blocked_addr:set(ip, localized.currenttime, block_duration)
+										localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime), block_duration)
 									end
 								end
 							end
@@ -6009,10 +6076,10 @@ local function anti_ddos()
 									end
 									--Block IP
 									if localized.resty_redis == 1 then
-										localized.blocked_addr:set(ip, localized.currenttime)
-										localized.blocked_addr:expire(ip, block_duration)
+										localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime))
+										localized.blocked_addr:expire(secure_storage(2, ip), block_duration)
 									else
-										localized.blocked_addr:set(ip, localized.currenttime, block_duration)
+										localized.blocked_addr:set(secure_storage(1, ip), secure_storage(4, localized.currenttime), block_duration)
 									end
 								end
 							end
@@ -8214,7 +8281,7 @@ local function minification(content_type_list)
 					local key = localized.ngx_var.request_method .. localized.scheme .. "://" .. localized.host .. content_type_list[i][12] .. cookie_string .. request_body --fastcgi_cache_key / proxy_cache_key - GET - https - :// - localized.host - localized.request_uri - request_header["cookie"] - request_body
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " full cache key is " .. key)
 
-					local content_type_cache = cached:get("content-type"..key) or nil
+					local content_type_cache = cached:get(secure_storage(0, "content-type"..key)) or nil
 
 					if content_type_cache == nil or content_type_cache == localized.ngx.null then
 						if #content_type_list[i][6] > 0 then
@@ -8284,13 +8351,13 @@ local function minification(content_type_list)
 														localized.ngx_header["X-Cache-Status"] = "UPDATING"
 													end
 													if localized.resty_redis == 1 then
-														cached:set(key, output_minified)
-														cached:expire(key, ttl)
-														cached:set("s"..key, res.status)
-														cached:expire("s"..key, ttl)
+														cached:set(secure_storage(1, key), secure_storage(4, output_minified))
+														cached:expire(secure_storage(2, key), ttl)
+														cached:set(secure_storage(1, "s"..key), secure_storage(4, res.status))
+														cached:expire(secure_storage(2, "s"..key), ttl)
 													else
-														cached:set(key, output_minified, ttl)
-														cached:set("s"..key, res.status, ttl)
+														cached:set(secure_storage(1, key), secure_storage(4, output_minified), ttl)
+														cached:set(secure_storage(1, "s"..key), secure_storage(4, res.status), ttl)
 													end
 													if res.headers ~= nil and localized.type(res.headers) == "table" then
 														for headerName, header in localized.next, res.headers do
@@ -8299,10 +8366,10 @@ local function minification(content_type_list)
 																for a=1, #content_type_list[i][17] do
 																	if localized.string_lower(localized.tostring(header_original)) == localized.string_lower(content_type_list[i][17][a]) then
 																		if localized.resty_redis == 1 then
-																			cached:set(localized.string_lower(localized.tostring(header_original))..key, header)
-																			cached:expire(localized.string_lower(localized.tostring(header_original))..key, ttl)
+																			cached:set(secure_storage(1, localized.string_lower(localized.tostring(header_original))..key), secure_storage(4, header))
+																			cached:expire(secure_storage(2, localized.string_lower(localized.tostring(header_original))..key), ttl)
 																		else
-																			cached:set(localized.string_lower(localized.tostring(header_original))..key, header, ttl)
+																			cached:set(secure_storage(1, localized.string_lower(localized.tostring(header_original))..key), secure_storage(4, header), ttl)
 																		end
 																	end
 																end
@@ -8394,13 +8461,13 @@ local function minification(content_type_list)
 														localized.ngx_header["X-Cache-Status"] = "UPDATING"
 													end
 													if localized.resty_redis == 1 then
-														cached:set(key, output_minified)
-														cached:expire(key, ttl)
-														cached:set("s"..key, res.status)
-														cached:expire("s"..key, ttl)
+														cached:set(secure_storage(1, key), secure_storage(4, output_minified))
+														cached:expire(secure_storage(2, key), ttl)
+														cached:set(secure_storage(1, "s"..key), secure_storage(4, res.status))
+														cached:expire(secure_storage(2, "s"..key), ttl)
 													else
-														cached:set(key, output_minified, ttl)
-														cached:set("s"..key, res.status, ttl)
+														cached:set(secure_storage(1, key), secure_storage(4, output_minified), ttl)
+														cached:set(secure_storage(1, "s"..key), secure_storage(4, res.status), ttl)
 													end
 													if res.header ~= nil and localized.type(res.header) == "table" then
 														for headerName, header in localized.next, res.header do
@@ -8409,10 +8476,10 @@ local function minification(content_type_list)
 																for a=1, #content_type_list[i][17] do
 																	if localized.string_lower(localized.tostring(header_original)) == localized.string_lower(content_type_list[i][17][a]) then
 																		if localized.resty_redis == 1 then
-																			cached:set(localized.string_lower(localized.tostring(header_original))..key, header)
-																			cached:expire(localized.string_lower(localized.tostring(header_original))..key, ttl)
+																				cached:set(secure_storage(1, localized.string_lower(localized.tostring(header_original))..key), secure_storage(4, header))
+																				cached:expire(secure_storage(2, localized.string_lower(localized.tostring(header_original))..key), ttl)
 																		else
-																			cached:set(localized.string_lower(localized.tostring(header_original))..key, header, ttl)
+																			cached:set(secure_storage(1, localized.string_lower(localized.tostring(header_original))..key), secure_storage(4, header), ttl)
 																		end
 																	end
 																end
@@ -8442,6 +8509,7 @@ local function minification(content_type_list)
 
 					else --if content_type_cache == nil then
 
+						content_type_cache = secure_storage(0, content_type_cache) --get was encrypted this should decrypt it
 						if content_type_cache and (content_type_list[i][2] == "" or content_type_list[i][2] == nil or localized.string_find(content_type_cache, content_type_list[i][2])) then
 						--if content_type_cache and localized.string_find(content_type_cache, content_type_list[i][2]) then
 							localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
@@ -8450,21 +8518,23 @@ local function minification(content_type_list)
 								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Cache] Served from cache key : " .. key )
 							end
 
-							local output_minified = cached:get(key)
-							local res_status = cached:get("s"..key)
+							local output_minified = cached:get(secure_storage(0, key))
+							output_minified = secure_storage(0, output_minified) --get was encrypted this should decrypt it
+							local res_status = cached:get(secure_storage(0, "s"..key))
+							res_status = secure_storage(0, res_status) --numeric data is not encrypted
 
 							if ip_extend == 1 then
 								if localized.resty_redis == 1 then
-									cached:set("content-type"..key, cached:get("content-type"..key))
-									cached:expire("content-type"..key, ttl)
-									cached:set(key, cached:get(key))
-									cached:expire(key, ttl)
-									cached:set("s"..key, cached:get("s"..key))
-									cached:expire("s"..key, ttl)
+									cached:set(secure_storage(1, "content-type"..key), cached:get(secure_storage(0, "content-type"..key)))
+									cached:expire(secure_storage(2, "content-type"..key), ttl)
+									cached:set(secure_storage(1, key), cached:get(secure_storage(0, key)))
+									cached:expire(secure_storage(2, key), ttl)
+									cached:set(secure_storage(1, "s"..key), cached:get(secure_storage(0, "s"..key)))
+									cached:expire(secure_storage(2, "s"..key), ttl)
 								else
-									cached:set("content-type"..key, cached:get("content-type"..key), ttl)
-									cached:set(key, cached:get(key), ttl)
-									cached:set("s"..key, cached:get("s"..key), ttl)
+									cached:set(secure_storage(1, "content-type"..key), cached:get(secure_storage(0, "content-type"..key)), ttl) --content_type_cache
+									cached:set(secure_storage(1, key), cached:get(secure_storage(0, key)), ttl) --output_minified
+									cached:set(secure_storage(1, "s"..key), cached:get(secure_storage(0, "s"..key)), ttl) --res_status
 								end
 							end
 
@@ -8475,17 +8545,20 @@ local function minification(content_type_list)
 							if content_type_list[i][17] ~= "" or #content_type_list[i][17] > 0 then
 								for a=1, #content_type_list[i][17] do
 									local header_name = localized.string_lower(content_type_list[i][17][a])
-									local check_header = cached:get(header_name..key) or nil
+									local check_header = cached:get(secure_storage(0, header_name..key)) or nil
 									if check_header ~= nil and check_header ~= localized.ngx.null then
+										--if header_name ~= "content-length" then
+										check_header = secure_storage(0, check_header) --get was encrypted this should decrypt it
+										--end
 										if ip_extend == 1 then
 											if localized.resty_redis == 1 then
-												cached:set(header_name..key, cached:get(header_name..key))
-												cached:expire(header_name..key, ttl)
+												cached:set(secure_storage(1, header_name..key), cached:get(secure_storage(0, header_name..key)))
+												cached:expire(secure_storage(2, header_name..key), ttl)
 											else
-												cached:set(header_name..key, cached:get(header_name..key), ttl)
+												cached:set(secure_storage(1, header_name..key), cached:get(secure_storage(0, header_name..key)), ttl)
 											end
 										end
-										--localized.ngx_log(localized.ngx_LOG_TYPE, " check_header " .. check_header )
+										--localized.ngx_log(localized.ngx_LOG_TYPE, " check_header " .. check_header .. " - header_name - " .. header_name)
 										localized.ngx_header[header_name] = check_header
 									end
 								end
