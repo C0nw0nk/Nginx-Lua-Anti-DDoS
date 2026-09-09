@@ -4,6 +4,12 @@ nginx-lua-anti-ddos-challenge (4.2-1) stable; urgency=medium
 
  -- C0nw0nk <C0nw0nk@github>  Wed, 09 Sep 2026 00:00:00 +0000
 
+nginx-lua-anti-ddos-challenge (4.2-1) stable; urgency=medium
+  - Added Feature Storage Encryption for sensative information being stored on redis servers memcached etc or cached pages that could contain email addresses bank information etc this will encrypt that data
+  - TODO: In progress Storage Compression zstd zstandard
+
+ -- C0nw0nk <C0nw0nk@github>  Wed, 09 Sep 2026 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (4.1-1) stable; urgency=medium
   - Added Feature to have banned IPs flooding get their bans extended
   - Added Feature IP tracking in rate limit window is not extended on each request or to have IP rate extended
