@@ -66,6 +66,9 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Wed Sep 09 2026 C0nw0nk <C0nw0nk@github> - 4.2-1
+- Added Feature Storage Encryption for sensative information being stored on redis servers memcached etc or cached pages that could contain email addresses bank information etc this will encrypt that data
+- TODO: In progress Storage Compression zstd zstandard
 * Sat Aug 29 2026 C0nw0nk <C0nw0nk@github> - 4.1-1
 - Added Feature to have banned IPs flooding get their bans extended
 - Added Feature IP tracking in rate limit window is not extended on each request or to have IP rate extended
