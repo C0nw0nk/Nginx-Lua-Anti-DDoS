@@ -1,3 +1,8 @@
+Version: 4.2
+Date: 2026-09-09
+- Added Feature Storage Encryption for sensative information being stored on redis servers memcached etc or cached pages that could contain email addresses bank information etc this will encrypt that data
+- TODO: In progress Storage Compression zstd zstandard
+
 Version: 4.1
 Date: 2026-08-29
 - Added Feature to have banned IPs flooding get their bans extended
