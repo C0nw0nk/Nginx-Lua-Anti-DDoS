@@ -59,6 +59,10 @@ Enable or disable logging of users who either fail or succeed solving the authen
 
 Range header filtering Most download / Video streaming sites and services use range headers this allows you to filter and block slowhttp / slowloris attack types
 
+Remote storage encryption to protect sensative data stored on redis memcached etc
+
+Storage compression on stored data to save disk/storage space/memory
+
 ## WAF (Web Application Firewall)
 
 IPv4 and IPv6 blocking and whitelisting including subnet ranges.
@@ -98,6 +102,10 @@ Ability to use Memcached as a cache storage soloution
 Ability to use lrucache as a cache storage soloution
 
 Ability to use shared.DICT memory as a cache storage soloution
+
+Ability to encrypt stored data to protect from hosting hacks and information stealing / snooping
+
+Ability to compress stored data to save disk/storage space/memory compression methods include LZW (LUALZW) ZSTD Zstandard etc to save petabytes in cached storage space and reduced costs.
 
 ## Support for Additional services
 
