@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 4.2
+Script Version: 4.3
 
 Copyright Conor McKnight
 
@@ -216,7 +216,7 @@ if you dont trust a third party you have to use for hosting / storage this will 
 ]]
 localized.encrypt_storage = 0 --0 = disabled 1 = xor encryption
 localized.encrypt_storage_secret = " enigma" --password that encrypts our stored/cached data
-localized.storage_compression = 0 --0 disabled 1 = ZSTD Z standard compression
+localized.storage_compression = 0 --0 disabled 1 = LuaLZW compression --Usage https://github.com/Rochet2/lualzw/blob/master/lualzw.lua lua_package_path "./conf/lua/lualzw/?.lua;;";
 
 localized.anti_ddos_table = {
 	{
@@ -3070,50 +3070,82 @@ end
 
 --XOR Encryption/Decryption
 local function xor_crypt(data, key)
+	local result = {}
+	local key_len = #key
+	for i=1, #data do
+		--Get byte values for data and corresponding key character
+		local data_byte = localized.string_byte(data, i)
+		local key_byte = localized.string_byte(key, ((i - 1) % key_len) + 1)
+		--Perform XOR and convert back to a character and put into a string
+		--result[#result+1] = localized.string_char(data_byte ~ key_byte) --not compatible
+		result[#result+1] = localized.string_char(localized.bit_bxor(data_byte, key_byte))
+	end
+	return localized.table_concat(result)
+end
+
+local function secure_storage(get_or_set, input, compress_type)
+	--compress_type 1 = compress 2 = decompress
+	localized.cached_lualzw = nil
+	local function check_lualzw()
+		if localized.cached_lualzw ~= nil then
+			return localized.cached_lualzw
+		end
+		local pcall = pcall
+		local require = require
+		localized.cached_lualzw = pcall(require, "lualzw") --check if lualzw library exists will be true or false
+		return localized.cached_lualzw
+	end
 	local function isnumber(value)
 		return localized.tonumber(value) and true or false
 	end
-	local result = {}
-	local key_len = #key
-	if localized.type(data) ~= "number" and isnumber(data) ~= true then
-		for i=1, #data do
-			--Get byte values for data and corresponding key character
-			local data_byte = localized.string_byte(data, i)
-			local key_byte = localized.string_byte(key, ((i - 1) % key_len) + 1)
-			--Perform XOR and convert back to a character and put into a string
-			--result[#result+1] = localized.string_char(data_byte ~ key_byte) --not compatible
-			result[#result+1] = localized.string_char(localized.bit_bxor(data_byte, key_byte))
+	local output = input or nil
+	if compress_type == 2 and localized.storage_compression == 1 and check_lualzw() then --LuaLZW compression
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			--https://github.com/Rochet2/lualzw/blob/master/lualzw.lua
+			--lua_package_path "./conf/lua/lualzw/?.lua;;";
+			local lualzw = require("lualzw")
+			local value_decompress, err = nil
+			value_decompress, err = lualzw.decompress(output)
+			if err == nil then
+				output = value_decompress
+			end
 		end
-		return localized.table_concat(result)
-	else
-		return data --dont need to encrypt numeric data of hit counts only strings ips and sensative data worth protecting
 	end
-end
-
-local function secure_storage(get_or_set, input)
-	local output = nil
 	--TODO other encryption methods like https://github.com/openresty/lua-resty-string#synopsis
 	if localized.encrypt_storage == 1 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --xor encryption
-		if get_or_set == 0 then --get = 0
-			output =  xor_crypt(input, localized.encrypt_storage_secret)
-		elseif get_or_set == 1 then --set = 1
-			output =  xor_crypt(input, localized.encrypt_storage_secret)
-		elseif get_or_set == 2 then --expire = 2
-			output =  xor_crypt(input, localized.encrypt_storage_secret)
-		elseif get_or_set == 3 then --ttl = 3
-			output =  xor_crypt(input, localized.encrypt_storage_secret)
-		elseif get_or_set == 4 then --value = 4
-			output =  xor_crypt(input, localized.encrypt_storage_secret)
-		else --undefined
-			output =  xor_crypt(input, localized.encrypt_storage_secret)
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			if get_or_set == 0 then --get = 0
+				output =  xor_crypt(output, localized.encrypt_storage_secret)
+			elseif get_or_set == 1 then --set = 1
+				output =  xor_crypt(output, localized.encrypt_storage_secret)
+			elseif get_or_set == 2 then --expire = 2
+				output =  xor_crypt(output, localized.encrypt_storage_secret)
+			elseif get_or_set == 3 then --ttl = 3
+				output =  xor_crypt(output, localized.encrypt_storage_secret)
+			elseif get_or_set == 4 then --value = 4
+				output =  xor_crypt(output, localized.encrypt_storage_secret)
+			else --undefined
+				output =  xor_crypt(output, localized.encrypt_storage_secret)
+			end
+		else
+			output = output
 		end
 	elseif localized.encrypt_storage == 0 or localized.encrypt_storage == nil or localized.encrypt_storage_secret == nil or localized.encrypt_storage_secret == "" then --no encryption
-		output = input
+		output = output
 	end
 	--TODO ZSTD/GZIP/ZLIB/BROTLI compression to save storage space
-	--if localized.storage_compression == 1 then --ZSTD Z standard compression
-		--output = compress(output) --do compression
-	--end
+	if compress_type == nil and localized.storage_compression == 1 and check_lualzw() then --LuaLZW compression
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			--https://github.com/Rochet2/lualzw/blob/master/lualzw.lua
+			--lua_package_path "./conf/lua/lualzw/?.lua;;";
+			local lualzw = require("lualzw")
+			local value_compress, err = nil
+			value_compress, err = lualzw.compress(output)
+			if err == nil then
+				output = value_compress
+			end
+		end
+	end
 	return output
 end
 
@@ -8509,7 +8541,7 @@ local function minification(content_type_list)
 
 					else --if content_type_cache == nil then
 
-						content_type_cache = secure_storage(0, content_type_cache) --get was encrypted this should decrypt it
+						content_type_cache = secure_storage(0, content_type_cache, 2) --get was encrypted this should decrypt it
 						if content_type_cache and (content_type_list[i][2] == "" or content_type_list[i][2] == nil or localized.string_find(content_type_cache, content_type_list[i][2])) then
 						--if content_type_cache and localized.string_find(content_type_cache, content_type_list[i][2]) then
 							localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
@@ -8519,9 +8551,9 @@ local function minification(content_type_list)
 							end
 
 							local output_minified = cached:get(secure_storage(0, key))
-							output_minified = secure_storage(0, output_minified) --get was encrypted this should decrypt it
+							output_minified = secure_storage(0, output_minified, 2) --get was encrypted this should decrypt it
 							local res_status = cached:get(secure_storage(0, "s"..key))
-							res_status = secure_storage(0, res_status) --numeric data is not encrypted
+							res_status = secure_storage(0, res_status, 2) --numeric data is not encrypted
 
 							if ip_extend == 1 then
 								if localized.resty_redis == 1 then
@@ -8548,7 +8580,7 @@ local function minification(content_type_list)
 									local check_header = cached:get(secure_storage(0, header_name..key)) or nil
 									if check_header ~= nil and check_header ~= localized.ngx.null then
 										--if header_name ~= "content-length" then
-										check_header = secure_storage(0, check_header) --get was encrypted this should decrypt it
+										check_header = secure_storage(0, check_header, 2) --get was encrypted this should decrypt it
 										--end
 										if ip_extend == 1 then
 											if localized.resty_redis == 1 then
