@@ -1,3 +1,8 @@
+Version: 4.3
+Date: 2026-09-11
+- Added Feature LZW compression on stored data to save disk/storage space/memory
+- Added Feature AES encryption on storage
+
 Version: 4.2
 Date: 2026-09-09
 - Added Feature Storage Encryption for sensative information being stored on redis servers memcached etc or cached pages that could contain email addresses bank information etc this will encrypt that data
