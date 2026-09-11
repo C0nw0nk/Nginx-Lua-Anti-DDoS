@@ -66,6 +66,9 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Fri Sep 11 2026 C0nw0nk <C0nw0nk@github> - 4.3-1
+- Added Feature LZW compression on stored data to save disk/storage space/memory
+- Added Feature AES encryption on storage
 * Wed Sep 09 2026 C0nw0nk <C0nw0nk@github> - 4.2-1
 - Added Feature Storage Encryption for sensative information being stored on redis servers memcached etc or cached pages that could contain email addresses bank information etc this will encrypt that data
 - TODO: In progress Storage Compression zstd zstandard
