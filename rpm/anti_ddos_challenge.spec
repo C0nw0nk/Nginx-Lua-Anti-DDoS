@@ -72,6 +72,9 @@ fi
 * Sat Sep 12 2026 C0nw0nk <C0nw0nk@github> - 4.4-1
 - Added Feature resty zip compression for storage
 - Re-ordered storage so that compression takes place before encryption and in reverse decryption happens before decompression the result is encrypted storage items are smaller a huge win.
+* Sat Sep 12 2026 C0nw0nk <C0nw0nk@github> - 4.4-1
+- Added Feature resty zip compression for storage
+- Re-ordered storage so that compression takes place before encryption and in reverse decryption happens before decompression the result is encrypted storage items are smaller a huge win.
 * Fri Sep 11 2026 C0nw0nk <C0nw0nk@github> - 4.3-1
 - Added Feature LZW compression on stored data to save disk/storage space/memory
 - Added Feature AES encryption on storage
