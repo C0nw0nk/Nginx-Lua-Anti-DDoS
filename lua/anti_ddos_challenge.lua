@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 4.3
+Script Version: 4.4
 
 Copyright Conor McKnight
 
@@ -214,9 +214,9 @@ for data stored in memory/shared or remotely stored you can protect it with encr
 for sensative information being stored on redis servers memcached etc or cached pages that could contain email addresses bank information etc this will encrypt that data
 if you dont trust a third party you have to use for hosting / storage this will prevent them snooping / data mining and stealing even in the event they get hacked your data remains encrypted
 ]]
-localized.encrypt_storage = 0 --0 = disabled 1 = xor encryption 2 = AES
+localized.encrypt_storage = 0 --0 = disabled 1 = xor encryption 2 = AES --xor is built in AES requires resty.string library if you use openresty nginx lua builds they come with this compiled
 localized.encrypt_storage_secret = " enigma" --password that encrypts our stored/cached data
-localized.storage_compression = 0 --0 disabled 1 = LuaLZW compression --Usage https://github.com/Rochet2/lualzw/blob/master/lualzw.lua lua_package_path "./conf/lua/lualzw/?.lua;;"; 2 = brotli 3 = zstd 4 = zlib
+localized.storage_compression = 0 --0 disabled 1 = LuaLZW compression 2 = brotli 3 = zstd 4 = zlib --https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/Compression-Libraries
 
 localized.anti_ddos_table = {
 	{
@@ -1234,6 +1234,11 @@ localized.WAF_URI_Request_table = {
 		"^.*$", --match any website on server
 		".*%/cache.*", --protect /cache folder
 	},
+	--https://www.w3schools.com/tags/ref_urlencode.ASP block control chars in urls
+	--{"^.*$",".*%%00.*",},{"^.*$",".*%%01.*",},{"^.*$",".*%%02.*",},{"^.*$",".*%%03.*",},{"^.*$",".*%%04.*",},{"^.*$",".*%%05.*",},{"^.*$",".*%%06.*",},{"^.*$",".*%%07.*",},{"^.*$",".*%%08.*",},{"^.*$",".*%%09.*",},
+	--{"^.*$",".*%%10.*",},{"^.*$",".*%%11.*",},{"^.*$",".*%%12.*",},{"^.*$",".*%%13.*",},{"^.*$",".*%%14.*",},{"^.*$",".*%%15.*",},{"^.*$",".*%%16.*",},{"^.*$",".*%%17.*",},{"^.*$",".*%%18.*",},{"^.*$",".*%%19.*",},
+	--{"^.*$",".*%%0A.*",},{"^.*$",".*%%0B.*",},{"^.*$",".*%%0C.*",},{"^.*$",".*%%0D.*",},{"^.*$",".*%%0E.*",},{"^.*$",".*%%0F.*",},
+	--{"^.*$",".*%%1A.*",},{"^.*$",".*%%1B.*",},{"^.*$",".*%%1C.*",},{"^.*$",".*%%1D.*",},{"^.*$",".*%%1E.*",},{"^.*$",".*%%1F.*",},
 }
 
 --[[
@@ -3086,7 +3091,16 @@ local function secure_storage(get_or_set, input, compress_type)
 		return localized.table_concat(result)
 	end
 
-	localized.cached_lualzw = nil
+	local function check_restyaes()
+		if localized.cached_restyaes ~= nil then
+			return localized.cached_restyaes
+		end
+		local pcall = pcall
+		local require = require
+		localized.cached_restyaes = pcall(require, "resty.aes") --check if resty.aes library exists will be true or false
+		--https://github.com/openresty/lua-resty-string#synopsis
+		return localized.cached_restyaes
+	end
 	local function check_lualzw()
 		if localized.cached_lualzw ~= nil then
 			return localized.cached_lualzw
@@ -3094,9 +3108,10 @@ local function secure_storage(get_or_set, input, compress_type)
 		local pcall = pcall
 		local require = require
 		localized.cached_lualzw = pcall(require, "lualzw") --check if lualzw library exists will be true or false
+		--https://github.com/Rochet2/lualzw/blob/master/lualzw.lua
+		--lua_package_path "./conf/lua/lualzw/?.lua;;";
 		return localized.cached_lualzw
 	end
-	localized.cached_brotli = nil
 	local function check_brotli()
 		if localized.cached_brotli ~= nil then
 			return localized.cached_brotli
@@ -3104,9 +3119,10 @@ local function secure_storage(get_or_set, input, compress_type)
 		local pcall = pcall
 		local require = require
 		localized.cached_brotli = pcall(require, "brotli") --check if brotli library exists will be true or false
+		--choose a brotli ffi package thats nonblocking/asynchronous
+		--lua_package_path "./conf/lua/brotli/?.lua;;";
 		return localized.cached_brotli
 	end
-	localized.cached_zstd = nil
 	local function check_zstd()
 		if localized.cached_zstd ~= nil then
 			return localized.cached_zstd
@@ -3114,39 +3130,62 @@ local function secure_storage(get_or_set, input, compress_type)
 		local pcall = pcall
 		local require = require
 		localized.cached_zstd = pcall(require, "zstd") --check if zstd library exists will be true or false
+		--choose a zstd ffi package thats nonblocking/asynchronous
+		--lua_package_path "./conf/lua/zstd/?.lua;;";
 		return localized.cached_zstd
 	end
-	localized.cached_zlib = nil
 	local function check_zlib()
 		if localized.cached_zlib ~= nil then
 			return localized.cached_zlib
 		end
 		local pcall = pcall
 		local require = require
-		localized.cached_zlib = pcall(require, "zlib") --check if zlib library exists will be true or false
+		localized.cached_zlib = pcall(require, "resty.zip") --check if zlib library exists will be true or false
+		--choose a zlib ffi package thats nonblocking/asynchronous
+		--https://github.com/doujiang24/lua-resty-zip
 		return localized.cached_zlib
 	end
 	local function isnumber(value)
 		return localized.tonumber(value) and true or false
 	end
 	local output = input or nil
+	--attempt decryption before decompression
+	if compress_type == 2 and localized.encrypt_storage == 1 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --xor encryption
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			output = xor_crypt(output, localized.encrypt_storage_secret)
+		end
+	end
+	if compress_type == 2 and localized.encrypt_storage == 2 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --AES encryption
+		if localized.type(output) ~= "number" and isnumber(output) ~= true and check_restyaes() then
+			local aes = require "resty.aes"
+			local aes_encryption = aes:new(localized.encrypt_storage_secret)
+			--the default cipher is AES 128 CBC with 1 round of MD5
+			--for the key and a nil salt
+			--you can change this to be more complex for example
+			--local aes_encryption = aes:new(localized.encrypt_storage_secret,"MySalt!!", aes.cipher(256,"cbc"), aes.hash.sha512, 5)
+			--AES 256 CBC with 5 rounds of SHA-512 for the key
+			--and a salt of "MySalt!!"
+			--Note: salt can be either nil or exactly 8 characters long
+			if aes_encryption:decrypt(output) ~= nil then --pass input to be decrypted first
+				output = aes_encryption:decrypt(output) --make output decrypted output
+			end
+		end
+	end
+	--end attempt decryption before decompression
 	--start decompression
 	if compress_type == 2 and localized.storage_compression == 1 and check_lualzw() then --LuaLZW decompression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			--https://github.com/Rochet2/lualzw/blob/master/lualzw.lua
-			--lua_package_path "./conf/lua/lualzw/?.lua;;";
 			local lualzw = require("lualzw")
 			local value_decompress, err = nil
-			value_decompress, err = lualzw.decompress(output)
+			value_decompress, err = lualzw.decompress("c"..output)
 			if err == nil then
+				value_decompress = localized.string_sub(value_decompress, 2) --on success remove control char u
 				output = value_decompress
 			end
 		end
 	end
 	if compress_type == 2 and localized.storage_compression == 2 and check_brotli() then --Brotli decompression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			--choose a brotli ffi package thats nonblocking/asynchronous
-			--lua_package_path "./conf/lua/brotli/?.lua;;";
 			local brotli = require("brotli")
 			local value_decompress, err = nil
 			value_decompress, err = brotli.decompress(output)
@@ -3157,8 +3196,6 @@ local function secure_storage(get_or_set, input, compress_type)
 	end
 	if compress_type == 2 and localized.storage_compression == 3 and check_zstd() then --ZSTD decompression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			--choose a zstd ffi package thats nonblocking/asynchronous
-			--lua_package_path "./conf/lua/zstd/?.lua;;";
 			local zstd = require("zstd")
 			local value_decompress, err = nil
 			value_decompress, err = zstd.decompress(output)
@@ -3169,19 +3206,75 @@ local function secure_storage(get_or_set, input, compress_type)
 	end
 	if compress_type == 2 and localized.storage_compression == 4 and check_zlib() then --Zlib decompression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			--choose a zlib ffi package thats nonblocking/asynchronous
-			--lua_package_path "./conf/lua/zlib/?.lua;;";
-			local zlib = require("zlib")
+			local zlib = require("resty.zip")
 			local value_decompress, err = nil
-			value_decompress, err = zlib.inflateGzip(output)
-			if err == nil then
-				output = value_decompress
+			local zregex = "^/zs/(.*)/zs/"
+			local zsize = localized.string_match(output, zregex)
+			if zsize ~= nil then
+				output = localized.string_gsub(output, zregex, "") --remove zsize from string
+				value_decompress, err = zlib.uncompress(output, localized.tonumber(zsize)) --use original size to uncompress
+				if err == nil then
+					output = value_decompress
+				end
 			end
 		end
 	end
 	--end decompression
+	--start compression
+	if compress_type == nil and localized.storage_compression == 1 and check_lualzw() then --LuaLZW compression
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
+			local lualzw = require("lualzw")
+			local value_compress, err = nil
+			value_compress, err = lualzw.compress(output)
+			if err == nil then
+				value_compress = localized.string_sub(value_compress, 2) --on success remove control char c
+				output = value_compress
+			end
+			--end --larger than 4kb
+		end
+	end
+	if compress_type == nil and localized.storage_compression == 2 and check_brotli() then --Brotli compression
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
+			local brotli = require("brotli")
+			local value_compress, err = nil
+			value_compress, err = brotli.compress(output)
+			if err == nil then
+				output = value_compress
+			end
+			--end --larger than 4kb
+		end
+	end
+	if compress_type == nil and localized.storage_compression == 3 and check_zstd() then --ZSTD compression
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
+			local zstd = require("zstd")
+			local value_compress, err = nil
+			value_compress, err = zstd.compress(output)
+			if err == nil then
+				output = value_compress
+			end
+			--end --larger than 4kb
+		end
+	end
+	if compress_type == nil and localized.storage_compression == 4 and check_zlib() then --Zlib compression
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
+			local zlib = require("resty.zip")
+			local value_compress, err = nil
+			local zregex = "/zs/"
+			value_compress, err = zlib.compress(output, 1) --compress on level 1
+			if err == nil then
+				value_compress = zregex .. #output .. zregex .. value_compress --store original size for use later
+				output = value_compress
+			end
+			--end --larger than 4kb
+		end
+	end
+	--end compression
 	--start encryption
-	if localized.encrypt_storage == 1 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --xor encryption
+	if compress_type == nil and localized.encrypt_storage == 1 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --xor encryption
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
 			local encrypted = nil
 			encrypted = xor_crypt(output, localized.encrypt_storage_secret)
@@ -3201,17 +3294,7 @@ local function secure_storage(get_or_set, input, compress_type)
 		else
 			output = output
 		end
-	elseif localized.encrypt_storage == 2 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --AES encryption
-		localized.cached_restyaes = nil
-		local function check_restyaes()
-			if localized.cached_restyaes ~= nil then
-				return localized.cached_restyaes
-			end
-			local pcall = pcall
-			local require = require
-			localized.cached_restyaes = pcall(require, "resty.aes") --check if resty.aes library exists will be true or false
-			return localized.cached_restyaes
-		end
+	elseif compress_type == nil and localized.encrypt_storage == 2 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --AES encryption
 		if localized.type(output) ~= "number" and isnumber(output) ~= true and check_restyaes() then
 			local aes = require "resty.aes"
 			local aes_encryption = aes:new(localized.encrypt_storage_secret)
@@ -3244,68 +3327,10 @@ local function secure_storage(get_or_set, input, compress_type)
 		else
 			output = output
 		end
-	elseif localized.encrypt_storage == 0 or localized.encrypt_storage == nil or localized.encrypt_storage_secret == nil or localized.encrypt_storage_secret == "" then --no encryption
+	elseif compress_type == nil and localized.encrypt_storage == 0 or localized.encrypt_storage == nil or localized.encrypt_storage_secret == nil or localized.encrypt_storage_secret == "" then --no encryption
 		output = output
 	end
 	--end encryption
-	--start compression
-	if compress_type == nil and localized.storage_compression == 1 and check_lualzw() then --LuaLZW compression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
-			--https://github.com/Rochet2/lualzw/blob/master/lualzw.lua
-			--lua_package_path "./conf/lua/lualzw/?.lua;;";
-			local lualzw = require("lualzw")
-			local value_compress, err = nil
-			value_compress, err = lualzw.compress(output)
-			if err == nil then
-				output = value_compress
-			end
-			--end --larger than 4kb
-		end
-	end
-	if compress_type == nil and localized.storage_compression == 2 and check_brotli() then --Brotli compression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
-			--choose a brotli ffi package thats nonblocking/asynchronous
-			--lua_package_path "./conf/lua/brotli/?.lua;;";
-			local brotli = require("brotli")
-			local value_compress, err = nil
-			value_compress, err = brotli.compress(output)
-			if err == nil then
-				output = value_compress
-			end
-			--end --larger than 4kb
-		end
-	end
-	if compress_type == nil and localized.storage_compression == 3 and check_zstd() then --ZSTD compression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
-			--choose a zstd ffi package thats nonblocking/asynchronous
-			--lua_package_path "./conf/lua/zstd/?.lua;;";
-			local zstd = require("zstd")
-			local value_compress, err = nil
-			value_compress, err = zstd.compress(output)
-			if err == nil then
-				output = value_compress
-			end
-			--end --larger than 4kb
-		end
-	end
-	if compress_type == nil and localized.storage_compression == 4 and check_zlib() then --Zlib compression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
-			--choose a zlib ffi package thats nonblocking/asynchronous
-			--lua_package_path "./conf/lua/zlib/?.lua;;";
-			local zlib = require("zlib")
-			local value_compress, err = nil
-			value_compress, err = zlib.deflateGzip(output)
-			if err == nil then
-				output = value_compress
-			end
-			--end --larger than 4kb
-		end
-	end
-	--end compression
 	return output
 end
 
@@ -6552,7 +6577,7 @@ End Header Modifications
 
 --automatically figure out the IP address of the connecting Client
 if localized.remote_addr == "auto" then
-if localized.ngx_var_http_cf_connecting_ip ~= nil then
+	if localized.ngx_var_http_cf_connecting_ip ~= nil then
 		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
 			localized.remote_addr = localized.ngx_var_http_cf_connecting_ip
 		else --you are not really cloudflare dont pretend you are to bypass flood protection
