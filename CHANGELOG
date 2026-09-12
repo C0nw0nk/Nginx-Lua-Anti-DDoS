@@ -1,4 +1,5 @@
 Version: 4.4
+Date: 2026-09-12
 - Added Feature resty zip compression for storage
 - Re-ordered storage so that compression takes place before encryption and in reverse decryption happens before decompression the result is encrypted storage items are smaller a huge win.
 
