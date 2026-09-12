@@ -1,3 +1,9 @@
+nginx-lua-anti-ddos-challenge (4.4-1) stable; urgency=medium
+  - Added Feature resty zip compression for storage
+  - Re-ordered storage so that compression takes place before encryption and in reverse decryption happens before decompression the result is encrypted storage items are smaller a huge win.
+
+ -- C0nw0nk <C0nw0nk@github>  Sat, 12 Sep 2026 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (4.3-1) stable; urgency=medium
   - Added Feature LZW compression on stored data to save disk/storage space/memory
   - Added Feature AES encryption on storage
