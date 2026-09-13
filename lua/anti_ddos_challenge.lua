@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 4.4
+Script Version: 4.5
 
 Copyright Conor McKnight
 
@@ -216,7 +216,7 @@ if you dont trust a third party you have to use for hosting / storage this will 
 ]]
 localized.encrypt_storage = 0 --0 = disabled 1 = xor encryption 2 = AES --xor is built in AES requires resty.string library if you use openresty nginx lua builds they come with this compiled
 localized.encrypt_storage_secret = " enigma" --password that encrypts our stored/cached data
-localized.storage_compression = 0 --0 disabled 1 = LuaLZW compression 2 = brotli 3 = zstd 4 = zlib --https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/Compression-Libraries
+localized.storage_compression = 0 --0 disabled 1 = LuaLZW compression 2 = brotli 3 = zstd 4 = zlib 5 = snappy --https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/Compression-Libraries
 
 localized.anti_ddos_table = {
 	{
@@ -3118,8 +3118,9 @@ local function secure_storage(get_or_set, input, compress_type)
 		end
 		local pcall = pcall
 		local require = require
-		localized.cached_brotli = pcall(require, "brotli") --check if brotli library exists will be true or false
+		localized.cached_brotli = pcall(require, "brotli.encoder") --check if brotli library exists will be true or false
 		--choose a brotli ffi package thats nonblocking/asynchronous
+		--https://github.com/sjnam/luajit-brotli#installation
 		--lua_package_path "./conf/lua/brotli/?.lua;;";
 		return localized.cached_brotli
 	end
@@ -3131,6 +3132,7 @@ local function secure_storage(get_or_set, input, compress_type)
 		local require = require
 		localized.cached_zstd = pcall(require, "zstd") --check if zstd library exists will be true or false
 		--choose a zstd ffi package thats nonblocking/asynchronous
+		--https://github.com/sjnam/luajit-zstd#installation
 		--lua_package_path "./conf/lua/zstd/?.lua;;";
 		return localized.cached_zstd
 	end
@@ -3145,6 +3147,18 @@ local function secure_storage(get_or_set, input, compress_type)
 		--https://github.com/doujiang24/lua-resty-zip
 		return localized.cached_zlib
 	end
+	local function check_snappy()
+		if localized.cached_snappy ~= nil then
+			return localized.cached_snappy
+		end
+		local pcall = pcall
+		local require = require
+		localized.cached_snappy = pcall(require, "resty.snappy") --check if zlib library exists will be true or false
+		--choose a snappy ffi package thats nonblocking/asynchronous
+		--https://github.com/bungle/lua-resty-snappy/tree/master#installation
+		--https://github.com/google/snappy
+		return localized.cached_snappy
+	end
 	local function isnumber(value)
 		return localized.tonumber(value) and true or false
 	end
@@ -3157,7 +3171,7 @@ local function secure_storage(get_or_set, input, compress_type)
 	end
 	if compress_type == 2 and localized.encrypt_storage == 2 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --AES encryption
 		if localized.type(output) ~= "number" and isnumber(output) ~= true and check_restyaes() then
-			local aes = require "resty.aes"
+			local aes = require("resty.aes")
 			local aes_encryption = aes:new(localized.encrypt_storage_secret)
 			--the default cipher is AES 128 CBC with 1 round of MD5
 			--for the key and a nil salt
@@ -3186,21 +3200,27 @@ local function secure_storage(get_or_set, input, compress_type)
 	end
 	if compress_type == 2 and localized.storage_compression == 2 and check_brotli() then --Brotli decompression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			local brotli = require("brotli")
+			local brotli = require("brotli.decoder")
+			local decoder = brotli:new()
 			local value_decompress, err = nil
-			value_decompress, err = brotli.decompress(output)
+			value_decompress, err = decoder:decompress(output)
 			if err == nil then
+				if decoder:isFinished() then
+					decoder:destroy()
+				end
 				output = value_decompress
 			end
 		end
 	end
 	if compress_type == 2 and localized.storage_compression == 3 and check_zstd() then --ZSTD decompression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			local zstd = require("zstd")
+			local zstandard = require("zstd")
+			local zstd = zstandard:new()
 			local value_decompress, err = nil
-			value_decompress, err = zstd.decompress(output)
+			value_decompress, err = zstd:decompress(output)
 			if err == nil then
 				output = value_decompress
+				zstd:free()
 			end
 		end
 	end
@@ -3216,6 +3236,16 @@ local function secure_storage(get_or_set, input, compress_type)
 				if err == nil then
 					output = value_decompress
 				end
+			end
+		end
+	end
+	if compress_type == 2 and localized.storage_compression == 5 and check_snappy() then --Snappy decompression
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			local snappy = require("resty.snappy")
+			local value_decompress, err = nil
+			value_decompress, err = snappy.uncompress(output)
+			if value_decompress then
+				output = value_decompress
 			end
 		end
 	end
@@ -3237,10 +3267,14 @@ local function secure_storage(get_or_set, input, compress_type)
 	if compress_type == nil and localized.storage_compression == 2 and check_brotli() then --Brotli compression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
 			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
-			local brotli = require("brotli")
+			local brotli = require("brotli.encoder")
+			local encoder = brotli:new({quality=1,}) --compress on level 0 lowest highest = level 11
 			local value_compress, err = nil
-			value_compress, err = brotli.compress(output)
+			value_compress, err = encoder:compress(output)
 			if err == nil then
+				if encoder:isFinished() then
+					encoder:destroy()
+				end
 				output = value_compress
 			end
 			--end --larger than 4kb
@@ -3249,11 +3283,13 @@ local function secure_storage(get_or_set, input, compress_type)
 	if compress_type == nil and localized.storage_compression == 3 and check_zstd() then --ZSTD compression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
 			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
-			local zstd = require("zstd")
+			local zstandard = require("zstd")
+			local zstd = zstandard:new()
 			local value_compress, err = nil
-			value_compress, err = zstd.compress(output)
+			value_compress, err = zstd:compress(output, 1) --compress on level 1 lowest highest = level 22
 			if err == nil then
 				output = value_compress
+				zstd:free()
 			end
 			--end --larger than 4kb
 		end
@@ -3264,9 +3300,21 @@ local function secure_storage(get_or_set, input, compress_type)
 			local zlib = require("resty.zip")
 			local value_compress, err = nil
 			local zregex = "/zs/"
-			value_compress, err = zlib.compress(output, 1) --compress on level 1
+			value_compress, err = zlib.compress(output, 1) --compress on level 1 lowest highest = level 9
 			if err == nil then
 				value_compress = zregex .. #output .. zregex .. value_compress --store original size for use later
+				output = value_compress
+			end
+			--end --larger than 4kb
+		end
+	end
+	if compress_type == nil and localized.storage_compression == 5 and check_snappy() then --Snappy compression
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
+			local snappy = require("resty.snappy")
+			local value_compress, err = nil
+			local value_compress, err = snappy.compress(output)
+			if value_compress then
 				output = value_compress
 			end
 			--end --larger than 4kb
@@ -3296,7 +3344,7 @@ local function secure_storage(get_or_set, input, compress_type)
 		end
 	elseif compress_type == nil and localized.encrypt_storage == 2 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --AES encryption
 		if localized.type(output) ~= "number" and isnumber(output) ~= true and check_restyaes() then
-			local aes = require "resty.aes"
+			local aes = require("resty.aes")
 			local aes_encryption = aes:new(localized.encrypt_storage_secret)
 			--the default cipher is AES 128 CBC with 1 round of MD5
 			--for the key and a nil salt
@@ -3408,7 +3456,6 @@ local function remote_cache(input_table, logging, keep, close_conn)
 		end
 	end
 
-	localized.cached_restyredis = nil
 	local function check_resty_redis()
 		if localized.cached_restyredis ~= nil then
 			return localized.cached_restyredis
@@ -3419,7 +3466,6 @@ local function remote_cache(input_table, logging, keep, close_conn)
 		return localized.cached_restyredis
 	end
 
-	localized.cached_restyredis_fast = nil
 	local function check_resty_redis_fast()
 		if localized.cached_restyredis_fast ~= nil then
 			return localized.cached_restyredis_fast
@@ -3430,7 +3476,6 @@ local function remote_cache(input_table, logging, keep, close_conn)
 		return localized.cached_restyredis_fast
 	end
 
-	localized.cached_restyredis_cluster_fast = nil
 	local function check_resty_redis_cluster_fast()
 		if localized.cached_restyredis_cluster_fast ~= nil then
 			return localized.cached_restyredis_cluster_fast
@@ -3441,7 +3486,6 @@ local function remote_cache(input_table, logging, keep, close_conn)
 		return localized.cached_restyredis_cluster_fast
 	end
 
-	localized.cached_redis_cluster = nil
 	local function check_redis_cluster()
 		if localized.cached_redis_cluster ~= nil then
 			return localized.cached_redis_cluster
@@ -3452,7 +3496,6 @@ local function remote_cache(input_table, logging, keep, close_conn)
 		return localized.cached_redis_cluster
 	end
 
-	localized.cached_restymemcached = nil
 	local function check_resty_memcached()
 		if localized.cached_restymemcached ~= nil then
 			return localized.cached_restymemcached
@@ -3463,7 +3506,6 @@ local function remote_cache(input_table, logging, keep, close_conn)
 		return localized.cached_restymemcached
 	end
 
-	localized.cached_restymemcached_fast = nil
 	local function check_resty_memcached_fast()
 		if localized.cached_restymemcached_fast ~= nil then
 			return localized.cached_restymemcached_fast
@@ -3474,7 +3516,6 @@ local function remote_cache(input_table, logging, keep, close_conn)
 		return localized.cached_restymemcached_fast
 	end
 
-	localized.cached_restylrucache = nil
 	local function check_resty_lrucache()
 		if localized.cached_restylrucache ~= nil then
 			return localized.cached_restylrucache
@@ -3499,7 +3540,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 				if input_table[x] == 1 then
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis()) )
 					if check_resty_redis() then
-						localized.libcached = require "resty.redis"
+						localized.libcached = require("resty.redis")
 						--localized.libcached.add_commands("ttl")
 						cached = localized.libcached:new()
 						localized.resty_redis = 1
@@ -3513,7 +3554,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 				if input_table[x] == 2 then
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_resty_memcached()) )
 					if check_resty_memcached() then
-						localized.libcached = require "resty.memcached"
+						localized.libcached = require("resty.memcached")
 						cached = localized.libcached:new()
 						localized.resty_memcached = 1
 					else
@@ -3527,7 +3568,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " lrucache - " .. localized.tostring(check_resty_lrucache()) )
 					if check_resty_lrucache() and input_table[2] ~= nil then
 						localized.resty_lrucache = 1
-						--localized.libcached = require "resty.lrucache"
+						--localized.libcached = require("resty.lrucache")
 						--cached = localized_global.lrucache
 						cached = input_table[2]
 						--[[
@@ -3535,7 +3576,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 						if localized_global == nil then --if global not exists
 						localized_global = {} --define global var that script can read
 						end
-						local libcached = require "resty.lrucache"
+						local libcached = require("resty.lrucache")
 						localized_global.lrucache = libcached.new(100)
 						}
 						]]
@@ -3554,7 +3595,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 				if input_table[x] == 5 then
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis_fast()) )
 					if check_resty_redis_fast() then
-						localized.libcached = require "resty.redis.fast"
+						localized.libcached = require("resty.redis.fast")
 						cached = localized.libcached:new()
 						localized.resty_redis = 1
 					else
@@ -3567,7 +3608,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 				if input_table[x] == 6 then
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis_cluster_fast()) )
 					if check_resty_redis_cluster_fast() then
-						localized.libcached = require "resty.redis.cluster.fast"
+						localized.libcached = require("resty.redis.cluster.fast")
 						cached = localized.libcached:new()
 						localized.resty_redis = 1
 					else
@@ -3580,7 +3621,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 				if input_table[x] == 7 then
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_resty_memcached_fast()) )
 					if check_resty_memcached_fast() then
-						localized.libcached = require "resty.memcached.fast"
+						localized.libcached = require("resty.memcached.fast")
 						cached = localized.libcached:new()
 						localized.resty_memcached = 1
 					else
@@ -3593,7 +3634,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 				if input_table[x] == 8 and input_table[12] ~= nil then
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_redis_cluster()) )
 					if check_redis_cluster() then
-						localized.libcached = require "rediscluster"
+						localized.libcached = require("rediscluster")
 						cached = localized.libcached:new(input_table[12]) --12th var libconoptions
 						localized.resty_redis = 1
 					else
@@ -3733,7 +3774,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 							if fallback_servers[y][z] == 1 then
 								--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis()) )
 								if check_resty_redis() then
-									localized.libcached = require "resty.redis"
+									localized.libcached = require("resty.redis")
 									--localized.libcached.add_commands("ttl")
 									cached = localized.libcached:new()
 									localized.resty_redis = 1
@@ -3747,7 +3788,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 							if fallback_servers[y][z] == 2 then
 								--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_resty_memcached()) )
 								if check_resty_memcached() then
-									localized.libcached = require "resty.memcached"
+									localized.libcached = require("resty.memcached")
 									cached = localized.libcached:new()
 									localized.resty_memcached = 1
 								else
@@ -3761,7 +3802,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 								--localized.ngx_log(localized.ngx_LOG_TYPE, " lrucache - " .. localized.tostring(check_resty_lrucache()) )
 								if check_resty_lrucache() and fallback_servers[y][2] ~= nil then
 									localized.resty_lrucache = 1
-									--localized.libcached = require "resty.lrucache"
+									--localized.libcached = require("resty.lrucache")
 									--cached = localized_global.lrucache
 									cached = fallback_servers[y][2]
 									--[[
@@ -3769,7 +3810,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 									if localized_global == nil then --if global not exists
 									localized_global = {} --define global var that script can read
 									end
-									local libcached = require "resty.lrucache"
+									local libcached = require("resty.lrucache")
 									localized_global.lrucache = libcached.new(100)
 									}
 									]]
@@ -3795,7 +3836,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 							if fallback_servers[y][z] == 5 then
 								--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis_fast()) )
 								if check_resty_redis_fast() then
-									localized.libcached = require "resty.redis.fast"
+									localized.libcached = require("resty.redis.fast")
 									cached = localized.libcached:new()
 									localized.resty_redis = 1
 								else
@@ -3808,7 +3849,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 							if fallback_servers[y][z] == 6 then
 								--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis_cluster_fast()) )
 								if check_resty_redis_cluster_fast() then
-									localized.libcached = require "resty.redis.cluster.fast"
+									localized.libcached = require("resty.redis.cluster.fast")
 									cached = localized.libcached:new()
 									localized.resty_redis = 1
 								else
@@ -3821,7 +3862,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 							if fallback_servers[y][z] == 7 then
 								--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_resty_memcached_fast()) )
 								if check_resty_memcached_fast() then
-									localized.libcached = require "resty.memcached.fast"
+									localized.libcached = require("resty.memcached.fast")
 									cached = localized.libcached:new()
 									localized.resty_memcached = 1
 								else
@@ -3834,7 +3875,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 							if fallback_servers[y][z] == 8 and fallback_servers[y][12] ~= nil then
 								--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_redis_cluster()) )
 								if check_redis_cluster() then
-									localized.libcached = require "rediscluster"
+									localized.libcached = require("rediscluster")
 									cached = localized.libcached:new(fallback_servers[y][12]) --12th var libconoptions
 									localized.resty_redis = 1
 								else
@@ -4279,7 +4320,6 @@ local function internal_header_setup()
 end
 internal_header_setup()
 
-localized.check_tor_onion_cached = nil
 local function check_tor_onion()
 	if localized.check_tor_onion_cached == nil then
 		for i=1,#localized.check_privacy do
@@ -4348,7 +4388,6 @@ local function ip_whitelist_flood_checks(ip_table)
 end
 
 local function check_system(number,command,logging,ip)
-	localized.cached_restyshell = nil
 	local function check_resty_shell()
 		if localized.cached_restyshell ~= nil then
 			return localized.cached_restyshell
@@ -4359,7 +4398,7 @@ local function check_system(number,command,logging,ip)
 		return localized.cached_restyshell
 	end
 	if check_resty_shell() and localized.os_exe == nil then
-		local shell = require "resty.shell"
+		local shell = require("resty.shell")
 		localized.os_exe = shell.run
 	end
 	if not check_resty_shell() and localized.os_exe == nil then
@@ -8430,7 +8469,6 @@ local function minification(content_type_list)
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " request_body_file is " .. request_body_file )
 				end
 				if request_body_file ~= "" then
-					localized.cached_ngx_io = nil
 					local function check_ngx_io()
 						if localized.cached_ngx_io ~= nil then
 							return localized.cached_ngx_io
@@ -8441,7 +8479,7 @@ local function minification(content_type_list)
 						return localized.cached_ngx_io
 					end
 					if check_ngx_io() and localized.read_file == nil then
-						local read_file = require "ngx.io"
+						local read_file = require("ngx.io")
 						localized.read_file = read_file.open
 					end
 					if not check_ngx_io() and localized.read_file == nil then
@@ -8463,7 +8501,6 @@ local function minification(content_type_list)
 
 				local req_headers = localized.ngx_req_get_headers() --get all request headers
 
-				localized.cached_restyhttp = nil
 				local function check_resty_http()
 					if localized.cached_restyhttp ~= nil then
 						return localized.cached_restyhttp
