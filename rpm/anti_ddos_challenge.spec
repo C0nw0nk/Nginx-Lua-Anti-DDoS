@@ -66,6 +66,10 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Sun Sep 13 2026 C0nw0nk <C0nw0nk@github> - 4.5-1
+- Added Feature ZSTD Facebook Zstandard Compression support for storage
+- Added Feature Google Snappy Compression support for storage
+- Added Feature Brotli Compression support for storage
 * Sat Sep 12 2026 C0nw0nk <C0nw0nk@github> - 4.4-1
 - Added Feature resty zip compression for storage
 - Re-ordered storage so that compression takes place before encryption and in reverse decryption happens before decompression the result is encrypted storage items are smaller a huge win.
