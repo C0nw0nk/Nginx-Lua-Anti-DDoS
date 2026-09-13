@@ -1,3 +1,9 @@
+Version: 4.5
+Date: 2026-09-13
+- Added Feature ZSTD Facebook Zstandard Compression support for storage
+- Added Feature Google Snappy Compression support for storage
+- Added Feature Brotli Compression support for storage
+
 Version: 4.4
 Date: 2026-09-12
 - Added Feature resty zip compression for storage
