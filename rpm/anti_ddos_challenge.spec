@@ -66,6 +66,8 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Mon Sep 14 2026 C0nw0nk <C0nw0nk@github> - 4.6-1
+- Performance improvements by caching outputs
 * Sun Sep 13 2026 C0nw0nk <C0nw0nk@github> - 4.5-1
 - Added Feature ZSTD Facebook Zstandard Compression support for storage
 - Added Feature Google Snappy Compression support for storage

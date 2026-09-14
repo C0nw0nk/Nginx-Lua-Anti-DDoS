@@ -1,3 +1,8 @@
+nginx-lua-anti-ddos-challenge (4.6-1) stable; urgency=medium
+  - Performance improvements by caching outputs
+
+ -- C0nw0nk <C0nw0nk@github>  Mon, 14 Sep 2026 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (4.5-1) stable; urgency=medium
   - Added Feature ZSTD Facebook Zstandard Compression support for storage
   - Added Feature Google Snappy Compression support for storage
