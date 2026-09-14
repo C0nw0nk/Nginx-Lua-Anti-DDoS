@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 4.5
+Script Version: 4.6
 
 Copyright Conor McKnight
 
@@ -3074,6 +3074,9 @@ local function TableConcat(t1,t2)
 end
 
 local function secure_storage(get_or_set, input, compress_type)
+	if localized.ss ~= nil and localized.ss[input] ~= nil then
+		return localized.ss[input] --cached secure storage output
+	end
 	--compress_type nil or 1 = compress 2 = decompress
 
 	--XOR Encryption/Decryption
@@ -3379,6 +3382,10 @@ local function secure_storage(get_or_set, input, compress_type)
 		output = output
 	end
 	--end encryption
+	if localized.ss == nil then
+		localized.ss = {}
+	end
+	localized.ss[input] = output --cache output
 	return output
 end
 
@@ -7226,8 +7233,15 @@ End Calculate answer Function
 
 --function to encrypt strings with our secret key / password provided
 local function calculate_signature(str)
+	if localized.cs ~= nil and localized.cs[str] ~= nil then
+		return localized.cs[str] --cached calculate signature output
+	end
 	local output = localized.ngx_encode_base64(localized.ngx_hmac_sha1(localized.secret, str))
 	output = localized.string_gsub(output, "[+/=]", "") --Remove +/=
+	if localized.cs == nil then
+		localized.cs = {}
+	end
+	localized.cs[str] = output --cache output
 	return output
 end
 --calculate_signature(str)
