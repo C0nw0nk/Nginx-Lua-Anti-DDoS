@@ -1,3 +1,7 @@
+Version: 4.6
+Date: 2026-09-14
+- Performance improvements by caching outputs
+
 Version: 4.5
 Date: 2026-09-13
 - Added Feature ZSTD Facebook Zstandard Compression support for storage
