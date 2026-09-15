@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 4.6
+Script Version: 4.7
 
 Copyright Conor McKnight
 
@@ -610,6 +610,7 @@ localized.content_cache = {
 This is a password that encrypts our puzzle and cookies unique to your sites and servers you should change this from the default.
 ]]
 localized.secret = " enigma" --Signature secret key --CHANGE ME FROM DEFAULT!
+localized.secret_encryption = 1 --1 = default HMAC SHA1 2 = xor encryption both use secret pass
 
 --[[
 Unique id to identify each individual user and machine trying to access your website IP address works well.
@@ -2046,6 +2047,9 @@ end
 if localized_global.secret ~= nil then
 localized.secret = localized_global.secret
 end
+if localized_global.secret_encryption ~= nil then
+localized.secret_encryption = localized_global.secret_encryption
+end
 if localized_global.remote_addr ~= nil then
 localized.remote_addr = localized_global.remote_addr
 end
@@ -3073,26 +3077,26 @@ local function TableConcat(t1,t2)
 	return t1
 end
 
+--XOR Encryption/Decryption
+local function xor_crypt(data, key)
+	local result = {}
+	local key_len = #key
+	for i=1, #data do
+		--Get byte values for data and corresponding key character
+		local data_byte = localized.string_byte(data, i)
+		local key_byte = localized.string_byte(key, ((i - 1) % key_len) + 1)
+		--Perform XOR and convert back to a character and put into a string
+		--result[#result+1] = localized.string_char(data_byte ~ key_byte) --not compatible
+		result[#result+1] = localized.string_char(localized.bit_bxor(data_byte, key_byte))
+	end
+	return localized.table_concat(result)
+end
+
 local function secure_storage(get_or_set, input, compress_type)
 	if localized.ss ~= nil and localized.ss[input] ~= nil then
 		return localized.ss[input] --cached secure storage output
 	end
 	--compress_type nil or 1 = compress 2 = decompress
-
-	--XOR Encryption/Decryption
-	local function xor_crypt(data, key)
-		local result = {}
-		local key_len = #key
-		for i=1, #data do
-			--Get byte values for data and corresponding key character
-			local data_byte = localized.string_byte(data, i)
-			local key_byte = localized.string_byte(key, ((i - 1) % key_len) + 1)
-			--Perform XOR and convert back to a character and put into a string
-			--result[#result+1] = localized.string_char(data_byte ~ key_byte) --not compatible
-			result[#result+1] = localized.string_char(localized.bit_bxor(data_byte, key_byte))
-		end
-		return localized.table_concat(result)
-	end
 
 	local function check_restyaes()
 		if localized.cached_restyaes ~= nil then
@@ -4305,7 +4309,11 @@ local function internal_header_setup()
 		--internal header protection if the script needs to make a internal call like with the header_append_ip() / localized.send_ip_to_backend_custom_headers function we can track it.
 		localized.ngx_var_http_internal_string = "1337"--internal bypass header value
 		localized.ngx_var_http_internal_header_name = "internal" --internal bypass header name
-		localized.ngx_var_http_internal_header_name = localized.ngx_hmac_sha1(localized.secret .. localized.os_date("%W",localized.os_time_saved), localized.ngx_var_http_internal_header_name) --encrypt this header so nobody can guess it or use it other than internal work calls
+		if localized.secret_encryption == nil or localized.secret_encryption == 1 then
+			localized.ngx_var_http_internal_header_name = localized.ngx_hmac_sha1(localized.secret .. localized.os_date("%W",localized.os_time_saved), localized.ngx_var_http_internal_header_name) --encrypt this header so nobody can guess it or use it other than internal work calls
+		else
+			localized.ngx_var_http_internal_header_name = xor_crypt(localized.ngx_var_http_internal_header_name, localized.secret .. localized.os_date("%W",localized.os_time_saved)) --encrypt this header so nobody can guess it or use it other than internal work calls
+		end
 		localized.ngx_var_http_internal_header_name = localized.ngx_encode_base64(localized.ngx_var_http_internal_header_name) --wrap encrypted header in base64
 		localized.ngx_var_http_internal_header_name = localized.string_gsub(localized.ngx_var_http_internal_header_name, "[+/=]", "") --Remove +/=
 		localized.ngx_var_http_internal = localized.ngx_var["http_"..localized.ngx_var_http_internal_header_name] or nil
@@ -7236,7 +7244,13 @@ local function calculate_signature(str)
 	if localized.cs ~= nil and localized.cs[str] ~= nil then
 		return localized.cs[str] --cached calculate signature output
 	end
-	local output = localized.ngx_encode_base64(localized.ngx_hmac_sha1(localized.secret, str))
+	local output = nil
+	if localized.secret_encryption == nil or localized.secret_encryption == 1 then
+		output = localized.ngx_hmac_sha1(localized.secret, str)
+	else
+		output = xor_crypt(str, localized.secret)
+	end
+	output = localized.ngx_encode_base64(output) --wrap our encrypted output in base64
 	output = localized.string_gsub(output, "[+/=]", "") --Remove +/=
 	if localized.cs == nil then
 		localized.cs = {}
