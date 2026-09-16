@@ -56,7 +56,7 @@ Range header filtering Most download / Video streaming sites and services use ra
 
 Remote storage encryption to protect sensative data stored on redis memcached etc
 
-Storage compression on stored data to save disk/storage space/memory
+Storage compression on stored data to save disk/storage space/memory compression options of LuaLZW, Brotli, Zstd, Zlib, GZip, Google Snappy
 
 ## WAF (Web Application Firewall)
 
@@ -100,7 +100,7 @@ Ability to use shared.DICT memory as a cache storage soloution
 
 Ability to encrypt stored data to protect from hosting hacks and information stealing / snooping
 
-Ability to compress stored data to save disk/storage space/memory compression methods include LZW (LUALZW) ZSTD Zstandard etc to save petabytes in cached storage space and reduced costs.
+Ability to compress stored data to save disk/storage space/memory compression methods include LZW (LUALZW) ZSTD Zstandard, Brotli, Zlib, GZip, Google Snappy to save petabytes in cached storage space and reduced costs.
 
 ## Support for Additional services
 
