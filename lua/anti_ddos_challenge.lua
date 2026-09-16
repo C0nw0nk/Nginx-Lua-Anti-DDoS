@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 4.6
+Script Version: 4.7
 
 Copyright Conor McKnight
 
@@ -610,6 +610,7 @@ localized.content_cache = {
 This is a password that encrypts our puzzle and cookies unique to your sites and servers you should change this from the default.
 ]]
 localized.secret = " enigma" --Signature secret key --CHANGE ME FROM DEFAULT!
+localized.secret_encryption = 1 --1 = default HMAC SHA1 2 = xor encryption both use secret pass
 
 --[[
 Unique id to identify each individual user and machine trying to access your website IP address works well.
@@ -2046,6 +2047,9 @@ end
 if localized_global.secret ~= nil then
 localized.secret = localized_global.secret
 end
+if localized_global.secret_encryption ~= nil then
+localized.secret_encryption = localized_global.secret_encryption
+end
 if localized_global.remote_addr ~= nil then
 localized.remote_addr = localized_global.remote_addr
 end
@@ -2320,65 +2324,6 @@ end
 --localized.var = "hello world"
 --for i=1, 1e8 do if localized.string_match(localized.var, ".*") then end end--slow
 --for i=1, 1e8 do if faster_than_match(localized.var) then end end--fast
-
-localized.get_resp_content_type_counter = 0
-local function get_resp_content_type(forced) --incase content-type header not yet exists grab it
-	local resp_content_type = nil
-	if forced == nil then
-		localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+1
-		if localized.ngx_header["content-type"] then
-			--localized.ngx_log(localized.ngx_LOG_TYPE, " localized.ngx_header['content-type'] " .. localized.ngx_header["content-type"] )
-			resp_content_type = localized.ngx_header["content-type"]
-			return resp_content_type
-		end
-	end
-	--made it this far still no content-type ?
-	if localized.get_resp_content_type_counter > 1 then --so we dont run location capture multiple times on the first run it will either be content-type or nil
-		return resp_content_type
-	end
-	--localized.ngx_log(localized.ngx_LOG_TYPE, " count is " .. localized.get_resp_content_type_counter )
-	--local req_headers = localized.ngx_req_get_headers()
-	local map = {
-		GET = localized.ngx_HTTP_GET,
-		HEAD = localized.ngx_HTTP_HEAD,
-		PUT = localized.ngx_HTTP_PUT,
-		POST = localized.ngx_HTTP_POST,
-		DELETE = localized.ngx_HTTP_DELETE,
-		OPTIONS = localized.ngx_HTTP_OPTIONS,
-		MKCOL = localized.ngx_HTTP_MKCOL,
-		COPY = localized.ngx_HTTP_COPY,
-		MOVE = localized.ngx_HTTP_MOVE,
-		PROPFIND = localized.ngx_HTTP_PROPFIND,
-		PROPPATCH = localized.ngx_HTTP_PROPPATCH,
-		LOCK = localized.ngx_HTTP_LOCK,
-		UNLOCK = localized.ngx_HTTP_UNLOCK,
-		PATCH = localized.ngx_HTTP_PATCH,
-		TRACE = localized.ngx_HTTP_TRACE,
-		CONNECT = localized.ngx_HTTP_CONNECT, --does not exist but put here never know in the future
-	}
-	local res = localized.ngx.location.capture(localized.request_uri, {
-	--method = map[localized.ngx_var.request_method],
-	method = map[HEAD],
-	--headers = req_headers,
-	})
-	if res then
-		if res.header ~= nil and localized.type(res.header) == "table" then
-			for headerName, header in localized.next, res.header do
-				--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
-				if localized.string_lower(localized.tostring(headerName)) == "content-type" then
-					--localized.ngx_log(localized.ngx_LOG_TYPE, " localized.ngx.location.capture " .. header )
-					resp_content_type = header
-				end
-			end
-		end
-	end
-	localized.ngx_header["content-type"] = resp_content_type --set header as content-type be either nil or the content-type
-	localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
-	return resp_content_type
-
-end
---localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Content-Type header is. " .. get_resp_content_type() )
---get_resp_content_type()
 
 --[[
 Start IP range function
@@ -3052,343 +2997,6 @@ end
 End IP range function
 ]]
 
---if a table has a value inside of it
-local function has_value(table_, val)
-	--for i=1,#table_ do
-		--if table_[i] == val then
-	for key, value in localized.next, table_ do
-		if value == val then
-			return true
-		end
-	end
-	return false
-end
-
-local function TableConcat(t1,t2)
-	for i=1,#t2 do
-		if has_value(t1,t2[i]) == false then
-			t1[#t1+1] = t2[i]
-		end
-	end
-	return t1
-end
-
-local function secure_storage(get_or_set, input, compress_type)
-	if localized.ss ~= nil and localized.ss[input] ~= nil then
-		return localized.ss[input] --cached secure storage output
-	end
-	--compress_type nil or 1 = compress 2 = decompress
-
-	--XOR Encryption/Decryption
-	local function xor_crypt(data, key)
-		local result = {}
-		local key_len = #key
-		for i=1, #data do
-			--Get byte values for data and corresponding key character
-			local data_byte = localized.string_byte(data, i)
-			local key_byte = localized.string_byte(key, ((i - 1) % key_len) + 1)
-			--Perform XOR and convert back to a character and put into a string
-			--result[#result+1] = localized.string_char(data_byte ~ key_byte) --not compatible
-			result[#result+1] = localized.string_char(localized.bit_bxor(data_byte, key_byte))
-		end
-		return localized.table_concat(result)
-	end
-
-	local function check_restyaes()
-		if localized.cached_restyaes ~= nil then
-			return localized.cached_restyaes
-		end
-		local pcall = pcall
-		local require = require
-		localized.cached_restyaes = pcall(require, "resty.aes") --check if resty.aes library exists will be true or false
-		--https://github.com/openresty/lua-resty-string#synopsis
-		return localized.cached_restyaes
-	end
-	local function check_lualzw()
-		if localized.cached_lualzw ~= nil then
-			return localized.cached_lualzw
-		end
-		local pcall = pcall
-		local require = require
-		localized.cached_lualzw = pcall(require, "lualzw") --check if lualzw library exists will be true or false
-		--https://github.com/Rochet2/lualzw/blob/master/lualzw.lua
-		--lua_package_path "./conf/lua/lualzw/?.lua;;";
-		return localized.cached_lualzw
-	end
-	local function check_brotli()
-		if localized.cached_brotli ~= nil then
-			return localized.cached_brotli
-		end
-		local pcall = pcall
-		local require = require
-		localized.cached_brotli = pcall(require, "brotli.encoder") --check if brotli library exists will be true or false
-		--choose a brotli ffi package thats nonblocking/asynchronous
-		--https://github.com/sjnam/luajit-brotli#installation
-		--lua_package_path "./conf/lua/brotli/?.lua;;";
-		return localized.cached_brotli
-	end
-	local function check_zstd()
-		if localized.cached_zstd ~= nil then
-			return localized.cached_zstd
-		end
-		local pcall = pcall
-		local require = require
-		localized.cached_zstd = pcall(require, "zstd") --check if zstd library exists will be true or false
-		--choose a zstd ffi package thats nonblocking/asynchronous
-		--https://github.com/sjnam/luajit-zstd#installation
-		--lua_package_path "./conf/lua/zstd/?.lua;;";
-		return localized.cached_zstd
-	end
-	local function check_zlib()
-		if localized.cached_zlib ~= nil then
-			return localized.cached_zlib
-		end
-		local pcall = pcall
-		local require = require
-		localized.cached_zlib = pcall(require, "resty.zip") --check if zlib library exists will be true or false
-		--choose a zlib ffi package thats nonblocking/asynchronous
-		--https://github.com/doujiang24/lua-resty-zip
-		return localized.cached_zlib
-	end
-	local function check_snappy()
-		if localized.cached_snappy ~= nil then
-			return localized.cached_snappy
-		end
-		local pcall = pcall
-		local require = require
-		localized.cached_snappy = pcall(require, "resty.snappy") --check if zlib library exists will be true or false
-		--choose a snappy ffi package thats nonblocking/asynchronous
-		--https://github.com/bungle/lua-resty-snappy/tree/master#installation
-		--https://github.com/google/snappy
-		return localized.cached_snappy
-	end
-	local function isnumber(value)
-		return localized.tonumber(value) and true or false
-	end
-	local output = input or nil
-	--attempt decryption before decompression
-	if compress_type == 2 and localized.encrypt_storage == 1 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --xor encryption
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			output = xor_crypt(output, localized.encrypt_storage_secret)
-		end
-	end
-	if compress_type == 2 and localized.encrypt_storage == 2 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --AES encryption
-		if localized.type(output) ~= "number" and isnumber(output) ~= true and check_restyaes() then
-			local aes = require("resty.aes")
-			local aes_encryption = aes:new(localized.encrypt_storage_secret)
-			--the default cipher is AES 128 CBC with 1 round of MD5
-			--for the key and a nil salt
-			--you can change this to be more complex for example
-			--local aes_encryption = aes:new(localized.encrypt_storage_secret,"MySalt!!", aes.cipher(256,"cbc"), aes.hash.sha512, 5)
-			--AES 256 CBC with 5 rounds of SHA-512 for the key
-			--and a salt of "MySalt!!"
-			--Note: salt can be either nil or exactly 8 characters long
-			if aes_encryption:decrypt(output) ~= nil then --pass input to be decrypted first
-				output = aes_encryption:decrypt(output) --make output decrypted output
-			end
-		end
-	end
-	--end attempt decryption before decompression
-	--start decompression
-	if compress_type == 2 and localized.storage_compression == 1 and check_lualzw() then --LuaLZW decompression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			local lualzw = require("lualzw")
-			local value_decompress, err = nil
-			value_decompress, err = lualzw.decompress("c"..output)
-			if err == nil then
-				value_decompress = localized.string_sub(value_decompress, 2) --on success remove control char u
-				output = value_decompress
-			end
-		end
-	end
-	if compress_type == 2 and localized.storage_compression == 2 and check_brotli() then --Brotli decompression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			local brotli = require("brotli.decoder")
-			local decoder = brotli:new()
-			local value_decompress, err = nil
-			value_decompress, err = decoder:decompress(output)
-			if err == nil then
-				if decoder:isFinished() then
-					decoder:destroy()
-				end
-				output = value_decompress
-			end
-		end
-	end
-	if compress_type == 2 and localized.storage_compression == 3 and check_zstd() then --ZSTD decompression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			local zstandard = require("zstd")
-			local zstd = zstandard:new()
-			local value_decompress, err = nil
-			value_decompress, err = zstd:decompress(output)
-			if err == nil then
-				output = value_decompress
-				zstd:free()
-			end
-		end
-	end
-	if compress_type == 2 and localized.storage_compression == 4 and check_zlib() then --Zlib decompression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			local zlib = require("resty.zip")
-			local value_decompress, err = nil
-			local zregex = "^/zs/(.*)/zs/"
-			local zsize = localized.string_match(output, zregex)
-			if zsize ~= nil then
-				output = localized.string_gsub(output, zregex, "") --remove zsize from string
-				value_decompress, err = zlib.uncompress(output, localized.tonumber(zsize)) --use original size to uncompress
-				if err == nil then
-					output = value_decompress
-				end
-			end
-		end
-	end
-	if compress_type == 2 and localized.storage_compression == 5 and check_snappy() then --Snappy decompression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			local snappy = require("resty.snappy")
-			local value_decompress, err = nil
-			value_decompress, err = snappy.uncompress(output)
-			if value_decompress then
-				output = value_decompress
-			end
-		end
-	end
-	--end decompression
-	--start compression
-	if compress_type == nil and localized.storage_compression == 1 and check_lualzw() then --LuaLZW compression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
-			local lualzw = require("lualzw")
-			local value_compress, err = nil
-			value_compress, err = lualzw.compress(output)
-			if err == nil then
-				value_compress = localized.string_sub(value_compress, 2) --on success remove control char c
-				output = value_compress
-			end
-			--end --larger than 4kb
-		end
-	end
-	if compress_type == nil and localized.storage_compression == 2 and check_brotli() then --Brotli compression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
-			local brotli = require("brotli.encoder")
-			local encoder = brotli:new({quality=1,}) --compress on level 0 lowest highest = level 11
-			local value_compress, err = nil
-			value_compress, err = encoder:compress(output)
-			if err == nil then
-				if encoder:isFinished() then
-					encoder:destroy()
-				end
-				output = value_compress
-			end
-			--end --larger than 4kb
-		end
-	end
-	if compress_type == nil and localized.storage_compression == 3 and check_zstd() then --ZSTD compression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
-			local zstandard = require("zstd")
-			local zstd = zstandard:new()
-			local value_compress, err = nil
-			value_compress, err = zstd:compress(output, 1) --compress on level 1 lowest highest = level 22
-			if err == nil then
-				output = value_compress
-				zstd:free()
-			end
-			--end --larger than 4kb
-		end
-	end
-	if compress_type == nil and localized.storage_compression == 4 and check_zlib() then --Zlib compression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
-			local zlib = require("resty.zip")
-			local value_compress, err = nil
-			local zregex = "/zs/"
-			value_compress, err = zlib.compress(output, 1) --compress on level 1 lowest highest = level 9
-			if err == nil then
-				value_compress = zregex .. #output .. zregex .. value_compress --store original size for use later
-				output = value_compress
-			end
-			--end --larger than 4kb
-		end
-	end
-	if compress_type == nil and localized.storage_compression == 5 and check_snappy() then --Snappy compression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
-			local snappy = require("resty.snappy")
-			local value_compress, err = nil
-			local value_compress, err = snappy.compress(output)
-			if value_compress then
-				output = value_compress
-			end
-			--end --larger than 4kb
-		end
-	end
-	--end compression
-	--start encryption
-	if compress_type == nil and localized.encrypt_storage == 1 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --xor encryption
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			local encrypted = nil
-			encrypted = xor_crypt(output, localized.encrypt_storage_secret)
-			if get_or_set == 0 then --get = 0
-				output = encrypted
-			elseif get_or_set == 1 then --set = 1
-				output = encrypted
-			elseif get_or_set == 2 then --expire = 2
-				output = encrypted
-			elseif get_or_set == 3 then --ttl = 3
-				output = encrypted
-			elseif get_or_set == 4 then --value = 4
-				output = encrypted
-			else --undefined
-				output = encrypted
-			end
-		else
-			output = output
-		end
-	elseif compress_type == nil and localized.encrypt_storage == 2 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --AES encryption
-		if localized.type(output) ~= "number" and isnumber(output) ~= true and check_restyaes() then
-			local aes = require("resty.aes")
-			local aes_encryption = aes:new(localized.encrypt_storage_secret)
-			--the default cipher is AES 128 CBC with 1 round of MD5
-			--for the key and a nil salt
-			--you can change this to be more complex for example
-			--local aes_encryption = aes:new(localized.encrypt_storage_secret,"MySalt!!", aes.cipher(256,"cbc"), aes.hash.sha512, 5)
-			--AES 256 CBC with 5 rounds of SHA-512 for the key
-			--and a salt of "MySalt!!"
-			--Note: salt can be either nil or exactly 8 characters long
-			local encrypted = nil
-			if aes_encryption:decrypt(output) ~= nil then --pass input to be decrypted first
-				encrypted = aes_encryption:decrypt(output)
-			else
-				encrypted = aes_encryption:encrypt(output)
-			end
-			if get_or_set == 0 then --get = 0
-				output = encrypted
-			elseif get_or_set == 1 then --set = 1
-				output = encrypted
-			elseif get_or_set == 2 then --expire = 2
-				output = encrypted
-			elseif get_or_set == 3 then --ttl = 3
-				output = encrypted
-			elseif get_or_set == 4 then --value = 4
-				output = encrypted
-			else --undefined
-				output = encrypted
-			end
-		else
-			output = output
-		end
-	elseif compress_type == nil and localized.encrypt_storage == 0 or localized.encrypt_storage == nil or localized.encrypt_storage_secret == nil or localized.encrypt_storage_secret == "" then --no encryption
-		output = output
-	end
-	--end encryption
-	if localized.ss == nil then
-		localized.ss = {}
-	end
-	localized.ss[input] = output --cache output
-	return output
-end
-
 localized.proxy_header_ip_check_count = 0
 local function proxy_header_ip_check(ip_table)
 	if localized.proxy_header_ip_check_count >= 1 then --so we dont run multiple times we serve the cached output instead
@@ -4018,6 +3626,591 @@ local function close_connection(method)
 	end
 end
 
+local function WAF_Checks()
+if localized.WAF_Runs ~= nil then --only run once
+	return
+end
+if localized.remote_addr == "auto" then
+	if localized.ngx_var_http_cf_connecting_ip ~= nil then
+		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
+			localized.remote_addr = localized.ngx_var_http_cf_connecting_ip
+		else --you are not really cloudflare dont pretend you are to bypass flood protection
+			localized.remote_addr = localized.ngx_var_remote_addr
+		end
+	elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
+			localized.remote_addr = localized.ngx_var_http_x_forwarded_for
+		else
+			localized.remote_addr = localized.ngx_var_remote_addr
+		end
+	else
+		localized.remote_addr = localized.ngx_var_remote_addr
+	end
+end
+if localized.remote_addr == "tor" then
+	localized.remote_addr = localized.tor_remote_addr
+	if localized.tor_remote_addr == "auto" then
+		localized.remote_addr = localized.ngx_var_remote_addr
+		localized.tor_remote_addr = localized.ngx_var_remote_addr
+	end
+end
+--[[WAF Web Application Firewall POST Request arguments filter]]
+local function WAF_Post_Requests()
+	--if localized.next(localized.WAF_POST_Request_table) ~= nil then --Check Post filter table has rules inside it
+	if localized.WAF_POST_Request_table ~= nil and #localized.WAF_POST_Request_table > 0 then --Check Post filter table has rules inside it
+
+		localized.ngx_req_read_body() --Grab the request Body
+		local read_request_body_args = (localized.ngx_req_get_body_data() or "") --Put the request body arguments into a variable
+		local args = (localized.ngx_decode_args(read_request_body_args) or "") --Put the Post args in to a table
+
+		if localized.next(args) ~= nil then --Check Post args table has contents
+		--if #args > 0 then --Check Post args table has contents	
+
+			local arguement1 = nil --create empty variable
+			local arguement2 = nil --create empty variable
+
+			for key, value in localized.next, args do
+
+				for i=1,#localized.WAF_POST_Request_table do
+					arguement1 = nil --reset to nil each loop
+					arguement2 = nil --reset to nil each loop
+					local value = localized.WAF_POST_Request_table[i] --put table value into variable
+					local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
+					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
+					local args_name = localized.tostring(key) or "" --variable to store POST data argument name
+					local args_value = localized.tostring(value) or "" --variable to store POST data argument value
+					if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the POST request
+						arguement1 = 1
+					end
+					if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the POST request
+						arguement2 = 1
+					end
+					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST args prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
+						close_connection()
+						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
+					end
+				end
+			end
+		end
+	end
+end
+WAF_Post_Requests()
+--[[End WAF Web Application Firewall POST Request arguments filter]]
+
+--[[WAF Web Application Firewall Header Request arguments filter]]
+local function WAF_Header_Requests()
+	--if localized.next(localized.WAF_Header_Request_table) ~= nil then --Check Header filter table has rules inside it
+	if localized.WAF_Header_Request_table ~= nil and #localized.WAF_Header_Request_table > 0 then --Check Header filter table has rules inside it
+
+		local argument_request_headers = localized.ngx_req_get_headers() --get our client request headers and put them into a table
+
+		if localized.next(argument_request_headers) ~= nil then --Check Header args table has contents
+		--if #argument_request_headers > 0 then --Check Header args table has contents
+
+			local arguement1 = nil --create empty variable
+			local arguement2 = nil --create empty variable
+
+			for key, value in localized.next, argument_request_headers do
+
+				for i=1,#localized.WAF_Header_Request_table do
+					arguement1 = nil --reset to nil each loop
+					arguement2 = nil --reset to nil each loop
+					local value = localized.WAF_Header_Request_table[i] --put table value into variable
+					local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
+					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
+					local args_name = localized.tostring(key) or "" --variable to store Header data argument name
+					local args_value = localized.tostring(localized.ngx_req_get_headers()[args_name]) or ""
+					if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
+						arguement1 = 1
+					end
+					if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
+						arguement2 = 1
+					end
+					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
+						close_connection()
+						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
+					end
+				end
+			end
+		end
+	end
+end
+WAF_Header_Requests()
+--[[End WAF Web Application Firewall Header Request arguments filter]]
+
+--[[WAF Web Application Firewall Query String Request arguments filter]]
+local function WAF_query_string_Request()
+	--if localized.next(localized.WAF_query_string_Request_table) ~= nil then --Check query string filter table has rules inside it
+	if localized.WAF_query_string_Request_table ~= nil and #localized.WAF_query_string_Request_table > 0 then --Check query string filter table has rules inside it
+
+		local args = localized.ngx_req_get_uri_args() --grab our query string args and put them into a table
+
+		if localized.next(args) ~= nil then --Check query string args table has contents
+		--if #args > 0 then --Check query string args table has contents
+
+			local arguement1 = nil --create empty variable
+			local arguement2 = nil --create empty variable
+
+			for key, value in localized.next, args do
+
+				for i=1,#localized.WAF_query_string_Request_table do
+					arguement1 = nil --reset to nil each loop
+					arguement2 = nil --reset to nil each loop
+					local value = localized.WAF_query_string_Request_table[i] --put table value into variable
+					local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
+					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
+					local args_name = localized.tostring(key) or "" --variable to store query string data argument name
+					local args_value = localized.tostring(localized.ngx_req_get_uri_args()[args_name]) or "" --variable to store query string data argument value
+					if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
+						arguement1 = 1
+					end
+					if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
+						arguement2 = 1
+					end
+					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Query String prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
+						close_connection()
+						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
+					end
+				end
+			end
+		end
+	end
+end
+WAF_query_string_Request()
+--[[End WAF Web Application Firewall Query String Request arguments filter]]
+
+--[[WAF Web Application Firewall URI Request arguments filter]]
+local function WAF_URI_Request()
+	--if localized.next(localized.WAF_URI_Request_table) ~= nil then --Check Post filter table has rules inside it
+	if localized.WAF_URI_Request_table ~= nil and #localized.WAF_URI_Request_table > 0 then --Check Post filter table has rules inside it
+
+		--[[
+		Because localized.ngx_var.uri is a bit stupid I strip the query string of the request uri.
+		The reason for this it is subject to normalisation
+		Consecutive / characters are replace by a single / 
+		and URL encoded characters are decoded 
+		but then your back end webserver / application recieve the encoded uri!?
+		So to keep the security strong I match the same version your web application would need protecting from (Yes the encoded copy that could contain malicious / exploitable contents)
+		]]
+		local args = localized.string_gsub(localized.request_uri, "?.*", "") --remove the query string from the uri
+
+		for i=1,#localized.WAF_URI_Request_table do --for each host in our table
+			local v = localized.WAF_URI_Request_table[i]
+			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
+				if localized.string_find(args, v[2]) then
+					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request URI prohibited : " .. localized.URL .. " - IP : " .. localized.remote_addr)
+					close_connection()
+					return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
+				end
+			end
+		end
+	end
+end
+WAF_URI_Request()
+--[[End WAF Web Application Firewall URI Request arguments filter]]
+localized.WAF_Runs = 1
+end
+--WAF_Checks()
+
+localized.get_resp_content_type_counter = 0
+local function get_resp_content_type(forced) --incase content-type header not yet exists grab it
+	local resp_content_type = nil
+	if forced == nil then
+		localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+1
+		if localized.ngx_header["content-type"] then
+			--localized.ngx_log(localized.ngx_LOG_TYPE, " localized.ngx_header['content-type'] " .. localized.ngx_header["content-type"] )
+			resp_content_type = localized.ngx_header["content-type"]
+			return resp_content_type
+		end
+	end
+	--made it this far still no content-type ?
+	if localized.get_resp_content_type_counter > 1 then --so we dont run location capture multiple times on the first run it will either be content-type or nil
+		return resp_content_type
+	end
+	--localized.ngx_log(localized.ngx_LOG_TYPE, " count is " .. localized.get_resp_content_type_counter )
+	--local req_headers = localized.ngx_req_get_headers()
+	local map = {
+		GET = localized.ngx_HTTP_GET,
+		HEAD = localized.ngx_HTTP_HEAD,
+		PUT = localized.ngx_HTTP_PUT,
+		POST = localized.ngx_HTTP_POST,
+		DELETE = localized.ngx_HTTP_DELETE,
+		OPTIONS = localized.ngx_HTTP_OPTIONS,
+		MKCOL = localized.ngx_HTTP_MKCOL,
+		COPY = localized.ngx_HTTP_COPY,
+		MOVE = localized.ngx_HTTP_MOVE,
+		PROPFIND = localized.ngx_HTTP_PROPFIND,
+		PROPPATCH = localized.ngx_HTTP_PROPPATCH,
+		LOCK = localized.ngx_HTTP_LOCK,
+		UNLOCK = localized.ngx_HTTP_UNLOCK,
+		PATCH = localized.ngx_HTTP_PATCH,
+		TRACE = localized.ngx_HTTP_TRACE,
+		CONNECT = localized.ngx_HTTP_CONNECT, --does not exist but put here never know in the future
+	}
+	local res = localized.ngx.location.capture(localized.request_uri, {
+	--method = map[localized.ngx_var.request_method],
+	method = map[HEAD],
+	--headers = req_headers,
+	})
+	if res then
+		if res.header ~= nil and localized.type(res.header) == "table" then
+			for headerName, header in localized.next, res.header do
+				--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
+				if localized.string_lower(localized.tostring(headerName)) == "content-type" then
+					--localized.ngx_log(localized.ngx_LOG_TYPE, " localized.ngx.location.capture " .. header )
+					resp_content_type = header
+				end
+			end
+		end
+	end
+	localized.ngx_header["content-type"] = resp_content_type --set header as content-type be either nil or the content-type
+	localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
+	return resp_content_type
+
+end
+--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Content-Type header is. " .. get_resp_content_type() )
+--get_resp_content_type()
+
+--if a table has a value inside of it
+local function has_value(table_, val)
+	--for i=1,#table_ do
+		--if table_[i] == val then
+	for key, value in localized.next, table_ do
+		if value == val then
+			return true
+		end
+	end
+	return false
+end
+
+local function TableConcat(t1,t2)
+	for i=1,#t2 do
+		if has_value(t1,t2[i]) == false then
+			t1[#t1+1] = t2[i]
+		end
+	end
+	return t1
+end
+
+--XOR Encryption/Decryption
+local function xor_crypt(data, key)
+	local result = {}
+	local key_len = #key
+	for i=1, #data do
+		--Get byte values for data and corresponding key character
+		local data_byte = localized.string_byte(data, i)
+		local key_byte = localized.string_byte(key, ((i - 1) % key_len) + 1)
+		--Perform XOR and convert back to a character and put into a string
+		--result[#result+1] = localized.string_char(data_byte ~ key_byte) --not compatible
+		result[#result+1] = localized.string_char(localized.bit_bxor(data_byte, key_byte))
+	end
+	return localized.table_concat(result)
+end
+
+local function secure_storage(get_or_set, input, compress_type)
+	if localized.ss ~= nil and localized.ss[input] ~= nil then
+		return localized.ss[input] --cached secure storage output
+	end
+	--compress_type nil or 1 = compress 2 = decompress
+
+	local function check_restyaes()
+		if localized.cached_restyaes ~= nil then
+			return localized.cached_restyaes
+		end
+		local pcall = pcall
+		local require = require
+		localized.cached_restyaes = pcall(require, "resty.aes") --check if resty.aes library exists will be true or false
+		--https://github.com/openresty/lua-resty-string#synopsis
+		return localized.cached_restyaes
+	end
+	local function check_lualzw()
+		if localized.cached_lualzw ~= nil then
+			return localized.cached_lualzw
+		end
+		local pcall = pcall
+		local require = require
+		localized.cached_lualzw = pcall(require, "lualzw") --check if lualzw library exists will be true or false
+		--https://github.com/Rochet2/lualzw/blob/master/lualzw.lua
+		--lua_package_path "./conf/lua/lualzw/?.lua;;";
+		return localized.cached_lualzw
+	end
+	local function check_brotli()
+		if localized.cached_brotli ~= nil then
+			return localized.cached_brotli
+		end
+		local pcall = pcall
+		local require = require
+		localized.cached_brotli = pcall(require, "brotli.encoder") --check if brotli library exists will be true or false
+		--choose a brotli ffi package thats nonblocking/asynchronous
+		--https://github.com/sjnam/luajit-brotli#installation
+		--lua_package_path "./conf/lua/brotli/?.lua;;";
+		return localized.cached_brotli
+	end
+	local function check_zstd()
+		if localized.cached_zstd ~= nil then
+			return localized.cached_zstd
+		end
+		local pcall = pcall
+		local require = require
+		localized.cached_zstd = pcall(require, "zstd") --check if zstd library exists will be true or false
+		--choose a zstd ffi package thats nonblocking/asynchronous
+		--https://github.com/sjnam/luajit-zstd#installation
+		--lua_package_path "./conf/lua/zstd/?.lua;;";
+		return localized.cached_zstd
+	end
+	local function check_zlib()
+		if localized.cached_zlib ~= nil then
+			return localized.cached_zlib
+		end
+		local pcall = pcall
+		local require = require
+		localized.cached_zlib = pcall(require, "resty.zip") --check if zlib library exists will be true or false
+		--choose a zlib ffi package thats nonblocking/asynchronous
+		--https://github.com/doujiang24/lua-resty-zip
+		return localized.cached_zlib
+	end
+	local function check_snappy()
+		if localized.cached_snappy ~= nil then
+			return localized.cached_snappy
+		end
+		local pcall = pcall
+		local require = require
+		localized.cached_snappy = pcall(require, "resty.snappy") --check if zlib library exists will be true or false
+		--choose a snappy ffi package thats nonblocking/asynchronous
+		--https://github.com/bungle/lua-resty-snappy/tree/master#installation
+		--https://github.com/google/snappy
+		return localized.cached_snappy
+	end
+	local function isnumber(value)
+		return localized.tonumber(value) and true or false
+	end
+	local output = input or nil
+	--attempt decryption before decompression
+	if compress_type == 2 and localized.encrypt_storage == 1 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --xor encryption
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			output = xor_crypt(output, localized.encrypt_storage_secret)
+		end
+	end
+	if compress_type == 2 and localized.encrypt_storage == 2 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --AES encryption
+		if localized.type(output) ~= "number" and isnumber(output) ~= true and check_restyaes() then
+			local aes = require("resty.aes")
+			local aes_encryption = aes:new(localized.encrypt_storage_secret)
+			--the default cipher is AES 128 CBC with 1 round of MD5
+			--for the key and a nil salt
+			--you can change this to be more complex for example
+			--local aes_encryption = aes:new(localized.encrypt_storage_secret,"MySalt!!", aes.cipher(256,"cbc"), aes.hash.sha512, 5)
+			--AES 256 CBC with 5 rounds of SHA-512 for the key
+			--and a salt of "MySalt!!"
+			--Note: salt can be either nil or exactly 8 characters long
+			if aes_encryption:decrypt(output) ~= nil then --pass input to be decrypted first
+				output = aes_encryption:decrypt(output) --make output decrypted output
+			end
+		end
+	end
+	--end attempt decryption before decompression
+	--start decompression
+	if compress_type == 2 and localized.storage_compression == 1 and check_lualzw() then --LuaLZW decompression
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			local lualzw = require("lualzw")
+			local value_decompress, err = nil
+			value_decompress, err = lualzw.decompress("c"..output)
+			if err == nil then
+				value_decompress = localized.string_sub(value_decompress, 2) --on success remove control char u
+				output = value_decompress
+			end
+		end
+	end
+	if compress_type == 2 and localized.storage_compression == 2 and check_brotli() then --Brotli decompression
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			local brotli = require("brotli.decoder")
+			local decoder = brotli:new()
+			local value_decompress, err = nil
+			value_decompress, err = decoder:decompress(output)
+			if err == nil then
+				if decoder:isFinished() then
+					decoder:destroy()
+				end
+				output = value_decompress
+			end
+		end
+	end
+	if compress_type == 2 and localized.storage_compression == 3 and check_zstd() then --ZSTD decompression
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			local zstandard = require("zstd")
+			local zstd = zstandard:new()
+			local value_decompress, err = nil
+			value_decompress, err = zstd:decompress(output)
+			if err == nil then
+				output = value_decompress
+				zstd:free()
+			end
+		end
+	end
+	if compress_type == 2 and localized.storage_compression == 4 and check_zlib() then --Zlib decompression
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			local zlib = require("resty.zip")
+			local value_decompress, err = nil
+			local zregex = "^/zs/(.*)/zs/"
+			local zsize = localized.string_match(output, zregex)
+			if zsize ~= nil then
+				output = localized.string_gsub(output, zregex, "") --remove zsize from string
+				value_decompress, err = zlib.uncompress(output, localized.tonumber(zsize)) --use original size to uncompress
+				if err == nil then
+					output = value_decompress
+				end
+			end
+		end
+	end
+	if compress_type == 2 and localized.storage_compression == 5 and check_snappy() then --Snappy decompression
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			local snappy = require("resty.snappy")
+			local value_decompress, err = nil
+			value_decompress, err = snappy.uncompress(output)
+			if value_decompress then
+				output = value_decompress
+			end
+		end
+	end
+	--end decompression
+	--start compression
+	if compress_type == nil and localized.storage_compression == 1 and check_lualzw() then --LuaLZW compression
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
+			local lualzw = require("lualzw")
+			local value_compress, err = nil
+			value_compress, err = lualzw.compress(output)
+			if err == nil then
+				value_compress = localized.string_sub(value_compress, 2) --on success remove control char c
+				output = value_compress
+			end
+			--end --larger than 4kb
+		end
+	end
+	if compress_type == nil and localized.storage_compression == 2 and check_brotli() then --Brotli compression
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
+			local brotli = require("brotli.encoder")
+			local encoder = brotli:new({quality=1,}) --compress on level 0 lowest highest = level 11
+			local value_compress, err = nil
+			value_compress, err = encoder:compress(output)
+			if err == nil then
+				if encoder:isFinished() then
+					encoder:destroy()
+				end
+				output = value_compress
+			end
+			--end --larger than 4kb
+		end
+	end
+	if compress_type == nil and localized.storage_compression == 3 and check_zstd() then --ZSTD compression
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
+			local zstandard = require("zstd")
+			local zstd = zstandard:new()
+			local value_compress, err = nil
+			value_compress, err = zstd:compress(output, 1) --compress on level 1 lowest highest = level 22
+			if err == nil then
+				output = value_compress
+				zstd:free()
+			end
+			--end --larger than 4kb
+		end
+	end
+	if compress_type == nil and localized.storage_compression == 4 and check_zlib() then --Zlib compression
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
+			local zlib = require("resty.zip")
+			local value_compress, err = nil
+			local zregex = "/zs/"
+			value_compress, err = zlib.compress(output, 1) --compress on level 1 lowest highest = level 9
+			if err == nil then
+				value_compress = zregex .. #output .. zregex .. value_compress --store original size for use later
+				output = value_compress
+			end
+			--end --larger than 4kb
+		end
+	end
+	if compress_type == nil and localized.storage_compression == 5 and check_snappy() then --Snappy compression
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
+			local snappy = require("resty.snappy")
+			local value_compress, err = nil
+			local value_compress, err = snappy.compress(output)
+			if value_compress then
+				output = value_compress
+			end
+			--end --larger than 4kb
+		end
+	end
+	--end compression
+	--start encryption
+	if compress_type == nil and localized.encrypt_storage == 1 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --xor encryption
+		if localized.type(output) ~= "number" and isnumber(output) ~= true then
+			local encrypted = nil
+			encrypted = xor_crypt(output, localized.encrypt_storage_secret)
+			if get_or_set == 0 then --get = 0
+				output = encrypted
+			elseif get_or_set == 1 then --set = 1
+				output = encrypted
+			elseif get_or_set == 2 then --expire = 2
+				output = encrypted
+			elseif get_or_set == 3 then --ttl = 3
+				output = encrypted
+			elseif get_or_set == 4 then --value = 4
+				output = encrypted
+			else --undefined
+				output = encrypted
+			end
+		else
+			output = output
+		end
+	elseif compress_type == nil and localized.encrypt_storage == 2 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --AES encryption
+		if localized.type(output) ~= "number" and isnumber(output) ~= true and check_restyaes() then
+			local aes = require("resty.aes")
+			local aes_encryption = aes:new(localized.encrypt_storage_secret)
+			--the default cipher is AES 128 CBC with 1 round of MD5
+			--for the key and a nil salt
+			--you can change this to be more complex for example
+			--local aes_encryption = aes:new(localized.encrypt_storage_secret,"MySalt!!", aes.cipher(256,"cbc"), aes.hash.sha512, 5)
+			--AES 256 CBC with 5 rounds of SHA-512 for the key
+			--and a salt of "MySalt!!"
+			--Note: salt can be either nil or exactly 8 characters long
+			local encrypted = nil
+			if aes_encryption:decrypt(output) ~= nil then --pass input to be decrypted first
+				encrypted = aes_encryption:decrypt(output)
+			else
+				encrypted = aes_encryption:encrypt(output)
+			end
+			if get_or_set == 0 then --get = 0
+				output = encrypted
+			elseif get_or_set == 1 then --set = 1
+				output = encrypted
+			elseif get_or_set == 2 then --expire = 2
+				output = encrypted
+			elseif get_or_set == 3 then --ttl = 3
+				output = encrypted
+			elseif get_or_set == 4 then --value = 4
+				output = encrypted
+			else --undefined
+				output = encrypted
+			end
+		else
+			output = output
+		end
+	elseif compress_type == nil and localized.encrypt_storage == 0 or localized.encrypt_storage == nil or localized.encrypt_storage_secret == nil or localized.encrypt_storage_secret == "" then --no encryption
+		output = output
+	end
+	--end encryption
+	if localized.ss == nil then
+		localized.ss = {}
+	end
+	localized.ss[input] = output --cache output
+	return output
+end
+
 --[[
 localized.os_date above is a one line so nobody tampers with it and to keep config simple but i am putting it here for readability
 to sum this up calling os.date is a sys call and can be a blocking io operation my function is nonblocking.
@@ -4305,7 +4498,11 @@ local function internal_header_setup()
 		--internal header protection if the script needs to make a internal call like with the header_append_ip() / localized.send_ip_to_backend_custom_headers function we can track it.
 		localized.ngx_var_http_internal_string = "1337"--internal bypass header value
 		localized.ngx_var_http_internal_header_name = "internal" --internal bypass header name
-		localized.ngx_var_http_internal_header_name = localized.ngx_hmac_sha1(localized.secret .. localized.os_date("%W",localized.os_time_saved), localized.ngx_var_http_internal_header_name) --encrypt this header so nobody can guess it or use it other than internal work calls
+		if localized.secret_encryption == nil or localized.secret_encryption == 1 then
+			localized.ngx_var_http_internal_header_name = localized.ngx_hmac_sha1(localized.secret .. localized.os_date("%W",localized.os_time_saved), localized.ngx_var_http_internal_header_name) --encrypt this header so nobody can guess it or use it other than internal work calls
+		else
+			localized.ngx_var_http_internal_header_name = xor_crypt(localized.ngx_var_http_internal_header_name, localized.secret .. localized.os_date("%W",localized.os_time_saved)) --encrypt this header so nobody can guess it or use it other than internal work calls
+		end
 		localized.ngx_var_http_internal_header_name = localized.ngx_encode_base64(localized.ngx_var_http_internal_header_name) --wrap encrypted header in base64
 		localized.ngx_var_http_internal_header_name = localized.string_gsub(localized.ngx_var_http_internal_header_name, "[+/=]", "") --Remove +/=
 		localized.ngx_var_http_internal = localized.ngx_var["http_"..localized.ngx_var_http_internal_header_name] or nil
@@ -4841,6 +5038,7 @@ local function anti_ddos()
 			if localized.type(range) ~= "table" then
 				--Filter by what we expect a range header to be provided with
 				if localized.content_type_fix then
+					WAF_Checks() --run WAF checks first
 					get_resp_content_type() --grab content-type incase does not exist
 				end
 				if localized.content_type_fix == false or localized.ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
@@ -5288,6 +5486,7 @@ local function anti_ddos()
 				for i=1, #range do
 					--Filter by what we expect a range header to be provided with
 					if localized.content_type_fix then
+						WAF_Checks() --run WAF checks first
 						get_resp_content_type() --grab content-type incase does not exist
 					end
 					if localized.content_type_fix == false or localized.ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
@@ -6860,166 +7059,7 @@ query_string_sort()
 End Query String Sort
 ]]
 
-local function WAF_Checks()
---[[WAF Web Application Firewall POST Request arguments filter]]
-local function WAF_Post_Requests()
-	--if localized.next(localized.WAF_POST_Request_table) ~= nil then --Check Post filter table has rules inside it
-	if localized.WAF_POST_Request_table ~= nil and #localized.WAF_POST_Request_table > 0 then --Check Post filter table has rules inside it
-
-		localized.ngx_req_read_body() --Grab the request Body
-		local read_request_body_args = (localized.ngx_req_get_body_data() or "") --Put the request body arguments into a variable
-		local args = (localized.ngx_decode_args(read_request_body_args) or "") --Put the Post args in to a table
-
-		if localized.next(args) ~= nil then --Check Post args table has contents
-		--if #args > 0 then --Check Post args table has contents	
-
-			local arguement1 = nil --create empty variable
-			local arguement2 = nil --create empty variable
-
-			for key, value in localized.next, args do
-
-				for i=1,#localized.WAF_POST_Request_table do
-					arguement1 = nil --reset to nil each loop
-					arguement2 = nil --reset to nil each loop
-					local value = localized.WAF_POST_Request_table[i] --put table value into variable
-					local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
-					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
-					local args_name = localized.tostring(key) or "" --variable to store POST data argument name
-					local args_value = localized.tostring(value) or "" --variable to store POST data argument value
-					if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the POST request
-						arguement1 = 1
-					end
-					if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the POST request
-						arguement2 = 1
-					end
-					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST args prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
-						close_connection()
-						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
-					end
-				end
-			end
-		end
-	end
-end
-WAF_Post_Requests()
---[[End WAF Web Application Firewall POST Request arguments filter]]
-
---[[WAF Web Application Firewall Header Request arguments filter]]
-local function WAF_Header_Requests()
-	--if localized.next(localized.WAF_Header_Request_table) ~= nil then --Check Header filter table has rules inside it
-	if localized.WAF_Header_Request_table ~= nil and #localized.WAF_Header_Request_table > 0 then --Check Header filter table has rules inside it
-
-		local argument_request_headers = localized.ngx_req_get_headers() --get our client request headers and put them into a table
-
-		if localized.next(argument_request_headers) ~= nil then --Check Header args table has contents
-		--if #argument_request_headers > 0 then --Check Header args table has contents
-
-			local arguement1 = nil --create empty variable
-			local arguement2 = nil --create empty variable
-
-			for key, value in localized.next, argument_request_headers do
-
-				for i=1,#localized.WAF_Header_Request_table do
-					arguement1 = nil --reset to nil each loop
-					arguement2 = nil --reset to nil each loop
-					local value = localized.WAF_Header_Request_table[i] --put table value into variable
-					local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
-					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
-					local args_name = localized.tostring(key) or "" --variable to store Header data argument name
-					local args_value = localized.tostring(localized.ngx_req_get_headers()[args_name]) or ""
-					if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
-						arguement1 = 1
-					end
-					if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
-						arguement2 = 1
-					end
-					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
-						close_connection()
-						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
-					end
-				end
-			end
-		end
-	end
-end
-WAF_Header_Requests()
---[[End WAF Web Application Firewall Header Request arguments filter]]
-
---[[WAF Web Application Firewall Query String Request arguments filter]]
-local function WAF_query_string_Request()
-	--if localized.next(localized.WAF_query_string_Request_table) ~= nil then --Check query string filter table has rules inside it
-	if localized.WAF_query_string_Request_table ~= nil and #localized.WAF_query_string_Request_table > 0 then --Check query string filter table has rules inside it
-
-		local args = localized.ngx_req_get_uri_args() --grab our query string args and put them into a table
-
-		if localized.next(args) ~= nil then --Check query string args table has contents
-		--if #args > 0 then --Check query string args table has contents
-
-			local arguement1 = nil --create empty variable
-			local arguement2 = nil --create empty variable
-
-			for key, value in localized.next, args do
-
-				for i=1,#localized.WAF_query_string_Request_table do
-					arguement1 = nil --reset to nil each loop
-					arguement2 = nil --reset to nil each loop
-					local value = localized.WAF_query_string_Request_table[i] --put table value into variable
-					local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
-					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
-					local args_name = localized.tostring(key) or "" --variable to store query string data argument name
-					local args_value = localized.tostring(localized.ngx_req_get_uri_args()[args_name]) or "" --variable to store query string data argument value
-					if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
-						arguement1 = 1
-					end
-					if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
-						arguement2 = 1
-					end
-					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Query String prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
-						close_connection()
-						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
-					end
-				end
-			end
-		end
-	end
-end
-WAF_query_string_Request()
---[[End WAF Web Application Firewall Query String Request arguments filter]]
-
---[[WAF Web Application Firewall URI Request arguments filter]]
-local function WAF_URI_Request()
-	--if localized.next(localized.WAF_URI_Request_table) ~= nil then --Check Post filter table has rules inside it
-	if localized.WAF_URI_Request_table ~= nil and #localized.WAF_URI_Request_table > 0 then --Check Post filter table has rules inside it
-
-		--[[
-		Because localized.ngx_var.uri is a bit stupid I strip the query string of the request uri.
-		The reason for this it is subject to normalisation
-		Consecutive / characters are replace by a single / 
-		and URL encoded characters are decoded 
-		but then your back end webserver / application recieve the encoded uri!?
-		So to keep the security strong I match the same version your web application would need protecting from (Yes the encoded copy that could contain malicious / exploitable contents)
-		]]
-		local args = localized.string_gsub(localized.request_uri, "?.*", "") --remove the query string from the uri
-
-		for i=1,#localized.WAF_URI_Request_table do --for each host in our table
-			local v = localized.WAF_URI_Request_table[i]
-			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
-				if localized.string_find(args, v[2]) then
-					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request URI prohibited : " .. localized.URL .. " - IP : " .. localized.remote_addr)
-					close_connection()
-					return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
-				end
-			end
-		end
-	end
-end
-WAF_URI_Request()
---[[End WAF Web Application Firewall URI Request arguments filter]]
-end
-WAF_Checks()
+WAF_Checks() --run WAF checks first
 
 local function check_ips()
 	--function to check if ip address is whitelisted to bypass our auth
@@ -7236,7 +7276,13 @@ local function calculate_signature(str)
 	if localized.cs ~= nil and localized.cs[str] ~= nil then
 		return localized.cs[str] --cached calculate signature output
 	end
-	local output = localized.ngx_encode_base64(localized.ngx_hmac_sha1(localized.secret, str))
+	local output = nil
+	if localized.secret_encryption == nil or localized.secret_encryption == 1 then
+		output = localized.ngx_hmac_sha1(localized.secret, str)
+	else
+		output = xor_crypt(str, localized.secret)
+	end
+	output = localized.ngx_encode_base64(output) --wrap our encrypted output in base64
 	output = localized.string_gsub(output, "[+/=]", "") --Remove +/=
 	if localized.cs == nil then
 		localized.cs = {}
