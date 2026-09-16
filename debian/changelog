@@ -1,3 +1,9 @@
+nginx-lua-anti-ddos-challenge (4.7-1) stable; urgency=medium
+  - Added Feature option to use alternative encryption for javascript puzzle default is hmac sha1 - xor added
+  - Reorder functions for execution priority
+
+ -- C0nw0nk <C0nw0nk@github>  Wed, 16 Sep 2026 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (4.6-1) stable; urgency=medium
   - Performance improvements by caching outputs
 
