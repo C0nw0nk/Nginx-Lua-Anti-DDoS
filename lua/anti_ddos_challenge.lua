@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 4.7
+Script Version: 4.8
 
 Copyright Conor McKnight
 
@@ -46,10 +46,10 @@ localized.math_sqrt = math.sqrt
 localized.math_randomseed = math.randomseed
 localized.table_sort = table.sort
 localized.table_concat = table.concat
-localized.string_match = string.match
-localized.string_gmatch = string.gmatch
+localized.string_match = function(input, regex, init) if localized.string_m == nil then localized.string_m = string.match end local in_reg = input..regex..(function() if init == nil then init = "" end return localized.tostring(init) end)() if localized.string_match_run ~= nil and localized.string_match_run[in_reg] ~= nil then return localized.string_match_run[in_reg] end if localized.string_match_run == nil then localized.string_match_run = {} end localized.string_match_run[in_reg] = {} if init == "" then init = nil end localized.string_match_run[in_reg] = localized.string_m(input, regex, init) return localized.string_match_run[in_reg] end
+localized.string_gmatch = function(input, regex) if localized.string_gm == nil then localized.string_gm = string.gmatch end local in_reg = input..regex if localized.string_gmatch_run ~= nil and localized.string_gmatch_run[in_reg] ~= nil then return localized.string_gmatch_run[in_reg] end if localized.string_gmatch_run == nil then localized.string_gmatch_run = {} end localized.string_gmatch_run[in_reg] = {} localized.string_gmatch_run[in_reg] = localized.string_gm(input, regex) return localized.string_gmatch_run[in_reg] end
 localized.string_lower = string.lower
-localized.string_find = string.find
+localized.string_find = function(input, regex, init, plain) if localized.string_f == nil then localized.string_f = string.find end local in_reg = input..regex..(function() if init == nil then init = "" end return localized.tostring(init) end)()..(function() if plain == nil then plain = "" end return localized.tostring(plain) end)() if localized.string_find_run ~= nil and localized.string_find_run[in_reg] ~= nil then return localized.string_find_run[in_reg] end if localized.string_find_run == nil then localized.string_find_run = {} end localized.string_find_run[in_reg] = {} if init == "" then init = nil end if plain == "" then plain = nil end localized.string_find_run[in_reg] = localized.string_f(input, regex, init, plain) return localized.string_find_run[in_reg] end
 localized.string_sub = string.sub
 localized.string_len = string.len
 localized.string_char = string.char
@@ -60,13 +60,13 @@ localized.bit_bxor = bit.bxor
 localized.ngx = ngx
 localized.ngx_hmac_sha1 = localized.ngx.hmac_sha1
 localized.ngx_encode_base64 = localized.ngx.encode_base64
-localized.ngx_req_get_uri_args = localized.ngx.req.get_uri_args
+localized.ngx_req_get_uri_args = function() if localized.ngx_req_get_uri_args_run ~= nil then return localized.ngx_req_get_uri_args_run end localized.ngx_req_get_uri_args_run = localized.ngx.req.get_uri_args() return localized.ngx_req_get_uri_args_run end
 localized.ngx_req_set_header = localized.ngx.req.set_header
-localized.ngx_req_get_headers = localized.ngx.req.get_headers
+localized.ngx_req_get_headers = function() if localized.ngx_req_get_headers_run ~= nil then return localized.ngx_req_get_headers_run end localized.ngx_req_get_headers_run = localized.ngx.req.get_headers() return localized.ngx_req_get_headers_run end
 localized.ngx_req_set_uri_args = localized.ngx.req.set_uri_args
-localized.ngx_req_read_body = localized.ngx.req.read_body
-localized.ngx_req_get_body_data = localized.ngx.req.get_body_data
-localized.ngx_req_get_body_file = localized.ngx.req.get_body_file
+localized.ngx_req_read_body = function() if localized.req_read_body_run ~= nil then return localized.req_read_body_run end localized.req_read_body_run = localized.ngx.req.read_body() return localized.req_read_body_run end
+localized.ngx_req_get_body_data = function() if localized.ngx_req_get_body_data_run ~= nil then return localized.ngx_req_get_body_data_run end localized.ngx_req_get_body_data_run = localized.ngx.req.get_body_data() return localized.ngx_req_get_body_data_run end
+localized.ngx_req_get_body_file = function() if localized.ngx_req_get_body_file_run ~= nil then return localized.ngx_req_get_body_file_run end localized.ngx_req_get_body_file_run = localized.ngx.req.get_body_file() return localized.ngx_req_get_body_file_run end
 localized.ngx_decode_args = localized.ngx.decode_args
 localized.ngx_cookie_time = localized.ngx.cookie_time
 localized.ngx_time = localized.ngx.time
@@ -147,8 +147,7 @@ localized.URL = localized.scheme .. "://" .. localized.host .. localized.request
 localized.user_agent = localized.ngx_var_http_user_agent or "" --user agent of browser
 localized.currenttime = localized.ngx_time() --Current time on server
 localized.os_time_saved = localized.currenttime-24*60*60
-local function get_date_from_unix(wanted_type, unix_time) if localized.get_date_from_unix_cached == nil then localized.get_date_from_unix_cached = {} local day_count, year, days, month = function(yr) return (yr % 4 == 0 and (yr % 100 ~= 0 or yr % 400 == 0)) and 366 or 365 end, 1970, localized.math_floor(unix_time/86400) while days >= day_count(year) do days = days - day_count(year) year = year + 1 end local days_count = days local week = 0 local count = 0 for i=1, 52 do count = 7*i if count <= days_count then localized.get_date_from_unix_cached.week = i end end local tab_overflow = function(seed, table) for i = 1, #table do if seed - table[i] <= 0 then return i, seed end seed = seed - table[i] end end month, days = tab_overflow(days, {31,(day_count(year) == 366 and 29 or 28),31,30,31,30,31,31,30,31,30,31}) local hours, minutes, seconds = localized.math_floor(unix_time / 3600 % 24), localized.math_floor(unix_time / 60 % 60), localized.math_floor(unix_time % 60) localized.get_date_from_unix_cached.period = hours > 12 and "pm" or "am" localized.get_date_from_unix_cached.seconds = seconds localized.get_date_from_unix_cached.minutes = minutes localized.get_date_from_unix_cached.hours = hours localized.get_date_from_unix_cached.days = days localized.get_date_from_unix_cached.month = month localized.get_date_from_unix_cached.year = year end if wanted_type == "%M" then return localized.get_date_from_unix_cached.minutes end if wanted_type == "%H" then return localized.get_date_from_unix_cached.hours end if wanted_type == "%d" then return localized.get_date_from_unix_cached.days end if wanted_type == "%W" then return localized.get_date_from_unix_cached.week end if wanted_type == "%m" then return localized.get_date_from_unix_cached.month end if wanted_type == "%Y" then return localized.get_date_from_unix_cached.year end if wanted_type == "%z" then return localized.get_date_from_unix_cached.year+9 end if wanted_type == "%Y%m%d" then if localized.get_date_from_unix_cached.ymd == nil then localized.get_date_from_unix_cached.ymd = localized.string_gsub(localized.ngx.today(), "[-]", "") end return localized.get_date_from_unix_cached.ymd end if localized.get_date_from_unix_cached.full == nil then localized.get_date_from_unix_cached.full = localized.string_format("%d/%d/%04d %02d:%02d:%02d %s", localized.get_date_from_unix_cached.days, localized.get_date_from_unix_cached.month, localized.get_date_from_unix_cached.year, localized.get_date_from_unix_cached.hours, localized.get_date_from_unix_cached.minutes, localized.get_date_from_unix_cached.seconds, localized.get_date_from_unix_cached.period) end return localized.get_date_from_unix_cached.full end
-localized.os_date = get_date_from_unix
+localized.os_date = function(wanted_type, unix_time) if localized.get_date_from_unix_cached == nil then localized.get_date_from_unix_cached = {} local day_count, year, days, month = function(yr) return (yr % 4 == 0 and (yr % 100 ~= 0 or yr % 400 == 0)) and 366 or 365 end, 1970, localized.math_floor(unix_time/86400) while days >= day_count(year) do days = days - day_count(year) year = year + 1 end local days_count = days local week = 0 local count = 0 for i=1, 52 do count = 7*i if count <= days_count then localized.get_date_from_unix_cached.week = i end end local tab_overflow = function(seed, table) for i = 1, #table do if seed - table[i] <= 0 then return i, seed end seed = seed - table[i] end end month, days = tab_overflow(days, {31,(day_count(year) == 366 and 29 or 28),31,30,31,30,31,31,30,31,30,31}) local hours, minutes, seconds = localized.math_floor(unix_time / 3600 % 24), localized.math_floor(unix_time / 60 % 60), localized.math_floor(unix_time % 60) localized.get_date_from_unix_cached.period = hours > 12 and "pm" or "am" localized.get_date_from_unix_cached.seconds = seconds localized.get_date_from_unix_cached.minutes = minutes localized.get_date_from_unix_cached.hours = hours localized.get_date_from_unix_cached.days = days localized.get_date_from_unix_cached.month = month localized.get_date_from_unix_cached.year = year end if wanted_type == "%M" then return localized.get_date_from_unix_cached.minutes end if wanted_type == "%H" then return localized.get_date_from_unix_cached.hours end if wanted_type == "%d" then return localized.get_date_from_unix_cached.days end if wanted_type == "%W" then return localized.get_date_from_unix_cached.week end if wanted_type == "%m" then return localized.get_date_from_unix_cached.month end if wanted_type == "%Y" then return localized.get_date_from_unix_cached.year end if wanted_type == "%z" then return localized.get_date_from_unix_cached.year+9 end if wanted_type == "%Y%m%d" then if localized.get_date_from_unix_cached.ymd == nil then localized.get_date_from_unix_cached.ymd = localized.string_gsub(localized.ngx.today(), "[-]", "") end return localized.get_date_from_unix_cached.ymd end if localized.get_date_from_unix_cached.full == nil then localized.get_date_from_unix_cached.full = localized.string_format("%d/%d/%04d %02d:%02d:%02d %s", localized.get_date_from_unix_cached.days, localized.get_date_from_unix_cached.month, localized.get_date_from_unix_cached.year, localized.get_date_from_unix_cached.hours, localized.get_date_from_unix_cached.minutes, localized.get_date_from_unix_cached.seconds, localized.get_date_from_unix_cached.period) end return localized.get_date_from_unix_cached.full end
 --localized.os_clock = os.clock() --nulled out dev func to test speed
 --[[
 End localization
@@ -3679,11 +3678,15 @@ local function WAF_Post_Requests()
 					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
 					local args_name = localized.tostring(key) or "" --variable to store POST data argument name
 					local args_value = localized.tostring(value) or "" --variable to store POST data argument value
-					if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the POST request
-						arguement1 = 1
+					if args_name ~= "" and args_name ~= "nil" then
+						if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the POST request
+							arguement1 = 1
+						end
 					end
-					if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the POST request
-						arguement2 = 1
+					if args_value ~= "" and args_value ~= "nil" then
+						if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the POST request
+							arguement2 = 1
+						end
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
 						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST args prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
@@ -3720,12 +3723,16 @@ local function WAF_Header_Requests()
 					local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
 					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
 					local args_name = localized.tostring(key) or "" --variable to store Header data argument name
-					local args_value = localized.tostring(localized.ngx_req_get_headers()[args_name]) or ""
-					if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
-						arguement1 = 1
+					local args_value = localized.tostring(argument_request_headers[args_name]) or ""
+					if args_name ~= "" and args_name ~= "nil" then
+						if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
+							arguement1 = 1
+						end
 					end
-					if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
-						arguement2 = 1
+					if args_value ~= "" and args_value ~= "nil" then
+						if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
+							arguement2 = 1
+						end
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
 						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
@@ -3762,12 +3769,16 @@ local function WAF_query_string_Request()
 					local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
 					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
 					local args_name = localized.tostring(key) or "" --variable to store query string data argument name
-					local args_value = localized.tostring(localized.ngx_req_get_uri_args()[args_name]) or "" --variable to store query string data argument value
-					if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
-						arguement1 = 1
+					local args_value = localized.tostring(args[args_name]) or "" --variable to store query string data argument value
+					if args_name ~= "" and args_name ~= "nil" then
+						if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
+							arguement1 = 1
+						end
 					end
-					if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
-						arguement2 = 1
+					if args_value ~= "" and args_value ~= "nil" then
+						if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
+							arguement2 = 1
+						end
 					end
 					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
 						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Query String prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
@@ -3796,14 +3807,15 @@ local function WAF_URI_Request()
 		So to keep the security strong I match the same version your web application would need protecting from (Yes the encoded copy that could contain malicious / exploitable contents)
 		]]
 		local args = localized.string_gsub(localized.request_uri, "?.*", "") --remove the query string from the uri
-
-		for i=1,#localized.WAF_URI_Request_table do --for each host in our table
-			local v = localized.WAF_URI_Request_table[i]
-			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
-				if localized.string_find(args, v[2]) then
-					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request URI prohibited : " .. localized.URL .. " - IP : " .. localized.remote_addr)
-					close_connection()
-					return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
+		if args ~= nil and args ~= "" and args ~= "nil" and args ~= "/" then
+			for i=1,#localized.WAF_URI_Request_table do --for each host in our table
+				local v = localized.WAF_URI_Request_table[i]
+				if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
+					if localized.string_find(args, v[2]) then
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request URI prohibited : " .. localized.URL .. " - IP : " .. localized.remote_addr)
+						close_connection()
+						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
+					end
 				end
 			end
 		end
