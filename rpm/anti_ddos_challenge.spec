@@ -66,6 +66,8 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Fri Sep 18 2026 C0nw0nk <C0nw0nk@github> - 4.8-1
+- Caching on strings and Improvements.
 * Wed Sep 16 2026 C0nw0nk <C0nw0nk@github> - 4.7-1
 - Added Feature option to use alternative encryption for javascript puzzle default is hmac sha1 - xor added
 - Reorder functions for execution priority
