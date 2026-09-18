@@ -1,3 +1,7 @@
+Version: 4.8
+Date: 2026-09-18
+- Caching on strings and Improvements.
+
 Version: 4.7
 Date: 2026-09-16
 - Added Feature option to use alternative encryption for javascript puzzle default is hmac sha1 - xor added
