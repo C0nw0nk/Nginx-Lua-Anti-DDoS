@@ -68,7 +68,7 @@ localized.ngx_req_read_body = function() if localized.req_read_body_run ~= nil t
 localized.ngx_req_get_body_data = function() if localized.ngx_req_get_body_data_run ~= nil then return localized.ngx_req_get_body_data_run end localized.ngx_req_get_body_data_run = localized.ngx.req.get_body_data() return localized.ngx_req_get_body_data_run end
 localized.ngx_req_get_body_file = function() if localized.ngx_req_get_body_file_run ~= nil then return localized.ngx_req_get_body_file_run end localized.ngx_req_get_body_file_run = localized.ngx.req.get_body_file() return localized.ngx_req_get_body_file_run end
 localized.ngx_decode_args = localized.ngx.decode_args
-localized.ngx_cookie_time = localized.ngx.cookie_time
+localized.ngx_cookie_time = function(input) if localized.ngx_cookie_time_f == nil then localized.ngx_cookie_time_f = localized.ngx.cookie_time end local in_reg = (function() return localized.tostring(input) end)() if localized.ngx_cookie_time_run ~= nil and localized.ngx_cookie_time_run[in_reg.."one"] ~= nil then return localized.ngx_cookie_time_run[in_reg.."one"] end if localized.ngx_cookie_time_run == nil then localized.ngx_cookie_time_run = {} end localized.ngx_cookie_time_run[in_reg.."one"] = {} localized.ngx_cookie_time_run[in_reg.."one"] = localized.ngx_cookie_time_f(input) return localized.ngx_cookie_time_run[in_reg.."one"] end
 localized.ngx_time = localized.ngx.time
 localized.ngx_header = localized.ngx.header
 localized.ngx_var = localized.ngx.var
