@@ -1,3 +1,7 @@
+Version: 4.9
+Date: 2026-09-19
+- Improve Performance of functions.
+
 Version: 4.8
 Date: 2026-09-18
 - Caching on strings and Improvements.
