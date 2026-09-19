@@ -3,6 +3,11 @@ nginx-lua-anti-ddos-challenge (4.9-1) stable; urgency=medium
 
  -- C0nw0nk <C0nw0nk@github>  Sat, 19 Sep 2026 00:00:00 +0000
 
+nginx-lua-anti-ddos-challenge (4.9-1) stable; urgency=medium
+  - Improve Performance of functions.
+
+ -- C0nw0nk <C0nw0nk@github>  Sat, 19 Sep 2026 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (4.8-1) stable; urgency=medium
   - Caching on strings and Improvements.
 
