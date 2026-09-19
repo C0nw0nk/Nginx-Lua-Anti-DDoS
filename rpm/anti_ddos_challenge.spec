@@ -66,6 +66,8 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Sat Sep 19 2026 C0nw0nk <C0nw0nk@github> - 4.9-1
+- Improve Performance of functions.
 * Fri Sep 18 2026 C0nw0nk <C0nw0nk@github> - 4.8-1
 - Caching on strings and Improvements.
 * Wed Sep 16 2026 C0nw0nk <C0nw0nk@github> - 4.7-1
