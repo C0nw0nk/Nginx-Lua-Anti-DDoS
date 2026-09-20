@@ -1,3 +1,7 @@
+Version: 5.0
+Date: 2026-09-20
+- ngx.req.get_method() is faster than ngx.var.request_method
+
 Version: 4.9
 Date: 2026-09-19
 - Improve Performance of functions.
