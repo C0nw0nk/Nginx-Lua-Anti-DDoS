@@ -66,6 +66,8 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Sun Sep 20 2026 C0nw0nk <C0nw0nk@github> - 5.0-1
+- ngx.req.get_method() is faster than ngx.var.request_method
 * Sat Sep 19 2026 C0nw0nk <C0nw0nk@github> - 4.9-1
 - Improve Performance of functions.
 * Sat Sep 19 2026 C0nw0nk <C0nw0nk@github> - 4.9-1

@@ -1,3 +1,8 @@
+nginx-lua-anti-ddos-challenge (5.0-1) stable; urgency=medium
+  - ngx.req.get_method() is faster than ngx.var.request_method
+
+ -- C0nw0nk <C0nw0nk@github>  Sun, 20 Sep 2026 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (4.9-1) stable; urgency=medium
   - Improve Performance of functions.
 
