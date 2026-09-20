@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 4.9
+Script Version: 5.0
 
 Copyright Conor McKnight
 
@@ -530,7 +530,7 @@ localized.content_cache = {
 		".*", --regex match any site / path
 		"video/mp4", --content-type valid types are video to match all video formats or video/mp4 video/webm etc
 		--lua_shared_dict mp4_cache 300m; #video mp4 cache
-		localized.remote_servers_table,--localized.ngx.shared.mp4_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict mp4_cache 300m; #video mp4 cache  or lua table `localized.remote_servers_table` for advanced options
+		localized.remote_servers_table,--localized.ngx.shared.mp4_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict mp4_cache 300m; #video mp4 cache or lua table `localized.remote_servers_table` for advanced options
 		60, --ttl for cache or "" if using memcache for memory storage use seconds not milliseconds memcache does not support milliseconds
 		1, --enable logging 1 to enable 0 to disable
 		{200,206,}, --response status codes to cache
@@ -568,7 +568,7 @@ localized.content_cache = {
 		".*", --regex match any site / path
 		"image", --content-type for image/png image/jpeg image/x-icon etc
 		--lua_shared_dict image_cache 300m; #image cache
-		localized.remote_servers_table,--localized.ngx.shared.image_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict image_cache 300m; #image cache  or lua table `localized.remote_servers_table` for advanced options
+		localized.remote_servers_table,--localized.ngx.shared.image_cache, --shared cache zone to use or empty string to not use "" lua_shared_dict image_cache 300m; #image cache or lua table `localized.remote_servers_table` for advanced options
 		60, --ttl for cache or "" if using memcache for memory storage use seconds not milliseconds memcache does not support milliseconds
 		1, --enable logging 1 to enable 0 to disable
 		{200,206,}, --response status codes to cache
@@ -2965,9 +2965,9 @@ local function ip_address_in_range(input_ip, client_connecting_ip)
 		--output
 		--[[
 		localized.ngx_log(localized.ngx_LOG_TYPE, '###### INFO ######' )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'IP in: ' .. ip[1] .. '.' .. ip[2] .. '.' .. ip[3] .. '.' .. ip[4]  )
+		localized.ngx_log(localized.ngx_LOG_TYPE, 'IP in: ' .. ip[1] .. '.' .. ip[2] .. '.' .. ip[3] .. '.' .. ip[4] )
 		localized.ngx_log(localized.ngx_LOG_TYPE, 'Mask in: /' .. mask )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '=> Mask Wildcard: ' .. wildcard[1] .. '.' .. wildcard[2] .. '.' .. wildcard[3] .. '.' .. wildcard[4]  )
+		localized.ngx_log(localized.ngx_LOG_TYPE, '=> Mask Wildcard: ' .. wildcard[1] .. '.' .. wildcard[2] .. '.' .. wildcard[3] .. '.' .. wildcard[4] )
 		localized.ngx_log(localized.ngx_LOG_TYPE, '=> in IP is network-ip: ' .. localized.tostring( isnetworkip ) )
 		localized.ngx_log(localized.ngx_LOG_TYPE, '=> in IP is broadcast-ip: ' .. localized.tostring( isbroadcastip ) )
 		localized.ngx_log(localized.ngx_LOG_TYPE, '\n###### BLOCK ######' )
@@ -3863,7 +3863,7 @@ local function get_resp_content_type(forced) --incase content-type header not ye
 		CONNECT = localized.ngx_HTTP_CONNECT, --does not exist but put here never know in the future
 	}
 	local res = localized.ngx.location.capture(localized.request_uri, {
-	--method = map[localized.ngx_var.request_method],
+	--method = map[localized.ngx.req.get_method()],
 	method = map[HEAD],
 	--headers = req_headers,
 	})
@@ -6204,7 +6204,7 @@ local function anti_ddos()
 					end
 
 					if ip == "auto" then
-						--localized.ngx_log(localized.ngx_LOG_TYPE, "Proxy IP found in whitelist - " .. localized.tostring(proxy_header_ip_check(localized.proxy_header_table)) .. " http_internal = " .. localized.tostring(localized.ngx_var_http_internal)  )
+						--localized.ngx_log(localized.ngx_LOG_TYPE, "Proxy IP found in whitelist - " .. localized.tostring(proxy_header_ip_check(localized.proxy_header_table)) .. " http_internal = " .. localized.tostring(localized.ngx_var_http_internal) )
 						if localized.ngx_var_http_cf_connecting_ip ~= nil then
 							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
 								ip = localized.ngx_var_http_cf_connecting_ip
@@ -6437,11 +6437,11 @@ local function anti_ddos()
 
 					if #v[26] > 0 then
 						for i=1,#v[26] do
-							if localized.string_lower(localized.ngx_var.request_method) == localized.string_lower(v[26][i][1]) then
+							if localized.string_lower(localized.ngx.req.get_method()) == localized.string_lower(v[26][i][1]) then
 								if v[26][i][3] > 0 then
 									if ip_whitelist_flood_checks(localized.ip_whitelist) and check_tor_onion() == false then --if true then block ip
 										if v[7] == 1 then
-											localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked using prohibited Request Method : " .. localized.ngx_var.request_method .. " - " .. ip)
+											localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked using prohibited Request Method : " .. localized.ngx.req.get_method() .. " - " .. ip)
 										end
 										--Block IP
 										if localized.resty_redis == 1 then
@@ -6604,7 +6604,7 @@ local function anti_ddos()
 					end
 
 					if ip == "auto" then
-						--localized.ngx_log(localized.ngx_LOG_TYPE, "Proxy IP found in whitelist - " .. localized.tostring(proxy_header_ip_check(localized.proxy_header_table)) .. " http_internal = " .. localized.tostring(localized.ngx_var_http_internal)  )
+						--localized.ngx_log(localized.ngx_LOG_TYPE, "Proxy IP found in whitelist - " .. localized.tostring(proxy_header_ip_check(localized.proxy_header_table)) .. " http_internal = " .. localized.tostring(localized.ngx_var_http_internal) )
 						if localized.ngx_var_http_cf_connecting_ip ~= nil then
 							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
 								ip = localized.ngx_var_http_cf_connecting_ip
@@ -6684,9 +6684,9 @@ local function anti_ddos()
 
 					if #v[26] > 0 then
 						for i=1,#v[26] do
-							if localized.string_lower(localized.ngx_var.request_method) == localized.string_lower(v[26][i][1]) then
+							if localized.string_lower(localized.ngx.req.get_method()) == localized.string_lower(v[26][i][1]) then
 								if v[7] == 1 then
-									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked using prohibited Request Method : " .. localized.ngx_var.request_method .. " - " .. ip)
+									localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Blocked using prohibited Request Method : " .. localized.ngx.req.get_method() .. " - " .. ip)
 								end
 								if v[26][i][2] ~= 444 and v[26][i][2] ~= 204 then --no point with gzip on these
 									localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
@@ -6946,7 +6946,7 @@ header_append_ip()
 end
 if localized.ngx_var_http_internal ~= nil then --2nd layer
 	if localized.ngx_var_http_internal_log == 1 then
-		localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Internal call back again  : ")
+		localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Internal call back again : ")
 	end
 	if localized.ngx_var_http_internal_header_name ~= nil then
 		localized.ngx_req_set_header(localized.ngx_var_http_internal_header_name, nil) --remove internal header
@@ -7251,7 +7251,7 @@ localized.math_randomseed(getRandomSeed())
 String XOR helper function
 ]]
 local function xorChar(c, key)
-    return localized.string_char(localized.bit_bxor(localized.string_byte(c), key))
+	return localized.string_char(localized.bit_bxor(localized.string_byte(c), key))
 end
 --[[
 End String XOR helper function
@@ -7260,7 +7260,7 @@ End String XOR helper function
 Char Shift helper function
 ]]
 local function shiftChar(c, amount)
-    return localized.string_char((localized.string_byte(c) + amount) % 256)
+	return localized.string_char((localized.string_byte(c) + amount) % 256)
 end
 --[[
 End Char Shift helper function
@@ -7268,16 +7268,16 @@ End Char Shift helper function
 --[[
 Calculate answer Function
 ]]--
-local function calculateAnswer(client_signature) 
-    local seed = localized.math_floor(localized.math_sin(localized.tonumber(localized.os_date("%Y%m%d", localized.os_time_saved))) * 1000)
-    local key = seed % 256
-    local shiftAmount = localized.math_floor((seed * localized.math_sin(seed)) % 10) + 1
+local function calculateAnswer(client_signature)
+	local seed = localized.math_floor(localized.math_sin(localized.tonumber(localized.os_date("%Y%m%d", localized.os_time_saved))) * 1000)
+	local key = seed % 256
+	local shiftAmount = localized.math_floor((seed * localized.math_sin(seed)) % 10) + 1
 
-    local result = ""
-    for i = 1, #client_signature do
-        result = result .. shiftChar(xorChar(localized.string_sub(client_signature, i, i), (key + i - 1) % 256), shiftAmount)
-    end
-    return localized.ngx_encode_base64(result)
+	local result = ""
+	for i = 1, #client_signature do
+		result = result .. shiftChar(xorChar(localized.string_sub(client_signature, i, i), (key + i - 1) % 256), shiftAmount)
+	end
+	return localized.ngx_encode_base64(result)
 end
 --[[
 End Calculate answer Function
@@ -7307,11 +7307,11 @@ end
 --generate random strings on the fly
 --qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890
 local charset = {}
-for i = 48,  57 do
+for i=48, 57 do
 charset[#charset+1] = localized.string_char(i)
 end --0-9 numeric
 --[[
-for i = 65,  90 do
+for i=65, 90 do
 charset[#charset+1] = localized.string_char(i)
 end --A-Z uppercase
 ]]
@@ -7879,10 +7879,10 @@ local function grant_access()
 	--else all checks passed bypass our firewall and show page content
 
 	if localized.log_users_granted_access == 1 then
-		localized.ngx_log(localized.ngx_LOG_TYPE,  localized.log_on_granted_text_start .. localized.remote_addr .. localized.log_on_granted_text_end)
+		localized.ngx_log(localized.ngx_LOG_TYPE, localized.log_on_granted_text_start .. localized.remote_addr .. localized.log_on_granted_text_end)
 	end
 	if localized.os_clock ~= nil then
-		localized.ngx_log(localized.ngx_LOG_TYPE,  " Grant Elapsed time is: " .. os.clock()-localized.os_clock)
+		localized.ngx_log(localized.ngx_LOG_TYPE, " Grant Elapsed time is: " .. os.clock()-localized.os_clock)
 	end
 	return master_exit() --Go to content
 end
@@ -7899,7 +7899,7 @@ return --exit from run_checks() function
 end
 
 if localized.log_users_on_puzzle == 1 then
-	localized.ngx_log(localized.ngx_LOG_TYPE,  localized.log_on_puzzle_text_start .. localized.remote_addr .. localized.log_on_puzzle_text_end)
+	localized.ngx_log(localized.ngx_LOG_TYPE, localized.log_on_puzzle_text_start .. localized.remote_addr .. localized.log_on_puzzle_text_end)
 end
 
 --Fix localized.remote_addr output as what ever IP address the Client is using
@@ -7989,10 +7989,10 @@ sh = screen.height;
 ww = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth || 0;
 wh = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight || 0;
 if ((sw == ww) && (sh == wh)) {
-    v = true;
-    if (!(ww % 200) && (wh % 100)) {
-        v = true;
-    }
+	v = true;
+	if (!(ww % 200) && (wh % 100)) {
+		v = true;
+	}
 }
 //v = true; //test var nulled out used for debugging purpose
 if (v == true) {
@@ -8026,13 +8026,12 @@ Javascript Puzzle for web browser to solve do not touch this unless you understa
 localized.JavascriptPuzzleVars = [[
 	(function(){var ]]..JsPuzzleVar1..[[=Math.floor(1E3*Math.sin(']]..localized.os_date("%Y%m%d", localized.os_time_saved)..[[')),]]..JsPuzzleVar2..[[=]]..JsPuzzleVar5..[[(]]..JsPuzzleVar1..[[,256),]]..JsPuzzleVar3..[[=Math.floor(]]..JsPuzzleVar5..[[(]]..JsPuzzleVar1..[[*Math.sin(]]..JsPuzzleVar1..[[),10))+1;]]..JsPuzzleVar1..[[=']]..answer..[['.split("").map(function(]]..JsPuzzleVar1..[[,]]..JsPuzzleVar4..[[){return String.fromCharCode(]]..JsPuzzleVar5..[[((String.fromCharCode(]]..JsPuzzleVar5..[[(]]..JsPuzzleVar1..[[.charCodeAt(0)^(]]..JsPuzzleVar2..[[+]]..JsPuzzleVar4..[[),256)).charCodeAt(0)+]]..JsPuzzleVar3..[[),256))}).join("");return btoa(]]..JsPuzzleVar1..[[)})();
 ]] --JavaScript code to produce a unique string by using client's signature and yesterday's date and XORing them
-   --Made it more secure by using random variable names on each run.
-   --Could be obfuscated as well in the future
+	--Made it more secure by using random variable names on each run.
+	--Could be obfuscated as well in the future
 
 localized.JavascriptPuzzleHelperFunctions = [[
 	function ]]..JsPuzzleVar5..[[(_,__){return ((_ % __) + __) % __;}
 ]]
-   
 
 localized.JavascriptPuzzleVariable = [[
 var ]] .. JavascriptPuzzleVariable_name .. [[=]] .. localized.JavascriptPuzzleVars ..[[;
@@ -8219,7 +8218,7 @@ localized.ngx_header.content_type = "text/html; charset=" .. localized.default_c
 localized.ngx_status = authentication_page_status_output
 localized.ngx_say(localized.anti_ddos_html_output)
 if localized.os_clock ~= nil then
-localized.ngx_log(localized.ngx_LOG_TYPE,  " Puzzle Elapsed time is: " .. os.clock()-localized.os_clock)
+localized.ngx_log(localized.ngx_LOG_TYPE, " Puzzle Elapsed time is: " .. os.clock()-localized.os_clock)
 end
 close_connection()
 localized.ngx_exit(authentication_page_status_output)
@@ -8228,11 +8227,11 @@ end
 run_checks() --nest function to prevent function at line 1 has more than 200 local variables and function at line X has more than X upvalues just my way of putting locals inside functions to get around the 200 limit
 
 if localized.content_cache == nil or #localized.content_cache == 0 then
-	--localized.ngx_log(localized.ngx_LOG_TYPE,  " resp_content_type before " .. get_resp_content_type() )
+	--localized.ngx_log(localized.ngx_LOG_TYPE, " resp_content_type before " .. get_resp_content_type() )
 	if localized.content_type_fix then
 		get_resp_content_type(1) --fix for random bug where content-type output is application/octet-stream on text/html seems to only happen on a / directory not a /index.html
 	end
-	--localized.ngx_log(localized.ngx_LOG_TYPE,  " resp_content_type after " .. get_resp_content_type() )
+	--localized.ngx_log(localized.ngx_LOG_TYPE, " resp_content_type after " .. get_resp_content_type() )
 	if localized.exit_status then
 		close_connection()
 		localized.ngx_exit(localized.ngx_OK) --Go to content
@@ -8310,7 +8309,7 @@ local function minification(content_type_list)
 			local request_uri_match = 0
 			if content_type_list[i][7] ~= "" then
 				for a=1, #content_type_list[i][7] do
-					if localized.ngx_var.request_method == content_type_list[i][7][a] then
+					if localized.ngx.req.get_method() == content_type_list[i][7][a] then
 						request_method_match = 1
 						break
 					end
@@ -8603,7 +8602,7 @@ local function minification(content_type_list)
 					end
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " cookies are " .. cookie_string)
 
-					local key = localized.ngx_var.request_method .. localized.scheme .. "://" .. localized.host .. content_type_list[i][12] .. cookie_string .. request_body --fastcgi_cache_key / proxy_cache_key - GET - https - :// - localized.host - localized.request_uri - request_header["cookie"] - request_body
+					local key = localized.ngx.req.get_method() .. localized.scheme .. "://" .. localized.host .. content_type_list[i][12] .. cookie_string .. request_body --fastcgi_cache_key / proxy_cache_key - GET - https - :// - localized.host - localized.request_uri - request_header["cookie"] - request_body
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " full cache key is " .. key)
 
 					local content_type_cache = cached:get(secure_storage(0, "content-type"..key)) or nil
@@ -8614,7 +8613,7 @@ local function minification(content_type_list)
 							if content_type_list[i][13] and check_resty_http() then
 								local httpc = require("resty.http").new()
 								local res = httpc:request_uri(content_type_list[i][12], {
-									method = map[localized.ngx_var.request_method],
+									method = map[localized.ngx.req.get_method()],
 									body = request_body, --localized.ngx_var.request_body,
 									headers = headers_forward(),
 								})
@@ -8703,7 +8702,7 @@ local function minification(content_type_list)
 															localized.ngx_header[headerName] = header
 														end
 													end
-													if content_type_list[i][11] == 1 or  content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
+													if content_type_list[i][11] == 1 or content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
 														localized.ngx_header["Set-Cookie"] = nil
 													end
 													localized.ngx_header["Content-Length"] = #output_minified
@@ -8723,7 +8722,7 @@ local function minification(content_type_list)
 							else
 
 								local res = localized.ngx.location.capture(content_type_list[i][12], {
-								method = map[localized.ngx_var.request_method],
+								method = map[localized.ngx.req.get_method()],
 								body = request_body, --localized.ngx_var.request_body,
 								args = "",
 								headers = headers_forward(),
@@ -8813,7 +8812,7 @@ local function minification(content_type_list)
 															localized.ngx_header[headerName] = header
 														end
 													end
-													if content_type_list[i][11] == 1 or  content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
+													if content_type_list[i][11] == 1 or content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
 														localized.ngx_header["Set-Cookie"] = nil
 													end
 													localized.ngx_header["Content-Length"] = #output_minified
@@ -8908,7 +8907,7 @@ local function minification(content_type_list)
 						if content_type_list[i][13] and check_resty_http() then
 							local httpc = require("resty.http").new()
 							local res = httpc:request_uri(content_type_list[i][12], {
-								method = map[localized.ngx_var.request_method],
+								method = map[localized.ngx.req.get_method()],
 								body = request_body, --localized.ngx_var.request_body,
 								headers = headers_forward(),
 							})
@@ -8968,7 +8967,7 @@ local function minification(content_type_list)
 														localized.ngx_header[headerName] = header
 													end
 												end
-												--if content_type_list[i][11] == 1 or  content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
+												--if content_type_list[i][11] == 1 or content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
 													--localized.ngx_header["Set-Cookie"] = nil
 												--end
 												localized.ngx_header["Content-Length"] = #output_minified
@@ -8989,7 +8988,7 @@ local function minification(content_type_list)
 						--[[]]
 
 							local res = localized.ngx.location.capture(content_type_list[i][12], {
-							method = map[localized.ngx_var.request_method],
+							method = map[localized.ngx.req.get_method()],
 							body = request_body, --localized.ngx_var.request_body,
 							args = "",
 							headers = headers_forward(),
@@ -9050,7 +9049,7 @@ local function minification(content_type_list)
 														localized.ngx_header[headerName] = header
 													end
 												end
-												--if content_type_list[i][11] == 1 or  content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
+												--if content_type_list[i][11] == 1 or content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
 													--localized.ngx_header["Set-Cookie"] = nil
 												--end
 												localized.ngx_header["Content-Length"] = #output_minified
@@ -9077,11 +9076,11 @@ local function minification(content_type_list)
 		--::end_for_loop::
 
 		if i >= #content_type_list then --last occurance
-			--localized.ngx_log(localized.ngx_LOG_TYPE,  "count is " .. i .. " " .. localized.get_resp_content_type_counter .. " resp_content_type before " .. get_resp_content_type() .. " and " .. localized.ngx_header["Content-Type"]  )
+			--localized.ngx_log(localized.ngx_LOG_TYPE, "count is " .. i .. " " .. localized.get_resp_content_type_counter .. " resp_content_type before " .. get_resp_content_type() .. " and " .. localized.ngx_header["Content-Type"] )
 			if localized.content_type_fix then
 				get_resp_content_type(1) --fix for random bug where content-type output is application/octet-stream on text/html seems to only happen on a / directory not a /index.html
 			end
-			--localized.ngx_log(localized.ngx_LOG_TYPE,  localized.get_resp_content_type_counter .. " resp_content_type after " .. get_resp_content_type() )
+			--localized.ngx_log(localized.ngx_LOG_TYPE, localized.get_resp_content_type_counter .. " resp_content_type after " .. get_resp_content_type() )
 		end
 
 	end --end content_type foreach mime type table check
