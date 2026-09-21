@@ -1,3 +1,7 @@
+Version: 5.2
+Date: 2026-09-21
+- Fixes for multiple headers of the same type that Lua creates into a table just use the latest / last value.
+
 Version: 5.1
 Date: 2026-09-21
 - localized.ngx.now()-localized.ngx.req.start_time() is faster than localized.ngx_var.request_time
