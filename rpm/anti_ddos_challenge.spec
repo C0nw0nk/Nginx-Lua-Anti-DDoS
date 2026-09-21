@@ -66,6 +66,9 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Mon Sep 21 2026 C0nw0nk <C0nw0nk@github> - 5.1-1
+- localized.ngx.now()-localized.ngx.req.start_time() is faster than localized.ngx_var.request_time
+- Use cached functions on other header checks for better performance.
 * Sun Sep 20 2026 C0nw0nk <C0nw0nk@github> - 5.0-1
 - ngx.req.get_method() is faster than ngx.var.request_method
 * Sun Sep 20 2026 C0nw0nk <C0nw0nk@github> - 5.0-1
