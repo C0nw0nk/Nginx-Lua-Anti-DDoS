@@ -1,3 +1,8 @@
+Version: 5.1
+Date: 2026-09-21
+- localized.ngx.now()-localized.ngx.req.start_time() is faster than localized.ngx_var.request_time
+- Use cached functions on other header checks for better performance.
+
 Version: 5.0
 Date: 2026-09-20
 - ngx.req.get_method() is faster than ngx.var.request_method
