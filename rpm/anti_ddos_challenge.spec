@@ -66,6 +66,8 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Mon Sep 21 2026 C0nw0nk <C0nw0nk@github> - 5.2-1
+- Fixes for multiple headers of the same type that Lua creates into a table just use the latest / last value.
 * Mon Sep 21 2026 C0nw0nk <C0nw0nk@github> - 5.1-1
 - localized.ngx.now()-localized.ngx.req.start_time() is faster than localized.ngx_var.request_time
 - Use cached functions on other header checks for better performance.
