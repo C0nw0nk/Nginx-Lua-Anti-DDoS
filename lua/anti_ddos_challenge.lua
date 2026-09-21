@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 5.1
+Script Version: 5.2
 
 Copyright Conor McKnight
 
@@ -130,11 +130,11 @@ localized.ngx_HTTP_PATCH = localized.ngx.HTTP_PATCH
 localized.ngx_HTTP_TRACE = localized.ngx.HTTP_TRACE
 --localized.ngx_HTTP_CONNECT = localized.ngx.HTTP_CONNECT --does not exist but put here never know in the future
 localized.ngx_OK = localized.ngx.OK --go to content
-localized.ngx_var_http_cf_connecting_ip = localized.ngx_req_get_headers()["CF-Connecting-IP"] or nil --localized.ngx_var.http_cf_connecting_ip or nil
-localized.ngx_var_http_x_forwarded_for = localized.ngx_req_get_headers()["X-Forwarded-For"] or nil --localized.ngx_var.http_x_forwarded_for or nil
+localized.ngx_var_http_cf_connecting_ip = localized.ngx_req_get_headers()["CF-Connecting-IP"] or nil (function() local value = localized.ngx_var_http_cf_connecting_ip if localized.type(value) == "table" then local output = nil for i=1, #value do output = value[i] end localized.ngx_var_http_cf_connecting_ip = output else localized.ngx_var_http_cf_connecting_ip = value end end)()
+localized.ngx_var_http_x_forwarded_for = localized.ngx_req_get_headers()["X-Forwarded-For"] or nil (function() local value = localized.ngx_var_http_x_forwarded_for if localized.type(value) == "table" then local output = nil for i=1, #value do output = value[i] end localized.ngx_var_http_x_forwarded_for = output else localized.ngx_var_http_x_forwarded_for = value end end)()
 localized.ngx_var_remote_addr = localized.ngx_var.remote_addr
 localized.ngx_var_binary_remote_addr = localized.ngx_var_remote_addr --set binary to remote for the sake of logs displaying ips
-localized.ngx_var_http_user_agent = localized.ngx_req_get_headers()["User-Agent"] or ""
+localized.ngx_var_http_user_agent = localized.ngx_req_get_headers()["User-Agent"] or "" (function() local value = localized.ngx_var_http_user_agent if localized.type(value) == "table" then local output = nil for i=1, #value do output = value[i] end localized.ngx_var_http_user_agent = output else localized.ngx_var_http_user_agent = value end end)()
 localized.ngx_log = localized.ngx.log
 -- https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#nginx-log-level-constants
 localized.ngx_LOG_TYPE = localized.ngx.STDERR
