@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 5.0
+Script Version: 5.1
 
 Copyright Conor McKnight
 
@@ -130,16 +130,14 @@ localized.ngx_HTTP_PATCH = localized.ngx.HTTP_PATCH
 localized.ngx_HTTP_TRACE = localized.ngx.HTTP_TRACE
 --localized.ngx_HTTP_CONNECT = localized.ngx.HTTP_CONNECT --does not exist but put here never know in the future
 localized.ngx_OK = localized.ngx.OK --go to content
-localized.ngx_var_http_cf_connecting_ip = localized.ngx_var.http_cf_connecting_ip or nil
-localized.ngx_var_http_x_forwarded_for = localized.ngx_var.http_x_forwarded_for or nil
+localized.ngx_var_http_cf_connecting_ip = localized.ngx_req_get_headers()["CF-Connecting-IP"] or nil --localized.ngx_var.http_cf_connecting_ip or nil
+localized.ngx_var_http_x_forwarded_for = localized.ngx_req_get_headers()["X-Forwarded-For"] or nil --localized.ngx_var.http_x_forwarded_for or nil
 localized.ngx_var_remote_addr = localized.ngx_var.remote_addr
 localized.ngx_var_binary_remote_addr = localized.ngx_var_remote_addr --set binary to remote for the sake of logs displaying ips
-localized.ngx_var_http_user_agent = localized.ngx_var.http_user_agent
+localized.ngx_var_http_user_agent = localized.ngx_req_get_headers()["User-Agent"] or ""
 localized.ngx_log = localized.ngx.log
 -- https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#nginx-log-level-constants
 localized.ngx_LOG_TYPE = localized.ngx.STDERR
-localized.ngx_var_connection_requests = localized.ngx_var.connection_requests or 0 --default timeout per connection in nginx is 60 seconds unless you have changed your timeout configs
-localized.ngx_var_request_length = localized.ngx_var.request_length or 0
 localized.scheme = localized.ngx_var.scheme --scheme is HTTP or HTTPS
 localized.host = localized.ngx_var.host --host is website domain name
 localized.request_uri = localized.ngx_var.request_uri or "/" --request uri is full URL link including query strings and arguements
@@ -3863,8 +3861,8 @@ local function get_resp_content_type(forced) --incase content-type header not ye
 		CONNECT = localized.ngx_HTTP_CONNECT, --does not exist but put here never know in the future
 	}
 	local res = localized.ngx.location.capture(localized.request_uri, {
-	--method = map[localized.ngx.req.get_method()],
-	method = map[HEAD],
+	method = map[localized.ngx.req.get_method()],
+	--method = map[HEAD],
 	--headers = req_headers,
 	})
 	if res then
@@ -4517,7 +4515,7 @@ local function internal_header_setup()
 		end
 		localized.ngx_var_http_internal_header_name = localized.ngx_encode_base64(localized.ngx_var_http_internal_header_name) --wrap encrypted header in base64
 		localized.ngx_var_http_internal_header_name = localized.string_gsub(localized.ngx_var_http_internal_header_name, "[+/=]", "") --Remove +/=
-		localized.ngx_var_http_internal = localized.ngx_var["http_"..localized.ngx_var_http_internal_header_name] or nil
+		localized.ngx_var_http_internal = localized.ngx_req_get_headers()[localized.ngx_var_http_internal_header_name] or nil --localized.ngx_var["http_"..localized.ngx_var_http_internal_header_name] or nil
 		localized.ngx_var_http_internal_log = 0
 
 		if localized.ngx_var_http_internal_log == 1 then --log the internal request headers
@@ -4933,7 +4931,7 @@ local function anti_ddos()
 		end
 
 		--Detect slow request time
-		local request_time = localized.ngx_var.request_time
+		local request_time = localized.ngx.now()-localized.ngx.req.start_time() --localized.ngx_var.request_time
 		if request_time and localized.tonumber(request_time) > timeout then
 			if logging_value == 1 then
 				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Slow request time exceeded timeout.")
@@ -6175,34 +6173,6 @@ local function anti_ddos()
 						end
 					end
 
-					if v[2] >= 1 then --limit keep alive ip
-						if localized.tonumber(localized.ngx_var_connection_requests) >= v[2] then
-							if v[7] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE,"[Anti-DDoS] Exceeded Number of keepalive conns from IP " .. localized.ngx_var_connection_requests )
-							end
-							close_connection()
-							localized.ngx_exit(v[3])
-						end
-					end
-					if v[4] >= 1 then --limit request size smaller than
-						if localized.tonumber(localized.ngx_var_request_length) <= v[4] then --1000 bytes = 1kb
-							if v[7] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE,"[Anti-DDoS] Request Smaller than allowed LENGTH in bytes " .. localized.ngx_var_request_length )
-							end
-							close_connection()
-							localized.ngx_exit(v[6])
-						end
-					end
-					if v[5] >= 1 then --limit request size greater than
-						if localized.tonumber(localized.ngx_var_request_length) >= v[5] then --1000 bytes = 1kb
-							if v[7] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE,"[Anti-DDoS] Request Larger than allowed LENGTH in bytes " .. localized.ngx_var_request_length )
-							end
-							close_connection()
-							localized.ngx_exit(v[6])
-						end
-					end
-
 					if ip == "auto" then
 						--localized.ngx_log(localized.ngx_LOG_TYPE, "Proxy IP found in whitelist - " .. localized.tostring(proxy_header_ip_check(localized.proxy_header_table)) .. " http_internal = " .. localized.tostring(localized.ngx_var_http_internal) )
 						if localized.ngx_var_http_cf_connecting_ip ~= nil then
@@ -6565,16 +6535,13 @@ local function anti_ddos()
 						end
 					end
 
-				else
-					local content_limit = v[12]
-					local timeout = v[13]
-					local connection_header_timeout = v[14]
-					local connection_header_max_conns = v[15]
-					local slow_limit_exit_status = v[16]
-					local range_whitelist_blacklist = v[17]
-					local range_table = v[18]
-					local ip = v[22]
-
+					--ordering ngx_var checks last
+					if localized.ngx_var_connection_requests == nil then
+						localized.ngx_var_connection_requests = localized.ngx_var.connection_requests or 0 --default timeout per connection in nginx is 60 seconds unless you have changed your timeout configs
+					end
+					if localized.ngx_var_request_length == nil then
+						localized.ngx_var_request_length = localized.ngx_var.request_length or 0
+					end
 					if v[2] >= 1 then --limit keep alive ip
 						if localized.tonumber(localized.ngx_var_connection_requests) >= v[2] then
 							if v[7] == 1 then
@@ -6602,6 +6569,16 @@ local function anti_ddos()
 							localized.ngx_exit(v[6])
 						end
 					end
+
+				else
+					local content_limit = v[12]
+					local timeout = v[13]
+					local connection_header_timeout = v[14]
+					local connection_header_max_conns = v[15]
+					local slow_limit_exit_status = v[16]
+					local range_whitelist_blacklist = v[17]
+					local range_table = v[18]
+					local ip = v[22]
 
 					if ip == "auto" then
 						--localized.ngx_log(localized.ngx_LOG_TYPE, "Proxy IP found in whitelist - " .. localized.tostring(proxy_header_ip_check(localized.proxy_header_table)) .. " http_internal = " .. localized.tostring(localized.ngx_var_http_internal) )
@@ -6759,6 +6736,41 @@ local function anti_ddos()
 							end
 							close_connection()
 							localized.ngx_exit(v[41])
+						end
+					end
+
+					--ordering ngx_var checks last
+					if localized.ngx_var_connection_requests == nil then
+						localized.ngx_var_connection_requests = localized.ngx_var.connection_requests or 0 --default timeout per connection in nginx is 60 seconds unless you have changed your timeout configs
+					end
+					if localized.ngx_var_request_length == nil then
+						localized.ngx_var_request_length = localized.ngx_var.request_length or 0
+					end
+					if v[2] >= 1 then --limit keep alive ip
+						if localized.tonumber(localized.ngx_var_connection_requests) >= v[2] then
+							if v[7] == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE,"[Anti-DDoS] Exceeded Number of keepalive conns from IP " .. localized.ngx_var_connection_requests )
+							end
+							close_connection()
+							localized.ngx_exit(v[3])
+						end
+					end
+					if v[4] >= 1 then --limit request size smaller than
+						if localized.tonumber(localized.ngx_var_request_length) <= v[4] then --1000 bytes = 1kb
+							if v[7] == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE,"[Anti-DDoS] Request Smaller than allowed LENGTH in bytes " .. localized.ngx_var_request_length )
+							end
+							close_connection()
+							localized.ngx_exit(v[6])
+						end
+					end
+					if v[5] >= 1 then --limit request size greater than
+						if localized.tonumber(localized.ngx_var_request_length) >= v[5] then --1000 bytes = 1kb
+							if v[7] == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE,"[Anti-DDoS] Request Larger than allowed LENGTH in bytes " .. localized.ngx_var_request_length )
+							end
+							close_connection()
+							localized.ngx_exit(v[6])
 						end
 					end
 
