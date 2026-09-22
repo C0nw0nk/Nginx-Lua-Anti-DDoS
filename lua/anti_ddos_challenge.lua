@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 5.3
+Script Version: 5.4
 
 Copyright Conor McKnight
 
@@ -3718,7 +3718,8 @@ local function WAF_Post_Requests()
 						local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
 						local args_name = localized.tostring(key) or "" --variable to store POST data argument name
 						local args_value = localized.tostring(key) or "" --variable to store POST data argument value
-						local args_value = localized.string_gsub(args_value, "[^A-Za-z0-9_.-]", function(c) return localized.string_format("%%%02X", localized.string_byte(c)) end)
+						--local args_value = localized.string_gsub(args_value, "[^A-Za-z0-9_.-]", function(c) return localized.string_format("%%%02X", localized.string_byte(c)) end)
+						local args_value = localized.ngx.escape_uri(args_value,2)
 						if args_name ~= "" and args_name ~= "nil" then
 							if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the POST request
 								arguement1 = 1
@@ -3745,7 +3746,8 @@ local function WAF_Post_Requests()
 							local argument_value = values[2] or "" --get the WAF TABLE arguement value or empty
 							local args_name = localized.tostring(key) or "" --variable to store Header data argument name
 							local args_value = localized.tostring(value[z]) or ""
-							local args_value = localized.string_gsub(args_value, "[^A-Za-z0-9_.-]", function(c) return localized.string_format("%%%02X", localized.string_byte(c)) end)
+							--local args_value = localized.string_gsub(args_value, "[^A-Za-z0-9_.-]", function(c) return localized.string_format("%%%02X", localized.string_byte(c)) end)
+							local args_value = localized.ngx.escape_uri(args_value,2)
 							if args_name ~= "" and args_name ~= "nil" then
 								if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
 									arguement1 = 1
@@ -3868,7 +3870,8 @@ local function WAF_query_string_Request()
 						local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
 						local args_name = localized.tostring(key) or "" --variable to store query string data argument name
 						local args_value = localized.tostring(args[args_name]) or "" --variable to store query string data argument value
-						local args_value = localized.string_gsub(args_value, "[^A-Za-z0-9_.-]", function(c) return localized.string_format("%%%02X", localized.string_byte(c)) end)
+						--local args_value = localized.string_gsub(args_value, "[^A-Za-z0-9_.-]", function(c) return localized.string_format("%%%02X", localized.string_byte(c)) end)
+						local args_value = localized.ngx.escape_uri(args_value,2)
 						if args_name ~= "" and args_name ~= "nil" then
 							if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
 								arguement1 = 1
@@ -3895,7 +3898,8 @@ local function WAF_query_string_Request()
 							local argument_value = values[2] or "" --get the WAF TABLE arguement value or empty
 							local args_name = localized.tostring(key) or "" --variable to store Header data argument name
 							local args_value = localized.tostring(value[z]) or ""
-							local args_value = localized.string_gsub(args_value, "[^A-Za-z0-9_.-]", function(c) return localized.string_format("%%%02X", localized.string_byte(c)) end)
+							--local args_value = localized.string_gsub(args_value, "[^A-Za-z0-9_.-]", function(c) return localized.string_format("%%%02X", localized.string_byte(c)) end)
+							local args_value = localized.ngx.escape_uri(args_value,2)
 							if args_name ~= "" and args_name ~= "nil" then
 								if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
 									arguement1 = 1
