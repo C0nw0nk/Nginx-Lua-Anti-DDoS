@@ -66,6 +66,8 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Tue Sep 22 2026 C0nw0nk <C0nw0nk@github> - 5.3-1
+- Improvements on WAF checks and internal header checks
 * Mon Sep 21 2026 C0nw0nk <C0nw0nk@github> - 5.2-1
 - Fixes for multiple headers of the same type that Lua creates into a table just use the latest / last value.
 * Mon Sep 21 2026 C0nw0nk <C0nw0nk@github> - 5.1-1

@@ -1,3 +1,8 @@
+nginx-lua-anti-ddos-challenge (5.3-1) stable; urgency=medium
+  - Improvements on WAF checks and internal header checks
+
+ -- C0nw0nk <C0nw0nk@github>  Tue, 22 Sep 2026 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (5.2-1) stable; urgency=medium
   - Fixes for multiple headers of the same type that Lua creates into a table just use the latest / last value.
 
