@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 5.2
+Script Version: 5.3
 
 Copyright Conor McKnight
 
@@ -3654,42 +3654,114 @@ end
 --[[WAF Web Application Firewall POST Request arguments filter]]
 local function WAF_Post_Requests()
 	--if localized.next(localized.WAF_POST_Request_table) ~= nil then --Check Post filter table has rules inside it
-	if localized.WAF_POST_Request_table ~= nil and #localized.WAF_POST_Request_table > 0 then --Check Post filter table has rules inside it
+	if localized.WAF_POST_Request_table ~= nil and #localized.WAF_POST_Request_table > 0 and localized.ngx.req.get_method() == "POST" then --Check Post filter table has rules inside it
 
 		localized.ngx_req_read_body() --Grab the request Body
-		local read_request_body_args = (localized.ngx_req_get_body_data() or "") --Put the request body arguments into a variable
-		local args = (localized.ngx_decode_args(read_request_body_args) or "") --Put the Post args in to a table
+		local request_body = localized.ngx_req_get_body_data()
+		local read_request_body_args = (request_body or "") --Put the request body arguments into a variable
+		local args = nil
+		local request_body_file = ""
+		if not request_body then
+			local file = localized.ngx_req_get_body_file()
+			if file then
+				request_body_file = file
+			end
+			--client_body_in_file_only on; #nginx config to test / debug
+			--localized.ngx_log(localized.ngx_LOG_TYPE, " request_body_file is " .. request_body_file )
+		end
+		if request_body_file ~= "" then
+			local function check_ngx_io()
+				if localized.cached_ngx_io ~= nil then
+					return localized.cached_ngx_io
+				end
+				local pcall = pcall
+				local require = require
+				localized.cached_ngx_io = pcall(require, "ngx.io") --check if ngx.io library exists will be true or false
+				return localized.cached_ngx_io
+			end
+			if check_ngx_io() and localized.read_file == nil then
+				local read_file = require("ngx.io")
+				localized.read_file = read_file.open
+			end
+			if not check_ngx_io() and localized.read_file == nil then
+				localized.read_file = io.open
+			end
+			local fh, err = localized.read_file(request_body_file, "r")
+			if err then
+				localized.ngx_status = localized.ngx_HTTP_INTERNAL_SERVER_ERROR
+				localized.ngx_log(localized.ngx_LOG_TYPE, "error reading request_body_file:", err)
+				return
+			end
+			request_body = fh:read("*a")
+			fh:close()
+		end
+		if request_body == nil then
+			--request_body = "" --set to empty string
+			args = (localized.ngx_decode_args(read_request_body_args) or "") --Put the Post args in to a table
+		else
+			args = (localized.ngx_decode_args(request_body) or "") --Put the Post args in to a table
+		end
 
 		if localized.next(args) ~= nil then --Check Post args table has contents
-		--if #args > 0 then --Check Post args table has contents	
+		--if #args > 0 then --Check Post args table has contents
 
 			local arguement1 = nil --create empty variable
 			local arguement2 = nil --create empty variable
 
 			for key, value in localized.next, args do
-
-				for i=1,#localized.WAF_POST_Request_table do
-					arguement1 = nil --reset to nil each loop
-					arguement2 = nil --reset to nil each loop
-					local value = localized.WAF_POST_Request_table[i] --put table value into variable
-					local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
-					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
-					local args_name = localized.tostring(key) or "" --variable to store POST data argument name
-					local args_value = localized.tostring(value) or "" --variable to store POST data argument value
-					if args_name ~= "" and args_name ~= "nil" then
-						if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the POST request
-							arguement1 = 1
+				if localized.type(value) ~= "table" then
+					for i=1,#localized.WAF_POST_Request_table do
+						arguement1 = nil --reset to nil each loop
+						arguement2 = nil --reset to nil each loop
+						local value = localized.WAF_POST_Request_table[i] --put table value into variable
+						local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
+						local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
+						local args_name = localized.tostring(key) or "" --variable to store POST data argument name
+						local args_value = localized.tostring(key) or "" --variable to store POST data argument value
+						local args_value = localized.string_gsub(args_value, "[^A-Za-z0-9_.-]", function(c) return localized.string_format("%%%02X", localized.string_byte(c)) end)
+						if args_name ~= "" and args_name ~= "nil" then
+							if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the POST request
+								arguement1 = 1
+							end
+						end
+						if args_value ~= "" and args_value ~= "nil" then
+							if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the POST request
+								arguement2 = 1
+							end
+						end
+						if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
+							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST args prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
+							close_connection()
+							return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 						end
 					end
-					if args_value ~= "" and args_value ~= "nil" then
-						if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the POST request
-							arguement2 = 1
+				else
+					for z=1,#value do
+						for i=1,#localized.WAF_POST_Request_table do
+							arguement1 = nil --reset to nil each loop
+							arguement2 = nil --reset to nil each loop
+							local values = localized.WAF_POST_Request_table[i] --put table value into variable
+							local argument_name = values[1] or "" --get the WAF TABLE argument name or empty
+							local argument_value = values[2] or "" --get the WAF TABLE arguement value or empty
+							local args_name = localized.tostring(key) or "" --variable to store Header data argument name
+							local args_value = localized.tostring(value[z]) or ""
+							local args_value = localized.string_gsub(args_value, "[^A-Za-z0-9_.-]", function(c) return localized.string_format("%%%02X", localized.string_byte(c)) end)
+							if args_name ~= "" and args_name ~= "nil" then
+								if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
+									arguement1 = 1
+								end
+							end
+							if args_value ~= "" and args_value ~= "nil" then
+								if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
+									arguement2 = 1
+								end
+							end
+							if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST args prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
+								close_connection()
+								return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
+							end
 						end
-					end
-					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST args prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
-						close_connection()
-						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 					end
 				end
 			end
@@ -3713,29 +3785,57 @@ local function WAF_Header_Requests()
 			local arguement2 = nil --create empty variable
 
 			for key, value in localized.next, argument_request_headers do
-
-				for i=1,#localized.WAF_Header_Request_table do
-					arguement1 = nil --reset to nil each loop
-					arguement2 = nil --reset to nil each loop
-					local value = localized.WAF_Header_Request_table[i] --put table value into variable
-					local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
-					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
-					local args_name = localized.tostring(key) or "" --variable to store Header data argument name
-					local args_value = localized.tostring(argument_request_headers[args_name]) or ""
-					if args_name ~= "" and args_name ~= "nil" then
-						if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
-							arguement1 = 1
+				if localized.type(value) ~= "table" then
+					for i=1,#localized.WAF_Header_Request_table do
+						arguement1 = nil --reset to nil each loop
+						arguement2 = nil --reset to nil each loop
+						local values = localized.WAF_Header_Request_table[i] --put table value into variable
+						local argument_name = values[1] or "" --get the WAF TABLE argument name or empty
+						local argument_value = values[2] or "" --get the WAF TABLE arguement value or empty
+						local args_name = localized.tostring(key) or "" --variable to store Header data argument name
+						local args_value = localized.tostring(argument_request_headers[args_name]) or ""
+						if args_name ~= "" and args_name ~= "nil" then
+							if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
+								arguement1 = 1
+							end
+						end
+						if args_value ~= "" and args_value ~= "nil" then
+							if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
+								arguement2 = 1
+							end
+						end
+						if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
+							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
+							close_connection()
+							return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 						end
 					end
-					if args_value ~= "" and args_value ~= "nil" then
-						if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
-							arguement2 = 1
+				else
+					for z=1,#value do
+						for i=1,#localized.WAF_Header_Request_table do
+							arguement1 = nil --reset to nil each loop
+							arguement2 = nil --reset to nil each loop
+							local values = localized.WAF_Header_Request_table[i] --put table value into variable
+							local argument_name = values[1] or "" --get the WAF TABLE argument name or empty
+							local argument_value = values[2] or "" --get the WAF TABLE arguement value or empty
+							local args_name = localized.tostring(key) or "" --variable to store Header data argument name
+							local args_value = localized.tostring(value[z]) or ""
+							if args_name ~= "" and args_name ~= "nil" then
+								if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
+									arguement1 = 1
+								end
+							end
+							if args_value ~= "" and args_value ~= "nil" then
+								if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
+									arguement2 = 1
+								end
+							end
+							if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
+								close_connection()
+								return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
+							end
 						end
-					end
-					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
-						close_connection()
-						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 					end
 				end
 			end
@@ -3759,29 +3859,59 @@ local function WAF_query_string_Request()
 			local arguement2 = nil --create empty variable
 
 			for key, value in localized.next, args do
-
-				for i=1,#localized.WAF_query_string_Request_table do
-					arguement1 = nil --reset to nil each loop
-					arguement2 = nil --reset to nil each loop
-					local value = localized.WAF_query_string_Request_table[i] --put table value into variable
-					local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
-					local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
-					local args_name = localized.tostring(key) or "" --variable to store query string data argument name
-					local args_value = localized.tostring(args[args_name]) or "" --variable to store query string data argument value
-					if args_name ~= "" and args_name ~= "nil" then
-						if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
-							arguement1 = 1
+				if localized.type(value) ~= "table" then
+					for i=1,#localized.WAF_query_string_Request_table do
+						arguement1 = nil --reset to nil each loop
+						arguement2 = nil --reset to nil each loop
+						local value = localized.WAF_query_string_Request_table[i] --put table value into variable
+						local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
+						local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
+						local args_name = localized.tostring(key) or "" --variable to store query string data argument name
+						local args_value = localized.tostring(args[args_name]) or "" --variable to store query string data argument value
+						local args_value = localized.string_gsub(args_value, "[^A-Za-z0-9_.-]", function(c) return localized.string_format("%%%02X", localized.string_byte(c)) end)
+						if args_name ~= "" and args_name ~= "nil" then
+							if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
+								arguement1 = 1
+							end
+						end
+						if args_value ~= "" and args_value ~= "nil" then
+							if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
+								arguement2 = 1
+							end
+						end
+						if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
+							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Query String prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
+							close_connection()
+							return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 						end
 					end
-					if args_value ~= "" and args_value ~= "nil" then
-						if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
-							arguement2 = 1
+				else
+					for z=1,#value do
+						for i=1,#localized.WAF_query_string_Request_table do
+							arguement1 = nil --reset to nil each loop
+							arguement2 = nil --reset to nil each loop
+							local values = localized.WAF_query_string_Request_table[i] --put table value into variable
+							local argument_name = values[1] or "" --get the WAF TABLE argument name or empty
+							local argument_value = values[2] or "" --get the WAF TABLE arguement value or empty
+							local args_name = localized.tostring(key) or "" --variable to store Header data argument name
+							local args_value = localized.tostring(value[z]) or ""
+							local args_value = localized.string_gsub(args_value, "[^A-Za-z0-9_.-]", function(c) return localized.string_format("%%%02X", localized.string_byte(c)) end)
+							if args_name ~= "" and args_name ~= "nil" then
+								if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
+									arguement1 = 1
+								end
+							end
+							if args_value ~= "" and args_value ~= "nil" then
+								if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
+									arguement2 = 1
+								end
+							end
+							if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Query String prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
+								close_connection()
+								return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
+							end
 						end
-					end
-					if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Query String prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr)
-						close_connection()
-						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 					end
 				end
 			end
@@ -4515,18 +4645,30 @@ local function internal_header_setup()
 		end
 		localized.ngx_var_http_internal_header_name = localized.ngx_encode_base64(localized.ngx_var_http_internal_header_name) --wrap encrypted header in base64
 		localized.ngx_var_http_internal_header_name = localized.string_gsub(localized.ngx_var_http_internal_header_name, "[+/=]", "") --Remove +/=
-		localized.ngx_var_http_internal = localized.ngx_req_get_headers()[localized.ngx_var_http_internal_header_name] or nil --localized.ngx_var["http_"..localized.ngx_var_http_internal_header_name] or nil
+		localized.ngx_var_http_internal = localized.ngx_req_get_headers()[localized.ngx_var_http_internal_header_name] or nil (function() local value = localized.ngx_var_http_internal if localized.type(value) == "table" then local output = nil for i=1, #value do output = value[i] end localized.ngx_var_http_internal = output else localized.ngx_var_http_internal = value end end)() --localized.ngx_var["http_"..localized.ngx_var_http_internal_header_name] or nil
 		localized.ngx_var_http_internal_log = 0
 
 		if localized.ngx_var_http_internal_log == 1 then --log the internal request headers
 			localized.ngx_log(localized.ngx_LOG_TYPE, " internal header is - " .. localized.ngx_var_http_internal_header_name )
 			if localized.ngx_var_http_internal ~= nil then --2nd layer
 				for headerName, header in localized.next, localized.ngx_req_get_headers() do
-					localized.ngx_log(localized.ngx_LOG_TYPE, " 2nd layer " .. headerName .. " - " .. header )
+					if localized.type(header) == "table" then
+						for i=1,#header do
+							localized.ngx_log(localized.ngx_LOG_TYPE, " 2nd layer " .. headerName .. " - " .. header[i] )
+						end
+					else
+						localized.ngx_log(localized.ngx_LOG_TYPE, " 2nd layer " .. headerName .. " - " .. header )
+					end
 				end
 			else --1st layer
 				for headerName, header in localized.next, localized.ngx_req_get_headers() do
-					localized.ngx_log(localized.ngx_LOG_TYPE, " 1st layer " .. headerName .. " - " .. header )
+					if localized.type(header) == "table" then
+						for i=1,#header do
+							localized.ngx_log(localized.ngx_LOG_TYPE, " 1st layer " .. headerName .. " - " .. header[i] )
+						end
+					else
+						localized.ngx_log(localized.ngx_LOG_TYPE, " 1st layer " .. headerName .. " - " .. header )
+					end
 				end
 			end
 		end
@@ -5048,7 +5190,9 @@ local function anti_ddos()
 			if localized.type(range) ~= "table" then
 				--Filter by what we expect a range header to be provided with
 				if localized.content_type_fix then
-					WAF_Checks() --run WAF checks first
+					if localized.ngx_var_http_internal == nil then --1st layer
+						WAF_Checks() --run WAF checks first
+					end
 					get_resp_content_type() --grab content-type incase does not exist
 				end
 				if localized.content_type_fix == false or localized.ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
@@ -5496,7 +5640,9 @@ local function anti_ddos()
 				for i=1, #range do
 					--Filter by what we expect a range header to be provided with
 					if localized.content_type_fix then
-						WAF_Checks() --run WAF checks first
+						if localized.ngx_var_http_internal == nil then --1st layer
+							WAF_Checks() --run WAF checks first
+						end
 						get_resp_content_type() --grab content-type incase does not exist
 					end
 					if localized.content_type_fix == false or localized.ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
@@ -7083,7 +7229,9 @@ query_string_sort()
 End Query String Sort
 ]]
 
+if localized.ngx_var_http_internal == nil then --1st layer
 WAF_Checks() --run WAF checks first
+end
 
 local function check_ips()
 	--function to check if ip address is whitelisted to bypass our auth
