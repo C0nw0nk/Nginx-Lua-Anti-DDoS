@@ -66,6 +66,9 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Wed Sep 23 2026 C0nw0nk <C0nw0nk@github> - 5.4-1
+- Cache localized functions for better performance
+- ngx.escape_uri faster than my function
 * Tue Sep 22 2026 C0nw0nk <C0nw0nk@github> - 5.3-1
 - Improvements on WAF checks and internal header checks
 * Mon Sep 21 2026 C0nw0nk <C0nw0nk@github> - 5.2-1
