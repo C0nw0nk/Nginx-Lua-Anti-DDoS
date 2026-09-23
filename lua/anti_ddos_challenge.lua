@@ -69,9 +69,7 @@ localized.ngx_req_get_body_data = function() if localized.ngx_req_get_body_data_
 localized.ngx_req_get_body_file = function() if localized.ngx_req_get_body_file_run ~= nil then return localized.ngx_req_get_body_file_run end localized.ngx_req_get_body_file_run = localized.ngx.req.get_body_file() return localized.ngx_req_get_body_file_run end
 localized.ngx_decode_args = localized.ngx.decode_args
 localized.ngx_cookie_time = function(input) if localized.ngx_cookie_time_f == nil then localized.ngx_cookie_time_f = localized.ngx.cookie_time end local in_reg = (function() return localized.tostring(input) end)() if localized.ngx_cookie_time_run ~= nil and localized.ngx_cookie_time_run[in_reg.."one"] ~= nil then return localized.ngx_cookie_time_run[in_reg.."one"] end if localized.ngx_cookie_time_run == nil then localized.ngx_cookie_time_run = {} end localized.ngx_cookie_time_run[in_reg.."one"] = {} localized.ngx_cookie_time_run[in_reg.."one"] = localized.ngx_cookie_time_f(input) return localized.ngx_cookie_time_run[in_reg.."one"] end
-localized.ngx_time = localized.ngx.time
 localized.ngx_header = localized.ngx.header
-localized.ngx_var = localized.ngx.var
 localized.ngx_status = localized.ngx.status
 localized.ngx_exit = localized.ngx.exit
 localized.ngx_say = localized.ngx.say
@@ -132,18 +130,19 @@ localized.ngx_HTTP_TRACE = localized.ngx.HTTP_TRACE
 localized.ngx_OK = localized.ngx.OK --go to content
 localized.ngx_var_http_cf_connecting_ip = localized.ngx_req_get_headers()["CF-Connecting-IP"] or nil (function() local value = localized.ngx_var_http_cf_connecting_ip if localized.type(value) == "table" then local output = nil for i=1, #value do output = value[i] end localized.ngx_var_http_cf_connecting_ip = output else localized.ngx_var_http_cf_connecting_ip = value end end)()
 localized.ngx_var_http_x_forwarded_for = localized.ngx_req_get_headers()["X-Forwarded-For"] or nil (function() local value = localized.ngx_var_http_x_forwarded_for if localized.type(value) == "table" then local output = nil for i=1, #value do output = value[i] end localized.ngx_var_http_x_forwarded_for = output else localized.ngx_var_http_x_forwarded_for = value end end)()
-localized.ngx_var_remote_addr = localized.ngx_var.remote_addr
-localized.ngx_var_binary_remote_addr = localized.ngx_var_remote_addr --set binary to remote for the sake of logs displaying ips
+localized.ngx_var_remote_addr = function() if localized.ngx_var_remote_addr_run ~= nil then return localized.ngx_var_remote_addr_run end localized.ngx_var_remote_addr_run = localized.ngx.var.remote_addr return localized.ngx_var_remote_addr_run end
+localized.ngx_var_server_addr = function() if localized.ngx_var_server_addr_run ~= nil then return localized.ngx_var_server_addr_run end localized.ngx_var_server_addr_run = localized.ngx.var.server_addr return localized.ngx_var_server_addr_run end
+localized.ngx_var_server_port = function() if localized.ngx_var_server_port_run ~= nil then return localized.ngx_var_server_port_run end localized.ngx_var_server_port_run = localized.ngx.var.server_port return localized.ngx_var_server_port_run end
 localized.ngx_var_http_user_agent = localized.ngx_req_get_headers()["User-Agent"] or "" (function() local value = localized.ngx_var_http_user_agent if localized.type(value) == "table" then local output = nil for i=1, #value do output = value[i] end localized.ngx_var_http_user_agent = output else localized.ngx_var_http_user_agent = value end end)()
 localized.ngx_log = localized.ngx.log
 -- https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#nginx-log-level-constants
 localized.ngx_LOG_TYPE = localized.ngx.STDERR
-localized.scheme = localized.ngx_var.scheme --scheme is HTTP or HTTPS
-localized.host = localized.ngx_var.host --host is website domain name
-localized.request_uri = localized.ngx_var.request_uri or "/" --request uri is full URL link including query strings and arguements
-localized.URL = localized.scheme .. "://" .. localized.host .. localized.request_uri
+localized.scheme = function() if localized.scheme_run ~= nil then return localized.scheme_run end localized.scheme_run = localized.ngx.var.scheme return localized.scheme_run end
+localized.host = function() if localized.host_run ~= nil then return localized.host_run end localized.host_run = localized.ngx.var.host return localized.host_run end
+localized.request_uri = function() if localized.request_uri_run ~= nil then return localized.request_uri_run end localized.request_uri_run = localized.ngx.var.request_uri or "/" return localized.request_uri_run end
+localized.URL = function() if localized.URL_run ~= nil then return localized.URL_run end localized.URL_run = localized.scheme() .. "://" .. localized.host() .. localized.request_uri() return localized.URL_run end
 localized.user_agent = localized.ngx_var_http_user_agent or "" --user agent of browser
-localized.currenttime = localized.ngx_time() --Current time on server
+localized.currenttime = localized.ngx.time() --Current time on server
 localized.os_time_saved = localized.currenttime-24*60*60
 localized.os_date = function(wanted_type, unix_time) if localized.get_date_from_unix_cached == nil then localized.get_date_from_unix_cached = {} local day_count, year, days, month = function(yr) return (yr % 4 == 0 and (yr % 100 ~= 0 or yr % 400 == 0)) and 366 or 365 end, 1970, localized.math_floor(unix_time/86400) while days >= day_count(year) do days = days - day_count(year) year = year + 1 end local days_count = days local week = 0 local count = 0 for i=1, 52 do count = 7*i if count <= days_count then localized.get_date_from_unix_cached.week = i end end local tab_overflow = function(seed, table) for i = 1, #table do if seed - table[i] <= 0 then return i, seed end seed = seed - table[i] end end month, days = tab_overflow(days, {31,(day_count(year) == 366 and 29 or 28),31,30,31,30,31,31,30,31,30,31}) local hours, minutes, seconds = localized.math_floor(unix_time / 3600 % 24), localized.math_floor(unix_time / 60 % 60), localized.math_floor(unix_time % 60) localized.get_date_from_unix_cached.period = hours > 12 and "pm" or "am" localized.get_date_from_unix_cached.seconds = seconds localized.get_date_from_unix_cached.minutes = minutes localized.get_date_from_unix_cached.hours = hours localized.get_date_from_unix_cached.days = days localized.get_date_from_unix_cached.month = month localized.get_date_from_unix_cached.year = year end if wanted_type == "%M" then return localized.get_date_from_unix_cached.minutes end if wanted_type == "%H" then return localized.get_date_from_unix_cached.hours end if wanted_type == "%d" then return localized.get_date_from_unix_cached.days end if wanted_type == "%W" then return localized.get_date_from_unix_cached.week end if wanted_type == "%m" then return localized.get_date_from_unix_cached.month end if wanted_type == "%Y" then return localized.get_date_from_unix_cached.year end if wanted_type == "%z" then return localized.get_date_from_unix_cached.year+9 end if wanted_type == "%Y%m%d" then if localized.get_date_from_unix_cached.ymd == nil then localized.get_date_from_unix_cached.ymd = localized.string_gsub(localized.ngx.today(), "[-]", "") end return localized.get_date_from_unix_cached.ymd end if localized.get_date_from_unix_cached.full == nil then localized.get_date_from_unix_cached.full = localized.string_format("%d/%d/%04d %02d:%02d:%02d %s", localized.get_date_from_unix_cached.days, localized.get_date_from_unix_cached.month, localized.get_date_from_unix_cached.year, localized.get_date_from_unix_cached.hours, localized.get_date_from_unix_cached.minutes, localized.get_date_from_unix_cached.seconds, localized.get_date_from_unix_cached.period) end return localized.get_date_from_unix_cached.full end
 --localized.os_clock = os.clock() --nulled out dev func to test speed
@@ -320,8 +319,8 @@ localized.anti_ddos_table = {
 		localized.remote_servers_table,--localized.ngx.shared.ddos_counter, --this zone is for the total number of ips in the list that are currently blocked or lua table `localized.remote_servers_table` for advanced options
 
 		--Unique identifyer to use IP address works well but set this to Auto if you expect proxy traffic like from cloudflare
-		--localized.ngx_var_binary_remote_addr, --if you use binary remote addr and the antiddos shared address is 10m in size you can store 160k ip addresses before you need to increase the memory dedicated
-		"auto", --auto is best but use binary above instead if you want
+		--localized.ngx_var_remote_addr(), --if you use remote addr and the antiddos shared address is 10m in size you can store 160k ip addresses before you need to increase the memory dedicated
+		"auto", --auto is best but you can use custom combinations above instead if you want
 
 		--Automatic I am Under Attack Mode - authentication puzzle to automatically enable when ddos detected
 		--1 to enable 0 to disable
@@ -398,12 +397,12 @@ localized.anti_ddos_table = {
 		--[[
 		{ --Compaitbility across multiple systems will auto detect if your running windows the script will choose the Windows CMD same for linux, MacOS etc that way you can use the same script via network share or across multiple platforms this is nonblocking becuase you can use https://github.com/openresty/lua-resty-shell#name
 			--Windows
-			"start cmd /c netsh advfirewall firewall add rule name=\"Block In "..localized.ngx_var_remote_addr.."\" protocol=any dir=in remoteip="..localized.ngx_var_remote_addr.." action=block",
+			"start cmd /c netsh advfirewall firewall add rule name=\"Block In "..localized.ngx_var_remote_addr().."\" protocol=any dir=in remoteip="..localized.ngx_var_remote_addr().." action=block",
 			--Linux
-			"iptables -A INPUT -s "..localized.ngx_var_remote_addr.." -j DROP",
-			--"./do_something.sh "..localized.ngx_var_remote_addr.."", --run shell script to ban user instead
+			"iptables -A INPUT -s "..localized.ngx_var_remote_addr().." -j DROP",
+			--"./do_something.sh "..localized.ngx_var_remote_addr().."", --run shell script to ban user instead
 			--MacOS
-			"sudo vim /etc/pf.conf && block drop from any to "..localized.ngx_var_remote_addr.." && sudo pfctl -f /etc/pf.conf && sudo pfctl -e",
+			"sudo vim /etc/pf.conf && block drop from any to "..localized.ngx_var_remote_addr().." && sudo pfctl -f /etc/pf.conf && sudo pfctl -e",
 		},
 		]]
 
@@ -481,8 +480,8 @@ localized.content_cache = {
 		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls use nil or empty string "" to not bypass on urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
 		2, --0 do not remove set-cookie header 1 remove set-cookie header on both HIT/UPDATING 2 remove from HIT ONLY 3 remove from UPDATING ONLY if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
-		localized.request_uri, --url to use you can do "/index.html", as an example localized.request_uri is best.
-		false, --true to use lua resty.http library if exist if you set this to true you can change localized.request_uri above to "https://www.google.com/", as an example.
+		localized.request_uri(), --url to use you can do "/index.html", as an example localized.request_uri() is best.
+		false, --true to use lua resty.http library if exist if you set this to true you can change localized.request_uri() above to "https://www.google.com/", as an example.
 		{ --Content Modifier Modification/Minification / Minify HTML output
 			--Usage :
 			--Regex, Replacement
@@ -537,8 +536,8 @@ localized.content_cache = {
 		"", --nil or empty string "" to not bypass on urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
 		2, --0 do not remove set-cookie header 1 remove set-cookie header on both HIT/UPDATING 2 remove from HIT ONLY 3 remove from UPDATING ONLY if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
-		localized.request_uri, --url to use you can do "/index.html", as an example localized.request_uri is best.
-		false, --true to use lua resty.http library if exist if you set this to true you can change localized.request_uri above to "https://www.google.com/", as an example.
+		localized.request_uri(), --url to use you can do "/index.html", as an example localized.request_uri() is best.
+		false, --true to use lua resty.http library if exist if you set this to true you can change localized.request_uri() above to "https://www.google.com/", as an example.
 		"", --content modified not needed for this format
 		4e+7, --Maximum content size to cache in bytes 1e+6 = 1MB, 1e+7 = 10MB, 1e+8 = 100MB, 1e+9 = 1GB content larger than this wont be cached empty string "" to skip
 		200000, --200kb --Minimum content size to cache in bytes content smaller than this wont be cached empty string "" to skip
@@ -575,8 +574,8 @@ localized.content_cache = {
 		nil, --nil or empty string "" to not bypass on urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
 		2, --0 do not remove set-cookie header 1 remove set-cookie header on both HIT/UPDATING 2 remove from HIT ONLY 3 remove from UPDATING ONLY if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
-		localized.request_uri, --url to use you can do "/index.html", as an example localized.request_uri is best.
-		false, --true to use lua resty.http library if exist if you set this to true you can change localized.request_uri above to "https://www.google.com/", as an example.
+		localized.request_uri(), --url to use you can do "/index.html", as an example localized.request_uri() is best.
+		false, --true to use lua resty.http library if exist if you set this to true you can change localized.request_uri() above to "https://www.google.com/", as an example.
 		"", --content modified not needed for this format
 		"", --Maximum content size to cache in bytes 1e+6 = 1MB, 1e+7 = 10MB, 1e+8 = 100MB, 1e+9 = 1GB content larger than this wont be cached empty string "" to skip
 		"", --200kb --Minimum content size to cache in bytes content smaller than this wont be cached empty string "" to skip
@@ -614,11 +613,11 @@ Unique id to identify each individual user and machine trying to access your web
 
 localized.ngx_var_http_cf_connecting_ip --If you proxy your traffic through cloudflare use this
 localized.ngx_var_http_x_forwarded_for --If your traffic is proxied through another server / service.
-localized.ngx_var_remote_addr --Users IP address
+localized.ngx_var_remote_addr() --Users IP address
 localized.ngx_var_http_user_agent or "" --User-Agent
 
 You can combine multiple if you like. You can do so like this.
-localized.remote_addr = localized.ngx_var_remote_addr .. (localized.ngx_var_http_user_agent or "")
+localized.remote_addr = localized.ngx_var_remote_addr() .. (localized.ngx_var_http_user_agent or "")
 
 remote_addr = "tor" this will mean this script will be functioning for tor users only
 remote_addr = "auto" the script will automatically get the clients IP this is the default it is the smartest and most compatible method with every service proxy etc
@@ -735,7 +734,7 @@ Supports IPv4 and IPv6 addresses aswell as subnet ranges
 To find all IP ranges of an ASN use : https://www.enjen.net/asn-blocklist/index.php?asn=16509&type=iplist
 ]]
 localized.ip_whitelist_remote_addr = "auto" --Automatically get the Clients IP address
---localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr
+--localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr()
 localized.ip_whitelist_block_mode = 0 --0 whitelist acts as a bypass to puzzle auth checks 1 is to enforce only allowing whitelisted addresses access other addresses will be blocked.
 localized.ip_whitelist_bypass_flood_protection = 1 --0 IP's in whitelist can still be banned / blocked for DDoS flooding behaviour 1 IP's bypass the flood detection
 localized.ip_whitelist = {
@@ -764,7 +763,7 @@ localized.ip_whitelist = {
 --"2001:4860:4801:10::/64","2001:4860:4801:12::/64","2001:4860:4801:13::/64","2001:4860:4801:14::/64","2001:4860:4801:15::/64","2001:4860:4801:16::/64","2001:4860:4801:17::/64","2001:4860:4801:18::/64","2001:4860:4801:19::/64","2001:4860:4801:1a::/64","2001:4860:4801:1b::/64","2001:4860:4801:1c::/64","2001:4860:4801:1d::/64","2001:4860:4801:1e::/64","2001:4860:4801:1f::/64","2001:4860:4801:20::/64","2001:4860:4801:21::/64","2001:4860:4801:22::/64","2001:4860:4801:23::/64","2001:4860:4801:24::/64","2001:4860:4801:25::/64","2001:4860:4801:26::/64","2001:4860:4801:27::/64","2001:4860:4801:28::/64","2001:4860:4801:29::/64","2001:4860:4801:2::/64","2001:4860:4801:2a::/64","2001:4860:4801:2b::/64","2001:4860:4801:2c::/64","2001:4860:4801:2d::/64","2001:4860:4801:2e::/64","2001:4860:4801:2f::/64","2001:4860:4801:30::/64","2001:4860:4801:31::/64","2001:4860:4801:32::/64","2001:4860:4801:33::/64","2001:4860:4801:34::/64","2001:4860:4801:35::/64","2001:4860:4801:36::/64","2001:4860:4801:37::/64","2001:4860:4801:38::/64","2001:4860:4801:39::/64","2001:4860:4801:3a::/64","2001:4860:4801:3b::/64","2001:4860:4801:3c::/64","2001:4860:4801:3d::/64","2001:4860:4801:3e::/64","2001:4860:4801:3f::/64","2001:4860:4801:40::/64","2001:4860:4801:41::/64","2001:4860:4801:42::/64","2001:4860:4801:43::/64","2001:4860:4801:44::/64","2001:4860:4801:45::/64","2001:4860:4801:46::/64","2001:4860:4801:47::/64","2001:4860:4801:48::/64","2001:4860:4801:49::/64","2001:4860:4801:4a::/64","2001:4860:4801:4b::/64","2001:4860:4801:4c::/64","2001:4860:4801:4d::/64","2001:4860:4801:4e::/64","2001:4860:4801:50::/64","2001:4860:4801:51::/64","2001:4860:4801:52::/64","2001:4860:4801:53::/64","2001:4860:4801:54::/64","2001:4860:4801:55::/64","2001:4860:4801:56::/64","2001:4860:4801:57::/64","2001:4860:4801:58::/64","2001:4860:4801:60::/64","2001:4860:4801:61::/64","2001:4860:4801:62::/64","2001:4860:4801:63::/64","2001:4860:4801:64::/64","2001:4860:4801:65::/64","2001:4860:4801:66::/64","2001:4860:4801:67::/64","2001:4860:4801:68::/64","2001:4860:4801:69::/64","2001:4860:4801:6a::/64","2001:4860:4801:6b::/64","2001:4860:4801:6c::/64","2001:4860:4801:6d::/64","2001:4860:4801:6e::/64","2001:4860:4801:6f::/64","2001:4860:4801:70::/64","2001:4860:4801:71::/64","2001:4860:4801:72::/64","2001:4860:4801:73::/64","2001:4860:4801:74::/64","2001:4860:4801:75::/64","2001:4860:4801:76::/64","2001:4860:4801:77::/64","2001:4860:4801:78::/64","2001:4860:4801:79::/64","2001:4860:4801:7a::/64","2001:4860:4801:7b::/64","2001:4860:4801:7c::/64","2001:4860:4801:7d::/64","2001:4860:4801:80::/64","2001:4860:4801:81::/64","2001:4860:4801:82::/64","2001:4860:4801:83::/64","2001:4860:4801:84::/64","2001:4860:4801:85::/64","2001:4860:4801:86::/64","2001:4860:4801:87::/64","2001:4860:4801:88::/64","2001:4860:4801:90::/64","2001:4860:4801:91::/64","2001:4860:4801:92::/64","2001:4860:4801:93::/64","2001:4860:4801:94::/64","2001:4860:4801:95::/64","2001:4860:4801:96::/64","2001:4860:4801:97::/64","2001:4860:4801:a0::/64","2001:4860:4801:a1::/64","2001:4860:4801:a2::/64","2001:4860:4801:a3::/64","2001:4860:4801:a4::/64","2001:4860:4801:a5::/64","2001:4860:4801:a6::/64","2001:4860:4801:a7::/64","2001:4860:4801:a8::/64","2001:4860:4801:a9::/64","2001:4860:4801:aa::/64","2001:4860:4801:ab::/64","2001:4860:4801:ac::/64","2001:4860:4801:ad::/64","2001:4860:4801:ae::/64","2001:4860:4801:b0::/64","2001:4860:4801:b1::/64","2001:4860:4801:b2::/64","2001:4860:4801:b3::/64","2001:4860:4801:b4::/64","2001:4860:4801:b5::/64","2001:4860:4801:c::/64","2001:4860:4801:f::/64","192.178.4.0/27","192.178.4.128/27","192.178.4.160/27","192.178.4.192/27","192.178.4.32/27","192.178.4.64/27","192.178.4.96/27","192.178.5.0/27","192.178.6.0/27","192.178.6.128/27","192.178.6.160/27","192.178.6.192/27","192.178.6.224/27","192.178.6.32/27","192.178.6.64/27","192.178.6.96/27","192.178.7.0/27","192.178.7.128/27","192.178.7.160/27","192.178.7.192/27","192.178.7.224/27","192.178.7.32/27","192.178.7.64/27","192.178.7.96/27","34.100.182.96/28","34.101.50.144/28","34.118.254.0/28","34.118.66.0/28","34.126.178.96/28","34.146.150.144/28","34.147.110.144/28","34.151.74.144/28","34.152.50.64/28","34.154.114.144/28","34.155.98.32/28","34.165.18.176/28","34.175.160.64/28","34.176.130.16/28","34.22.85.0/27","34.64.82.64/28","34.65.242.112/28","34.80.50.80/28","34.88.194.0/28","34.89.10.80/28","34.89.198.80/28","34.96.162.48/28","35.247.243.240/28","66.249.64.0/27","66.249.64.128/27","66.249.64.160/27","66.249.64.192/27","66.249.64.224/27","66.249.64.32/27","66.249.64.64/27","66.249.64.96/27","66.249.65.0/27","66.249.65.128/27","66.249.65.160/27","66.249.65.192/27","66.249.65.224/27","66.249.65.32/27","66.249.65.64/27","66.249.65.96/27","66.249.66.0/27","66.249.66.128/27","66.249.66.160/27","66.249.66.192/27","66.249.66.224/27","66.249.66.32/27","66.249.66.64/27","66.249.66.96/27","66.249.67.0/27","66.249.67.32/27","66.249.68.0/27","66.249.68.128/27","66.249.68.160/27","66.249.68.192/27","66.249.68.32/27","66.249.68.64/27","66.249.68.96/27","66.249.69.0/27","66.249.69.128/27","66.249.69.160/27","66.249.69.192/27","66.249.69.224/27","66.249.69.32/27","66.249.69.64/27","66.249.69.96/27","66.249.70.0/27","66.249.70.128/27","66.249.70.160/27","66.249.70.192/27","66.249.70.224/27","66.249.70.32/27","66.249.70.64/27","66.249.70.96/27","66.249.71.0/27","66.249.71.128/27","66.249.71.160/27","66.249.71.192/27","66.249.71.224/27","66.249.71.32/27","66.249.71.64/27","66.249.71.96/27","66.249.72.0/27","66.249.72.128/27","66.249.72.160/27","66.249.72.192/27","66.249.72.224/27","66.249.72.32/27","66.249.72.64/27","66.249.73.0/27","66.249.73.128/27","66.249.73.160/27","66.249.73.192/27","66.249.73.224/27","66.249.73.32/27","66.249.73.64/27","66.249.73.96/27","66.249.74.0/27","66.249.74.128/27","66.249.74.160/27","66.249.74.192/27","66.249.74.224/27","66.249.74.32/27","66.249.74.64/27","66.249.74.96/27","66.249.75.0/27","66.249.75.128/27","66.249.75.160/27","66.249.75.192/27","66.249.75.224/27","66.249.75.32/27","66.249.75.64/27","66.249.75.96/27","66.249.76.0/27","66.249.76.128/27","66.249.76.160/27","66.249.76.192/27","66.249.76.224/27","66.249.76.32/27","66.249.76.64/27","66.249.76.96/27","66.249.77.0/27","66.249.77.128/27","66.249.77.160/27","66.249.77.192/27","66.249.77.224/27","66.249.77.32/27","66.249.77.64/27","66.249.77.96/27","66.249.78.0/27","66.249.78.128/27","66.249.78.160/27","66.249.78.32/27","66.249.78.64/27","66.249.78.96/27","66.249.79.0/27","66.249.79.128/27","66.249.79.160/27","66.249.79.192/27","66.249.79.224/27","66.249.79.32/27","66.249.79.64/27","66.249.79.96/27",
 --https://www.bing.com/toolbox/bingbot.json Bing Bots Search engine crawler IP's
 --"157.55.39.0/24","207.46.13.0/24","40.77.167.0/24","13.66.139.0/24","13.66.144.0/24","52.167.144.0/24","13.67.10.16/28","13.69.66.240/28","13.71.172.224/28","139.217.52.0/28","191.233.204.224/28","20.36.108.32/28","20.43.120.16/28","40.79.131.208/28","40.79.186.176/28","52.231.148.0/28","20.79.107.240/28","51.105.67.0/28","20.125.163.80/28","40.77.188.0/22","65.55.210.0/24","199.30.24.0/23","40.77.202.0/24","40.77.139.0/25","20.74.197.0/28","20.15.133.160/27","40.77.177.0/24","40.77.178.0/23",
---Cloudflare IP's https://www.cloudflare.com/en-gb/ips/ set block mode to 1 and localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr to block all ips other than cloudflare from direct access to your server/sites.
+--Cloudflare IP's https://www.cloudflare.com/en-gb/ips/ set block mode to 1 and localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr() to block all ips other than cloudflare from direct access to your server/sites.
 "173.245.48.0/20","103.21.244.0/22","103.22.200.0/22","103.31.4.0/22","141.101.64.0/18","108.162.192.0/18","190.93.240.0/20","188.114.96.0/20","197.234.240.0/22","198.41.128.0/17","162.158.0.0/15","104.16.0.0/13","104.24.0.0/14","172.64.0.0/13","131.0.72.0/22","2400:cb00::/32","2606:4700::/32","2803:f800::/32","2405:b500::/32","2405:8100::/32","2a06:98c0::/29","2c0f:f248::/32",
 --https://duckduckgo.com/duckduckbot.json
 --https://duckduckgo.com/duckassistbot.json
@@ -795,10 +794,10 @@ localized.tor = 1 --Allow Tor Users
 --[[
 Unique ID to identify each individual Tor user who connects to the website
 Using their User-Agent as a static variable to latch onto works well.
-localized.tor_remote_addr = localized.ngx_var_remote_addr .. localized.os_date("%W",localized.os_time_saved) .. (localized.ngx_var_http_user_agent or "") --Tor / Onion users can use this if you dont like the "auto" behaviour
+localized.tor_remote_addr = localized.ngx_var_remote_addr() .. localized.os_date("%W",localized.os_time_saved) .. (localized.ngx_var_http_user_agent or "") --Tor / Onion users can use this if you dont like the "auto" behaviour
 ]]
 --localized.tor_remote_addr = "auto"
-localized.tor_remote_addr = localized.ngx_var_remote_addr .. localized.os_date("%W",localized.os_time_saved) .. (localized.ngx_var_http_user_agent or "")
+localized.tor_remote_addr = localized.ngx_var_remote_addr() .. localized.os_date("%W",localized.os_time_saved) .. (localized.ngx_var_http_user_agent or "")
 
 --[[
 X-Tor-Header to be static or Dynamic setting this as dynamic is the best form of security
@@ -1987,17 +1986,17 @@ We check the host or the URL or port against a matching string for example if ho
 Allows us to easily add other privacy services and nodes to protect from attacks.
 ]]
 localized.check_privacy = {
-	{localized.host,".onion$",}, --Tor
-	{localized.host,".eth$",}, --ENS
-	--{localized.URL,"usk%@",}, --Freenet
-	--{localized.URL,"%/ipfs%/",}, --IPFS inter planetary file system
-	--{localized.URL,"%/ipns%/",}, --IPNS inter planetary name system
-	--{localized.URL,"%/bzz%/",}, --SWARM network
-	--{localized.URL,"%/radicale%/",}, --Radicale
-	{localized.host,".i2p$",}, --i2p the invisible internet project
-	{localized.host,".loki$",}, --Lokinet
-	--{localized.ngx_var.server_port, "4444"}, --port matches node or hidden service that nginx is protecting
-	--{localized.ngx_var.server_port, "43310"}, --zeronet
+	{localized.host(),".onion$",}, --Tor
+	{localized.host(),".eth$",}, --ENS
+	--{localized.URL(),"usk%@",}, --Freenet
+	--{localized.URL(),"%/ipfs%/",}, --IPFS inter planetary file system
+	--{localized.URL(),"%/ipns%/",}, --IPNS inter planetary name system
+	--{localized.URL(),"%/bzz%/",}, --SWARM network
+	--{localized.URL(),"%/radicale%/",}, --Radicale
+	{localized.host(),".i2p$",}, --i2p the invisible internet project
+	{localized.host(),".loki$",}, --Lokinet
+	--{localized.ngx_var_server_port(), "4444"}, --port matches node or hidden service that nginx is protecting
+	--{localized.ngx_var_server_port(), "43310"}, --zeronet
 }
 
 --[[
@@ -2260,8 +2259,8 @@ end
 end
 
 --Test as Tor network
---localized.host = "localhost.onion"
---localized.URL = localized.scheme .. "://" .. localized.host .. localized.request_uri
+--localized.host = function() return "localhost.onion" end
+--localized.URL = function() return localized.scheme() .. "://" .. localized.host() .. localized.request_uri() end
 
 --Test clear the IP whitelists
 --localized.proxy_header_table = {}
@@ -2277,7 +2276,7 @@ Begin Required Functions
 --I made this function because string find / match can be slow so i can speed it up for basic regex examples / matches
 --And it allows me to add more to the list easier rather than individually for each usage of string find / match
 local function faster_than_match(match) --tested via 100,000,000 times in a for loop super fast
-	--localized.ngx_log(localized.ngx_LOG_TYPE, " url to match : " .. localized.URL .. " - input :" .. match)
+	--localized.ngx_log(localized.ngx_LOG_TYPE, " url to match : " .. localized.URL() .. " - input :" .. match)
 	if match == ".*"
 	or match == "^.*$"
 	or match == "*."
@@ -2286,30 +2285,30 @@ local function faster_than_match(match) --tested via 100,000,000 times in a for 
 	or match == ""
 	or match == " "
 	--[[
-	or match == localized.URL
-	or match == localized.URL .. "$"
-	or match == "^" .. localized.URL
-	or match == "^" .. localized.URL .. "$"
-	or match == localized.request_uri
-	or match == localized.request_uri .. "$"
-	or match == "^" .. localized.request_uri
-	or match == "^" .. localized.request_uri .. "$"
-	or match == localized.host
-	or match == localized.host .. "$"
-	or match == "^" .. localized.host
-	or match == "^" .. localized.host .. "$"
-	or match == localized.scheme .. "://" .. localized.host
-	or match == localized.scheme .. "://" .. localized.host .. "$"
-	or match == "^" .. localized.scheme .. "://" .. localized.host .. "$"
-	or match == "^" .. localized.scheme .. "://" .. localized.host
-	or match == localized.scheme .. "://" .. localized.host .. "/"
-	or match == localized.scheme .. "://" .. localized.host .. "/$"
-	or match == "^" .. localized.scheme .. "://" .. localized.host .. "/$"
-	or match == "^" .. localized.scheme .. "://" .. localized.host .. "/"
-	or match == localized.scheme .. "://" .. localized.host .. localized.request_uri
-	or match == localized.scheme .. "://" .. localized.host .. localized.request_uri .."$"
-	or match == "^" .. localized.scheme .. "://" .. localized.host .. localized.request_uri .. "$"
-	or match == "^" .. localized.scheme .. "://" .. localized.host .. localized.request_uri
+	or match == localized.URL()
+	or match == localized.URL() .. "$"
+	or match == "^" .. localized.URL()
+	or match == "^" .. localized.URL() .. "$"
+	or match == localized.request_uri()
+	or match == localized.request_uri() .. "$"
+	or match == "^" .. localized.request_uri()
+	or match == "^" .. localized.request_uri() .. "$"
+	or match == localized.host()
+	or match == localized.host() .. "$"
+	or match == "^" .. localized.host()
+	or match == "^" .. localized.host() .. "$"
+	or match == localized.scheme() .. "://" .. localized.host()
+	or match == localized.scheme() .. "://" .. localized.host() .. "$"
+	or match == "^" .. localized.scheme() .. "://" .. localized.host() .. "$"
+	or match == "^" .. localized.scheme() .. "://" .. localized.host()
+	or match == localized.scheme() .. "://" .. localized.host() .. "/"
+	or match == localized.scheme() .. "://" .. localized.host() .. "/$"
+	or match == "^" .. localized.scheme() .. "://" .. localized.host() .. "/$"
+	or match == "^" .. localized.scheme() .. "://" .. localized.host() .. "/"
+	or match == localized.scheme() .. "://" .. localized.host() .. localized.request_uri()
+	or match == localized.scheme() .. "://" .. localized.host() .. localized.request_uri() .."$"
+	or match == "^" .. localized.scheme() .. "://" .. localized.host() .. localized.request_uri() .. "$"
+	or match == "^" .. localized.scheme() .. "://" .. localized.host() .. localized.request_uri()
 	]]
 	or match == nil then
 		return true
@@ -3003,10 +3002,10 @@ local function proxy_header_ip_check(ip_table)
 		localized.proxy_header_ip_check_count = localized.proxy_header_ip_check_count+2 --make sure we dont run again
 		for i=1,#ip_table do
 			local value = ip_table[i]
-			if value == localized.ngx_var_remote_addr then --if our ip address matches with one in the whitelist
+			if value == localized.ngx_var_remote_addr() then --if our ip address matches with one in the whitelist
 				localized.proxy_header_ip_check_cached = true
 				return true
-			elseif ip_address_in_range(value, localized.ngx_var_remote_addr) == true then
+			elseif ip_address_in_range(value, localized.ngx_var_remote_addr()) == true then
 				localized.proxy_header_ip_check_cached = true
 				return true
 			end
@@ -3572,7 +3571,7 @@ local function close_connection(method)
 	if localized.anti_ddos_table ~= nil and #localized.anti_ddos_table > 0 and localized.dummy ~= nil and method == nil then
 		for i=1,#localized.anti_ddos_table do --for each host/path in our table
 			local v = localized.anti_ddos_table[i]
-			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
+			if faster_than_match(v[1]) or localized.string_find(localized.URL(), v[1]) then --if our host matches one in the table
 				if localized.request_limit == nil then
 					localized.request_limit = remote_cache(v[19], v[7])
 					--localized.request_limit = v[19] or nil --What ever memory space your server has set / defined for this to use
@@ -3607,7 +3606,7 @@ local function close_connection(method)
 	if localized.content_cache ~= nil and #localized.content_cache > 0 and localized.dummy ~= nil and method == 1 then
 		for i=1,#localized.content_cache do --for each host/path in our table
 			local v = localized.content_cache[i]
-			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
+			if faster_than_match(v[1]) or localized.string_find(localized.URL(), v[1]) then --if our host matches one in the table
 				if localized.resty_redis == 1 or localized.resty_memcached == 1 then
 					if localized.dummy ~= nil then
 						local tab_cached, tab_logging = v[3], v[5]
@@ -3632,23 +3631,23 @@ if localized.remote_addr == "auto" then
 		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
 			localized.remote_addr = localized.ngx_var_http_cf_connecting_ip
 		else --you are not really cloudflare dont pretend you are to bypass flood protection
-			localized.remote_addr = localized.ngx_var_remote_addr
+			localized.remote_addr = localized.ngx_var_remote_addr()
 		end
 	elseif localized.ngx_var_http_x_forwarded_for ~= nil then
 		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
 			localized.remote_addr = localized.ngx_var_http_x_forwarded_for
 		else
-			localized.remote_addr = localized.ngx_var_remote_addr
+			localized.remote_addr = localized.ngx_var_remote_addr()
 		end
 	else
-		localized.remote_addr = localized.ngx_var_remote_addr
+		localized.remote_addr = localized.ngx_var_remote_addr()
 	end
 end
 if localized.remote_addr == "tor" then
 	localized.remote_addr = localized.tor_remote_addr
 	if localized.tor_remote_addr == "auto" then
-		localized.remote_addr = localized.ngx_var_remote_addr
-		localized.tor_remote_addr = localized.ngx_var_remote_addr
+		localized.remote_addr = localized.ngx_var_remote_addr()
+		localized.tor_remote_addr = localized.ngx_var_remote_addr()
 	end
 end
 --[[WAF Web Application Firewall POST Request arguments filter]]
@@ -3931,20 +3930,20 @@ local function WAF_URI_Request()
 	if localized.WAF_URI_Request_table ~= nil and #localized.WAF_URI_Request_table > 0 then --Check Post filter table has rules inside it
 
 		--[[
-		Because localized.ngx_var.uri is a bit stupid I strip the query string of the request uri.
+		Because localized.ngx.var.uri is a bit stupid I strip the query string of the request uri.
 		The reason for this it is subject to normalisation
 		Consecutive / characters are replace by a single / 
 		and URL encoded characters are decoded 
 		but then your back end webserver / application recieve the encoded uri!?
 		So to keep the security strong I match the same version your web application would need protecting from (Yes the encoded copy that could contain malicious / exploitable contents)
 		]]
-		local args = localized.string_gsub(localized.request_uri, "?.*", "") --remove the query string from the uri
+		local args = localized.string_gsub(localized.request_uri(), "?.*", "") --remove the query string from the uri
 		if args ~= nil and args ~= "" and args ~= "nil" and args ~= "/" then
 			for i=1,#localized.WAF_URI_Request_table do --for each host in our table
 				local v = localized.WAF_URI_Request_table[i]
-				if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
+				if faster_than_match(v[1]) or localized.string_find(localized.URL(), v[1]) then --if our host matches one in the table
 					if localized.string_find(args, v[2]) then
-						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request URI prohibited : " .. localized.URL .. " - IP : " .. localized.remote_addr)
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request URI prohibited : " .. localized.URL() .. " - IP : " .. localized.remote_addr)
 						close_connection()
 						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
 					end
@@ -3994,7 +3993,7 @@ local function get_resp_content_type(forced) --incase content-type header not ye
 		TRACE = localized.ngx_HTTP_TRACE,
 		CONNECT = localized.ngx_HTTP_CONNECT, --does not exist but put here never know in the future
 	}
-	local res = localized.ngx.location.capture(localized.request_uri, {
+	local res = localized.ngx.location.capture(localized.request_uri(), {
 	method = map[localized.ngx.req.get_method()],
 	--method = map[HEAD],
 	--headers = req_headers,
@@ -4425,7 +4424,7 @@ local function internal_header_setup()
 	if localized.anti_ddos_table ~= nil and #localized.anti_ddos_table > 0 then --do ip block checks before we bother generating headers
 		for i=1,#localized.anti_ddos_table do --for each host/path in our table
 			local v = localized.anti_ddos_table[i]
-			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
+			if faster_than_match(v[1]) or localized.string_find(localized.URL(), v[1]) then --if our host matches one in the table
 				--if localized.request_limit == nil then
 					--localized.request_limit = remote_cache(v[19], v[7])
 					--localized.request_limit = v[19] or nil --What ever memory space your server has set / defined for this to use
@@ -4457,7 +4456,7 @@ local function internal_header_setup()
 					end
 
 					--start real ip block
-					local ip = localized.ngx_var_remote_addr
+					local ip = localized.ngx_var_remote_addr()
 					local blocked_time = localized.blocked_addr:get(secure_storage(0, ip)) --if for some reason their real ip is in the block list block them else fall back to other checks
 					if blocked_time and blocked_time ~= localized.ngx.null then
 
@@ -4507,11 +4506,11 @@ local function internal_header_setup()
 						if v[7] == 1 then
 							if v[23] == 1 or v[23] == 0 then
 								if total_requests < v[24] then --Less than required amount to trigger Automatically enable I am Under Attack Mode so enable logging
-									--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL )
+									--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL() )
 									if v[44] ~= nil and v[44] == 1 then
-										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL() .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
 									else
-										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL() .. " - Ban ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
 									end
 								end
 							end
@@ -4534,7 +4533,7 @@ local function internal_header_setup()
 					--concatenate tables make sure both these tables are the same
 					if localized.ip_whitelist ~= nil and localized.proxy_header_table ~= nil and #localized.ip_whitelist ~= 0 and #localized.proxy_header_table ~= 0 then
 						localized.merge_table = TableConcat(localized.ip_whitelist, localized.proxy_header_table)
-						localized.merge_table[#localized.merge_table+1] = localized.ngx_var.server_addr --make sure our own server address is whitelisted just incase
+						localized.merge_table[#localized.merge_table+1] = localized.ngx_var_server_addr() --make sure our own server address is whitelisted just incase
 						localized.ip_whitelist = localized.merge_table
 						localized.proxy_header_table = localized.merge_table
 					end
@@ -4544,16 +4543,16 @@ local function internal_header_setup()
 							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
 								ip = localized.ngx_var_http_cf_connecting_ip
 							else --you are not really cloudflare dont pretend you are to bypass flood protection
-								ip = localized.ngx_var_remote_addr
+								ip = localized.ngx_var_remote_addr()
 							end
 						elseif localized.ngx_var_http_x_forwarded_for ~= nil then
 							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
 								ip = localized.ngx_var_http_x_forwarded_for
 							else
-								ip = localized.ngx_var_remote_addr
+								ip = localized.ngx_var_remote_addr()
 							end
 						else
-							ip = localized.ngx_var_remote_addr
+							ip = localized.ngx_var_remote_addr()
 						end
 					end
 					local blocked_time = localized.blocked_addr:get(secure_storage(0, ip))
@@ -4605,11 +4604,11 @@ local function internal_header_setup()
 						if v[7] == 1 then
 							if v[23] == 1 or v[23] == 0 then
 								if total_requests < v[24] then --Less than required amount to trigger Automatically enable I am Under Attack Mode so enable logging
-									--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL )
+									--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL() )
 									if v[44] ~= nil and v[44] == 1 then
-										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL() .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
 									else
-										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL() .. " - Ban ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
 									end
 								end
 							end
@@ -4649,7 +4648,7 @@ local function internal_header_setup()
 		end
 		localized.ngx_var_http_internal_header_name = localized.ngx_encode_base64(localized.ngx_var_http_internal_header_name) --wrap encrypted header in base64
 		localized.ngx_var_http_internal_header_name = localized.string_gsub(localized.ngx_var_http_internal_header_name, "[+/=]", "") --Remove +/=
-		localized.ngx_var_http_internal = localized.ngx_req_get_headers()[localized.ngx_var_http_internal_header_name] or nil (function() local value = localized.ngx_var_http_internal if localized.type(value) == "table" then local output = nil for i=1, #value do output = value[i] end localized.ngx_var_http_internal = output else localized.ngx_var_http_internal = value end end)() --localized.ngx_var["http_"..localized.ngx_var_http_internal_header_name] or nil
+		localized.ngx_var_http_internal = localized.ngx_req_get_headers()[localized.ngx_var_http_internal_header_name] or nil (function() local value = localized.ngx_var_http_internal if localized.type(value) == "table" then local output = nil for i=1, #value do output = value[i] end localized.ngx_var_http_internal = output else localized.ngx_var_http_internal = value end end)() --localized.ngx.var["http_"..localized.ngx_var_http_internal_header_name] or nil
 		localized.ngx_var_http_internal_log = 0
 
 		if localized.ngx_var_http_internal_log == 1 then --log the internal request headers
@@ -4712,16 +4711,16 @@ local function ip_whitelist_flood_checks(ip_table)
 				if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
 					localized.ip_whitelist_remote_addr = localized.ngx_var_http_cf_connecting_ip
 				else --you are not really cloudflare dont pretend you are to bypass flood protection
-					localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr
+					localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr()
 				end
 			elseif localized.ngx_var_http_x_forwarded_for ~= nil then
 				if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
 					localized.ip_whitelist_remote_addr = localized.ngx_var_http_x_forwarded_for
 				else
-					localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr
+					localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr()
 				end
 			else
-				localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr
+				localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr()
 			end
 		end
 		localized.ip_whitelist_flood_checks_count = localized.ip_whitelist_flood_checks_count+2 --make sure we dont run again
@@ -4801,7 +4800,7 @@ local function blocked_address_check(log_message, jsval)
 	end
 	if localized.anti_ddos_table ~= nil and #localized.anti_ddos_table > 0 then
 		for i=1,#localized.anti_ddos_table do
-			if faster_than_match(localized.anti_ddos_table[i][1]) or localized.string_find(localized.URL, localized.anti_ddos_table[i][1]) then --if our host matches one in the table
+			if faster_than_match(localized.anti_ddos_table[i][1]) or localized.string_find(localized.URL(), localized.anti_ddos_table[i][1]) then --if our host matches one in the table
 				local rate_limit_window = localized.anti_ddos_table[i][8]
 				local block_duration = localized.anti_ddos_table[i][10]
 				if localized.request_limit == nil then
@@ -4822,22 +4821,22 @@ local function blocked_address_check(log_message, jsval)
 						if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
 							ip = localized.ngx_var_http_cf_connecting_ip
 						else --you are not really cloudflare dont pretend you are to bypass flood protection
-							ip = localized.ngx_var_remote_addr
+							ip = localized.ngx_var_remote_addr()
 						end
 					elseif localized.ngx_var_http_x_forwarded_for ~= nil then
 						if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
 							ip = localized.ngx_var_http_x_forwarded_for
 						else
-							ip = localized.ngx_var_remote_addr
+							ip = localized.ngx_var_remote_addr()
 						end
 					else
-						ip = localized.ngx_var_remote_addr
+						ip = localized.ngx_var_remote_addr()
 					end
 				end
 				if check_tor_onion() then
 					ip = localized.tor_remote_addr --set ip as what the user wants the tor IP to be
 					if localized.tor_remote_addr == "auto" then
-						ip = localized.ngx_var_remote_addr
+						ip = localized.ngx_var_remote_addr()
 					end
 				end
 				if localized.request_limit ~= nil and localized.blocked_addr ~= nil and localized.ddos_counter ~= nil then --we can do so much more than the basic anti-ddos above
@@ -5077,7 +5076,7 @@ local function anti_ddos()
 		end
 
 		--Detect slow request time
-		local request_time = localized.ngx.now()-localized.ngx.req.start_time() --localized.ngx_var.request_time
+		local request_time = localized.ngx.now()-localized.ngx.req.start_time() --localized.ngx.var.request_time
 		if request_time and localized.tonumber(request_time) > timeout then
 			if logging_value == 1 then
 				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Slow request time exceeded timeout.")
@@ -6285,7 +6284,7 @@ local function anti_ddos()
 	if localized.anti_ddos_table ~= nil and #localized.anti_ddos_table > 0 then
 		for i=1,#localized.anti_ddos_table do --for each host/path in our table
 			local v = localized.anti_ddos_table[i]
-			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
+			if faster_than_match(v[1]) or localized.string_find(localized.URL(), v[1]) then --if our host matches one in the table
 				if localized.request_limit == nil then
 					localized.request_limit = remote_cache(v[19], v[7])
 					--localized.request_limit = v[19] or nil --What ever memory space your server has set / defined for this to use
@@ -6344,10 +6343,10 @@ local function anti_ddos()
 										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) here 2 : ")
 									end
 									if localized.ngx_var_http_internal_log == 1 and localized.ngx_var_http_internal == nil then --2nd layer
-										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) internal call to bypass IP Block : " .. localized.ngx_var_remote_addr)
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) internal call to bypass IP Block : " .. localized.ngx_var_remote_addr())
 									end
 								end
-								ip = localized.ngx_var_remote_addr
+								ip = localized.ngx_var_remote_addr()
 							end
 						elseif localized.ngx_var_http_x_forwarded_for ~= nil then
 							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
@@ -6359,13 +6358,13 @@ local function anti_ddos()
 									end
 								else
 									if localized.ngx_var_http_internal_log == 1 and localized.ngx_var_http_internal ~= nil then --2nd layer
-										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) internal call to bypass IP Block : " .. localized.ngx_var_remote_addr)
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) internal call to bypass IP Block : " .. localized.ngx_var_remote_addr())
 									end
 								end
-								ip = localized.ngx_var_remote_addr
+								ip = localized.ngx_var_remote_addr()
 							end
 						else
-							ip = localized.ngx_var_remote_addr
+							ip = localized.ngx_var_remote_addr()
 						end
 					end
 					if check_tor_onion() then
@@ -6373,7 +6372,7 @@ local function anti_ddos()
 						--v[24] = 0 --number of ips to enable automatic under attack
 						ip = localized.tor_remote_addr --set ip as what the user wants the tor IP to be
 						if localized.tor_remote_addr == "auto" then
-							ip = localized.ngx_var_remote_addr
+							ip = localized.ngx_var_remote_addr()
 						end
 					end
 
@@ -6391,11 +6390,11 @@ local function anti_ddos()
 							if v[7] == 1 then
 								if v[23] == 1 then
 									if total_requests < v[24] then --Less than required amount to trigger Automatically enable I am Under Attack Mode so enable logging
-										--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL )
+										--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL() )
 										if v[44] ~= nil and v[44] == 1 then
-											localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+											localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL() .. " - Ban extended/ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
 										else
-											localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL .. " - Ban ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
+											localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (2) Blocked IP attempt: " .. ip .. " - URL : " .. localized.URL() .. " - Ban ends on : " .. localized.ngx_cookie_time(blocked_time+block_duration) ) --ngx_cookie_time can be slow dont use this under attack
 										end
 									end
 								end
@@ -6662,11 +6661,11 @@ local function anti_ddos()
 					end
 
 					if v[40] ~= nil then
-						if #localized.request_uri >= v[40] then
+						if #localized.request_uri() >= v[40] then
 							if ip_whitelist_flood_checks(localized.ip_whitelist) and check_tor_onion() == false then --if true then block ip
 								if v[42] > 0 then
 									if v[7] == 1 then
-										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Max request URI length exceeds allowed = " .. v[40] .. " - total client URI length = " .. #localized.request_uri .. " - " .. ip)
+										localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Max request URI length exceeds allowed = " .. v[40] .. " - total client URI length = " .. #localized.request_uri() .. " - " .. ip)
 									end
 									--Block IP
 									if localized.resty_redis == 1 then
@@ -6687,10 +6686,10 @@ local function anti_ddos()
 
 					--ordering ngx_var checks last
 					if localized.ngx_var_connection_requests == nil then
-						localized.ngx_var_connection_requests = localized.ngx_var.connection_requests or 0 --default timeout per connection in nginx is 60 seconds unless you have changed your timeout configs
+						localized.ngx_var_connection_requests = localized.ngx.var.connection_requests or 0 --default timeout per connection in nginx is 60 seconds unless you have changed your timeout configs
 					end
 					if localized.ngx_var_request_length == nil then
-						localized.ngx_var_request_length = localized.ngx_var.request_length or 0
+						localized.ngx_var_request_length = localized.ngx.var.request_length or 0
 					end
 					if v[2] >= 1 then --limit keep alive ip
 						if localized.tonumber(localized.ngx_var_connection_requests) >= v[2] then
@@ -6736,16 +6735,16 @@ local function anti_ddos()
 							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
 								ip = localized.ngx_var_http_cf_connecting_ip
 							else --you are not really cloudflare dont pretend you are to bypass flood protection
-								ip = localized.ngx_var_remote_addr
+								ip = localized.ngx_var_remote_addr()
 							end
 						elseif localized.ngx_var_http_x_forwarded_for ~= nil then
 							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
 								ip = localized.ngx_var_http_x_forwarded_for
 							else
-								ip = localized.ngx_var_remote_addr
+								ip = localized.ngx_var_remote_addr()
 							end
 						else
-							ip = localized.ngx_var_remote_addr
+							ip = localized.ngx_var_remote_addr()
 						end
 					end
 					if check_tor_onion() then
@@ -6753,7 +6752,7 @@ local function anti_ddos()
 						v[24] = 0
 						ip = localized.tor_remote_addr --set ip as what the user wants the tor IP to be
 						if localized.tor_remote_addr == "auto" then
-							ip = localized.ngx_var_remote_addr
+							ip = localized.ngx_var_remote_addr()
 						end
 					end
 
@@ -6877,9 +6876,9 @@ local function anti_ddos()
 					end
 
 					if v[40] ~= nil then
-						if #localized.request_uri >= v[40] then
+						if #localized.request_uri() >= v[40] then
 							if v[7] == 1 then
-								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Max request URI length exceeds allowed = " .. v[40] .. " - total client URI length = " .. #localized.request_uri .. " - " .. ip)
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Max request URI length exceeds allowed = " .. v[40] .. " - total client URI length = " .. #localized.request_uri() .. " - " .. ip)
 							end
 							if v[41] ~= 444 and v[41] ~= 204 then --no point with gzip on these
 								localized.ngx_req_set_header("Accept-Encoding", "") --disable gzip
@@ -6891,10 +6890,10 @@ local function anti_ddos()
 
 					--ordering ngx_var checks last
 					if localized.ngx_var_connection_requests == nil then
-						localized.ngx_var_connection_requests = localized.ngx_var.connection_requests or 0 --default timeout per connection in nginx is 60 seconds unless you have changed your timeout configs
+						localized.ngx_var_connection_requests = localized.ngx.var.connection_requests or 0 --default timeout per connection in nginx is 60 seconds unless you have changed your timeout configs
 					end
 					if localized.ngx_var_request_length == nil then
-						localized.ngx_var_request_length = localized.ngx_var.request_length or 0
+						localized.ngx_var_request_length = localized.ngx.var.request_length or 0
 					end
 					if v[2] >= 1 then --limit keep alive ip
 						if localized.tonumber(localized.ngx_var_connection_requests) >= v[2] then
@@ -6972,7 +6971,7 @@ local function header_modification()
 	if localized.custom_headers ~= nil and #localized.custom_headers > 0 then
 		for i=1,#localized.custom_headers do --for each host in our table
 			local v = localized.custom_headers[i]
-			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
+			if faster_than_match(v[1]) or localized.string_find(localized.URL(), v[1]) then --if our host matches one in the table
 				for first=1,#v[2] do --for each arg in our table
 					local value1 = v[2][first][1]
 					local value2 = v[2][first][2]
@@ -7005,7 +7004,7 @@ if localized.remote_addr == "auto" then
 					blocked_address_check("[Anti-DDoS] (2) Blocked IP for attempting to impersonate cloudflare via header CF-Connecting-IP : ")
 				end
 			end
-			localized.remote_addr = localized.ngx_var_remote_addr
+			localized.remote_addr = localized.ngx_var_remote_addr()
 		end
 	elseif localized.ngx_var_http_x_forwarded_for ~= nil then
 		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
@@ -7016,10 +7015,10 @@ if localized.remote_addr == "auto" then
 					blocked_address_check("[Anti-DDoS] (2) Blocked IP for attempting to impersonate proxy via header X-Forwarded-For : ")
 				end
 			end
-			localized.remote_addr = localized.ngx_var_remote_addr
+			localized.remote_addr = localized.ngx_var_remote_addr()
 		end
 	else
-		localized.remote_addr = localized.ngx_var_remote_addr
+		localized.remote_addr = localized.ngx_var_remote_addr()
 	end
 end
 if localized.ip_whitelist_remote_addr == "auto" then
@@ -7032,7 +7031,7 @@ if localized.ip_whitelist_remote_addr == "auto" then
 					blocked_address_check("[Anti-DDoS] (3) Blocked IP for attempting to impersonate cloudflare via header CF-Connecting-IP : ")
 				end
 			end
-			localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr
+			localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr()
 		end
 	elseif localized.ngx_var_http_x_forwarded_for ~= nil then
 		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
@@ -7043,10 +7042,10 @@ if localized.ip_whitelist_remote_addr == "auto" then
 					blocked_address_check("[Anti-DDoS] (3) Blocked IP for attempting to impersonate proxy via header X-Forwarded-For : ")
 				end
 			end
-			localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr
+			localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr()
 		end
 	else
-		localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr
+		localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr()
 	end
 end
 if localized.ip_blacklist_remote_addr == "auto" then
@@ -7059,7 +7058,7 @@ if localized.ip_blacklist_remote_addr == "auto" then
 					blocked_address_check("[Anti-DDoS] (4) Blocked IP for attempting to impersonate cloudflare via header CF-Connecting-IP : ")
 				end
 			end
-			localized.ip_blacklist_remote_addr = localized.ngx_var_remote_addr
+			localized.ip_blacklist_remote_addr = localized.ngx_var_remote_addr()
 		end
 	elseif localized.ngx_var_http_x_forwarded_for ~= nil then
 		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
@@ -7070,10 +7069,10 @@ if localized.ip_blacklist_remote_addr == "auto" then
 					blocked_address_check("[Anti-DDoS] (4) Blocked IP for attempting to impersonate proxy via header X-Forwarded-For : ")
 				end
 			end
-			localized.ip_blacklist_remote_addr = localized.ngx_var_remote_addr
+			localized.ip_blacklist_remote_addr = localized.ngx_var_remote_addr()
 		end
 	else
-		localized.ip_blacklist_remote_addr = localized.ngx_var_remote_addr
+		localized.ip_blacklist_remote_addr = localized.ngx_var_remote_addr()
 	end
 end
 
@@ -7088,7 +7087,7 @@ local function header_append_ip()
 		for i=1,#localized.send_ip_to_backend_custom_headers do --for each host in our table
 			--local v = custom_headers[i]
 			local v = localized.send_ip_to_backend_custom_headers[i]
-			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
+			if faster_than_match(v[1]) or localized.string_find(localized.URL(), v[1]) then --if our host matches one in the table
 				for first=1,#v[2] do --for each arg in our table
 					local value1 = v[2][first][1]
 					if localized.ngx_var_http_internal ~= "1" and value1 ~= nil then
@@ -7122,19 +7121,19 @@ End headers to restore original visitor IP addresses at your origin web server
 if localized.remote_addr == "tor" then
 	localized.remote_addr = localized.tor_remote_addr
 	if localized.tor_remote_addr == "auto" then
-		localized.remote_addr = localized.ngx_var_remote_addr
-		localized.tor_remote_addr = localized.ngx_var_remote_addr
+		localized.remote_addr = localized.ngx_var_remote_addr()
+		localized.tor_remote_addr = localized.ngx_var_remote_addr()
 	end
 end
 if check_tor_onion() then
 	localized.remote_addr = localized.tor_remote_addr --set ip as what the user wants the tor IP to be
 	if localized.tor_remote_addr == "auto" then
-		localized.remote_addr = localized.ngx_var_remote_addr
-		localized.tor_remote_addr = localized.ngx_var_remote_addr
+		localized.remote_addr = localized.ngx_var_remote_addr()
+		localized.tor_remote_addr = localized.ngx_var_remote_addr()
 	end
 end
 if localized.tor_remote_addr == "auto" then
-	localized.tor_remote_addr = localized.ngx_var_remote_addr
+	localized.tor_remote_addr = localized.ngx_var_remote_addr()
 end
 
 --[[
@@ -7147,7 +7146,7 @@ local function query_string_remove_args()
 
 		for i=1,#localized.query_string_remove_args_table do --for each host in our table
 			local v = localized.query_string_remove_args_table[i]
-			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
+			if faster_than_match(v[1]) or localized.string_find(localized.URL(), v[1]) then --if our host matches one in the table
 				for i=1,#v[2] do --for each arg in our table
 					local value = v[2][i]
 					args[value] = nil --remove the arguement from the args table
@@ -7157,7 +7156,7 @@ local function query_string_remove_args()
 			end
 		end
 		if modified == 1 then --need to set our args as our new modified one
-			localized.ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check localized.ngx_var.args
+			localized.ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check localized.ngx.var.args
 		else
 			return --carry on script functions
 		end
@@ -7178,7 +7177,7 @@ local function query_string_expected_args_only()
 
 		for i=1,#localized.query_string_expected_args_only_table do --for each host in our table
 			local v = localized.query_string_expected_args_only_table[i]
-			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
+			if faster_than_match(v[1]) or localized.string_find(localized.URL(), v[1]) then --if our host matches one in the table
 				for key, value in localized.next, args do
 					if has_value(v[2], localized.tostring(key)) == false then
 						args[key] = nil --remove the arguement from the args table
@@ -7189,7 +7188,7 @@ local function query_string_expected_args_only()
 			end
 		end
 		if modified == 1 then --need to set our args as our new modified one
-			localized.ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check localized.ngx_var.args
+			localized.ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check localized.ngx.var.args
 		else
 			return --carry on script functions
 		end
@@ -7209,7 +7208,7 @@ local function query_string_sort()
 
 		for i=1,#localized.query_string_sort_table do --for each host in our table
 			local v = localized.query_string_sort_table[i]
-			if faster_than_match(v[1]) or localized.string_find(localized.URL, v[1]) then --if our host matches one in the table
+			if faster_than_match(v[1]) or localized.string_find(localized.URL(), v[1]) then --if our host matches one in the table
 				if v[2] == 1 then --run query string sort
 					allow_site = 2 --run query string sort
 				end
@@ -7222,7 +7221,7 @@ local function query_string_sort()
 		if allow_site == 2 then --sort our query string
 			local args = localized.ngx_req_get_uri_args() --grab our query string args and put them into a table
 			localized.table_sort(args) --sort our query string args table into order
-			localized.ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check localized.ngx_var.args
+			localized.ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check localized.ngx.var.args
 		else --allow_site was 1
 			return --carry on script functions
 		end
@@ -7748,7 +7747,7 @@ end
 
 --check the connecting client to see if they have our required matching tor cookie name in their request
 local tor_cookie_name = "cookie_" .. localized.cookie_tor
-local tor_cookie_value = localized.ngx_var[tor_cookie_name] or ""
+local tor_cookie_value = localized.ngx.var[tor_cookie_name] or ""
 
 if tor_cookie_value == localized.cookie_tor_value_allow then --if their cookie value matches the value we expect
 	if localized.tor == 2 then --perform check if tor users should be allowed or blocked if tor users already browsing your site have been granted access and you change this setting you want them to be blocked now so this makes sure they are denied any further access before their cookie expires
@@ -7802,7 +7801,7 @@ local function check_authorization(authorization, authorization_dynamic)
 	local expected_cookie_value = nil
 	if localized.authorization == 2 then --Cookie sessions
 		local cookie_name = "cookie_" .. localized.authorization_cookie
-		local cookie_value = localized.ngx_var[cookie_name] or ""
+		local cookie_value = localized.ngx.var[cookie_name] or ""
 		expected_cookie_value = calculate_signature(localized.remote_addr .. "authenticate" .. localized.currentdate) --encrypt our expected cookie value
 		if cookie_value == expected_cookie_value then --cookie value client gave us matches what we expect it to be
 			master_exit() --Go to content
@@ -7814,7 +7813,7 @@ local function check_authorization(authorization, authorization_dynamic)
 	if localized.authorization_paths ~= nil and #localized.authorization_paths > 0 then
 		for i=1,#localized.authorization_paths do --for each host in our table
 			local v = localized.authorization_paths[i]
-			if faster_than_match(v[2]) or localized.string_find(localized.URL, v[2]) then --if our host matches one in the table
+			if faster_than_match(v[2]) or localized.string_find(localized.URL(), v[2]) then --if our host matches one in the table
 				if v[1] == 1 then --Showbox
 					allow_site = 1 --showbox
 				end
@@ -7912,7 +7911,7 @@ local function check_master_switch()
 		if localized.master_switch_custom_hosts ~= nil and #localized.master_switch_custom_hosts > 0 then
 			for i=1,#localized.master_switch_custom_hosts do --for each host in our table
 				local v = localized.master_switch_custom_hosts[i]
-				if faster_than_match(v[2]) or localized.string_find(localized.URL, v[2]) then --if our host matches one in the table
+				if faster_than_match(v[2]) or localized.string_find(localized.URL(), v[2]) then --if our host matches one in the table
 					if v[1] == 1 then --run auth
 						allow_site = 2 --run auth checks
 					end
@@ -7960,17 +7959,17 @@ Grant access function to either grant or deny user access to our website
 local function grant_access()
 	--our uid cookie
 	local cookie_name = "cookie_" .. localized.challenge
-	local cookie_value = localized.ngx_var[cookie_name] or ""
+	local cookie_value = localized.ngx.var[cookie_name] or ""
 	--our start date cookie
 	local cookie_name_start_date_name = "cookie_" .. localized.cookie_name_start_date
-	local cookie_name_start_date_value = localized.ngx_var[cookie_name_start_date_name] or "0" --Added a 0, since a missing 'cookie_name_start_date_name' value in ngx_var resulted in 502
+	local cookie_name_start_date_value = localized.ngx.var[cookie_name_start_date_name] or "0" --Added a 0, since a missing 'cookie_name_start_date_name' value in ngx_var resulted in 502
 	local cookie_name_start_date_value_unix = localized.tonumber(cookie_name_start_date_value) or 0
 	--our end date cookie
 	local cookie_name_end_date_name = "cookie_" .. localized.cookie_name_end_date
-	local cookie_name_end_date_value = localized.ngx_var[cookie_name_end_date_name] or "0" --Just to make sure it doesnt fail somewhere
+	local cookie_name_end_date_value = localized.ngx.var[cookie_name_end_date_name] or "0" --Just to make sure it doesnt fail somewhere
 	--our start date and end date combined to a unique id
 	local cookie_name_encrypted_start_and_end_date_name = "cookie_" .. localized.cookie_name_encrypted_start_and_end_date
-	local cookie_name_encrypted_start_and_end_date_value = localized.ngx_var[cookie_name_encrypted_start_and_end_date_name] or ""
+	local cookie_name_encrypted_start_and_end_date_value = localized.ngx.var[cookie_name_encrypted_start_and_end_date_name] or ""
 
 	if cookie_value ~= answer then --if cookie value not equal to or matching our expected cookie they should be giving us
 		return --return to refresh the page so it tries again
@@ -8076,7 +8075,7 @@ if localized.ngx_var_http_cf_connecting_ip ~= nil then
 				blocked_address_check("[Anti-DDoS] (5) Blocked IP for attempting to impersonate cloudflare via header CF-Connecting-IP : ")
 			end
 		end
-		localized.remote_addr = localized.ngx_var_remote_addr
+		localized.remote_addr = localized.ngx_var_remote_addr()
 	end
 elseif localized.ngx_var_http_x_forwarded_for ~= nil then
 	if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
@@ -8087,10 +8086,10 @@ elseif localized.ngx_var_http_x_forwarded_for ~= nil then
 				blocked_address_check("[Anti-DDoS] (5) Blocked IP for attempting to impersonate proxy via header X-Forwarded-For : ")
 			end
 		end
-		localized.remote_addr = localized.ngx_var_remote_addr
+		localized.remote_addr = localized.ngx_var_remote_addr()
 	end
 else
-	localized.remote_addr = localized.ngx_var_remote_addr
+	localized.remote_addr = localized.ngx_var_remote_addr()
 end
 
 if check_tor_onion() == false then
@@ -8101,7 +8100,7 @@ end
 Build HTML Template
 ]]
 
-localized.title = localized.host .. [[ | Anti-DDoS Flood Protection and Firewall]]
+localized.title = localized.host() .. [[ | Anti-DDoS Flood Protection and Firewall]]
 
 --[[
 Javascript after setting cookie run xmlhttp GET request
@@ -8233,7 +8232,7 @@ localized.javascript_anti_ddos = [[
 					location.reload(true);
 				}
 			};
-			xhttp.open("]] .. localized.javascript_REQUEST_TYPE .. [[", "]] .. localized.request_uri .. [[", true);
+			xhttp.open("]] .. localized.javascript_REQUEST_TYPE .. [[", "]] .. localized.request_uri() .. [[", true);
 			]] .. localized.javascript_REQUEST_headers .. [[
 			]] .. javascript_POST_headers .. [[
 			xhttp.send(]] .. javascript_POST_data .. [[);
@@ -8302,7 +8301,7 @@ Please allow up to <span id="countdowntimer">]] .. localized.refresh_auth .. [[<
 <h3 style="color:#bd2426;">Request Details :</h3>
 IP address : ]] .. localized.remote_addr .. [[
 <br>
-Request URL : ]] .. localized.URL .. [[
+Request URL : ]] .. localized.URL() .. [[
 <br>
 User-Agent : ]] .. localized.user_agent .. [[
 <br>
@@ -8462,7 +8461,7 @@ local function minification(content_type_list)
 	end
 
 	for i=1,#content_type_list do
-		if faster_than_match(content_type_list[i][1]) or localized.string_find(localized.URL, content_type_list[i][1]) then --if our host matches one in the table
+		if faster_than_match(content_type_list[i][1]) or localized.string_find(localized.URL(), content_type_list[i][1]) then --if our host matches one in the table
 			if content_type_list[i][10] == 1 then
 				localized.ngx_header["X-Cache-Status"] = "MISS"
 			end
@@ -8524,7 +8523,7 @@ local function minification(content_type_list)
 			end
 			if content_type_list[i][9] ~= "" and content_type_list[i][9] ~= nil then
 				for a=1, #content_type_list[i][9] do
-					if faster_than_match(content_type_list[i][9][a]) or localized.string_find(localized.request_uri, content_type_list[i][9][a] ) then
+					if faster_than_match(content_type_list[i][9][a]) or localized.string_find(localized.request_uri(), content_type_list[i][9][a] ) then
 						request_uri_match = 1
 						break
 					end
@@ -8766,7 +8765,7 @@ local function minification(content_type_list)
 					end
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " cookies are " .. cookie_string)
 
-					local key = localized.ngx.req.get_method() .. localized.scheme .. "://" .. localized.host .. content_type_list[i][12] .. cookie_string .. request_body --fastcgi_cache_key / proxy_cache_key - GET - https - :// - localized.host - localized.request_uri - request_header["cookie"] - request_body
+					local key = localized.ngx.req.get_method() .. localized.scheme() .. "://" .. localized.host() .. content_type_list[i][12] .. cookie_string .. request_body --fastcgi_cache_key / proxy_cache_key - GET - https - :// - localized.host() - localized.request_uri() - request_header["cookie"] - request_body
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " full cache key is " .. key)
 
 					local content_type_cache = cached:get(secure_storage(0, "content-type"..key)) or nil
@@ -8778,7 +8777,7 @@ local function minification(content_type_list)
 								local httpc = require("resty.http").new()
 								local res = httpc:request_uri(content_type_list[i][12], {
 									method = map[localized.ngx.req.get_method()],
-									body = request_body, --localized.ngx_var.request_body,
+									body = request_body, --localized.ngx.var.request_body,
 									headers = headers_forward(),
 								})
 								if res then
@@ -8887,7 +8886,7 @@ local function minification(content_type_list)
 
 								local res = localized.ngx.location.capture(content_type_list[i][12], {
 								method = map[localized.ngx.req.get_method()],
-								body = request_body, --localized.ngx_var.request_body,
+								body = request_body, --localized.ngx.var.request_body,
 								args = "",
 								headers = headers_forward(),
 								})
@@ -9072,7 +9071,7 @@ local function minification(content_type_list)
 							local httpc = require("resty.http").new()
 							local res = httpc:request_uri(content_type_list[i][12], {
 								method = map[localized.ngx.req.get_method()],
-								body = request_body, --localized.ngx_var.request_body,
+								body = request_body, --localized.ngx.var.request_body,
 								headers = headers_forward(),
 							})
 							if res then
@@ -9153,7 +9152,7 @@ local function minification(content_type_list)
 
 							local res = localized.ngx.location.capture(content_type_list[i][12], {
 							method = map[localized.ngx.req.get_method()],
-							body = request_body, --localized.ngx_var.request_body,
+							body = request_body, --localized.ngx.var.request_body,
 							args = "",
 							headers = headers_forward(),
 							})
