@@ -1,3 +1,7 @@
+Version:5.5
+Date: 2026-09-24
+- Remove un-needed vars and Optimise functions for runtime improvements.
+
 Version: 5.4
 Date: 2026-09-23
 - Cache localized functions for better performance
