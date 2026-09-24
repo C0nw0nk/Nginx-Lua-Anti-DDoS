@@ -68,6 +68,8 @@ fi
 %changelog
 * Thu Sep 24 2026 C0nw0nk <C0nw0nk@github> - 5.5-1
 - Remove un-needed vars and Optimise functions for runtime improvements.
+* Thu Sep 24 2026 C0nw0nk <C0nw0nk@github> - 5.5-1
+- Remove un-needed vars and Optimise functions for runtime improvements.
 * Wed Sep 23 2026 C0nw0nk <C0nw0nk@github> - 5.4-1
 - Cache localized functions for better performance
 - ngx.escape_uri faster than my function

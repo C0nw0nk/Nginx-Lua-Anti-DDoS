@@ -3,6 +3,11 @@ nginx-lua-anti-ddos-challenge (5.5-1) stable; urgency=medium
 
  -- C0nw0nk <C0nw0nk@github>  Thu, 24 Sep 2026 00:00:00 +0000
 
+nginx-lua-anti-ddos-challenge (5.5-1) stable; urgency=medium
+  - Remove un-needed vars and Optimise functions for runtime improvements.
+
+ -- C0nw0nk <C0nw0nk@github>  Thu, 24 Sep 2026 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (5.4-1) stable; urgency=medium
   - Cache localized functions for better performance
   - ngx.escape_uri faster than my function
