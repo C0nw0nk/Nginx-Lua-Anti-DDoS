@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 5.4
+Script Version: 5.5
 
 Copyright Conor McKnight
 
@@ -69,7 +69,6 @@ localized.ngx_req_get_body_data = function() if localized.ngx_req_get_body_data_
 localized.ngx_req_get_body_file = function() if localized.ngx_req_get_body_file_run ~= nil then return localized.ngx_req_get_body_file_run end localized.ngx_req_get_body_file_run = localized.ngx.req.get_body_file() return localized.ngx_req_get_body_file_run end
 localized.ngx_decode_args = localized.ngx.decode_args
 localized.ngx_cookie_time = function(input) if localized.ngx_cookie_time_f == nil then localized.ngx_cookie_time_f = localized.ngx.cookie_time end local in_reg = (function() return localized.tostring(input) end)() if localized.ngx_cookie_time_run ~= nil and localized.ngx_cookie_time_run[in_reg.."one"] ~= nil then return localized.ngx_cookie_time_run[in_reg.."one"] end if localized.ngx_cookie_time_run == nil then localized.ngx_cookie_time_run = {} end localized.ngx_cookie_time_run[in_reg.."one"] = {} localized.ngx_cookie_time_run[in_reg.."one"] = localized.ngx_cookie_time_f(input) return localized.ngx_cookie_time_run[in_reg.."one"] end
-localized.ngx_header = localized.ngx.header
 localized.ngx_status = localized.ngx.status
 localized.ngx_exit = localized.ngx.exit
 localized.ngx_say = localized.ngx.say
@@ -128,12 +127,12 @@ localized.ngx_HTTP_PATCH = localized.ngx.HTTP_PATCH
 localized.ngx_HTTP_TRACE = localized.ngx.HTTP_TRACE
 --localized.ngx_HTTP_CONNECT = localized.ngx.HTTP_CONNECT --does not exist but put here never know in the future
 localized.ngx_OK = localized.ngx.OK --go to content
-localized.ngx_var_http_cf_connecting_ip = localized.ngx_req_get_headers()["CF-Connecting-IP"] or nil (function() local value = localized.ngx_var_http_cf_connecting_ip if localized.type(value) == "table" then local output = nil for i=1, #value do output = value[i] end localized.ngx_var_http_cf_connecting_ip = output else localized.ngx_var_http_cf_connecting_ip = value end end)()
-localized.ngx_var_http_x_forwarded_for = localized.ngx_req_get_headers()["X-Forwarded-For"] or nil (function() local value = localized.ngx_var_http_x_forwarded_for if localized.type(value) == "table" then local output = nil for i=1, #value do output = value[i] end localized.ngx_var_http_x_forwarded_for = output else localized.ngx_var_http_x_forwarded_for = value end end)()
+localized.ngx_var_http_cf_connecting_ip = function() if localized.ngx_var_http_cf_connecting_ip_run ~= nil then return localized.ngx_var_http_cf_connecting_ip_run end local out = localized.ngx_req_get_headers()["CF-Connecting-IP"] or nil (function() local value = out if localized.type(value) == "table" then local output = nil for i=1, #value do output = value[i] end out = output else out = value end end)() localized.ngx_var_http_cf_connecting_ip_run = out return out end
+localized.ngx_var_http_x_forwarded_for = function() if localized.ngx_var_http_x_forwarded_for_run ~= nil then return localized.ngx_var_http_x_forwarded_for_run end local out = localized.ngx_req_get_headers()["X-Forwarded-For"] or nil (function() local value = out if localized.type(value) == "table" then local output = nil for i=1, #value do output = value[i] end out = output else out = value end end)() localized.ngx_var_http_x_forwarded_for_run = out return out end
 localized.ngx_var_remote_addr = function() if localized.ngx_var_remote_addr_run ~= nil then return localized.ngx_var_remote_addr_run end localized.ngx_var_remote_addr_run = localized.ngx.var.remote_addr return localized.ngx_var_remote_addr_run end
 localized.ngx_var_server_addr = function() if localized.ngx_var_server_addr_run ~= nil then return localized.ngx_var_server_addr_run end localized.ngx_var_server_addr_run = localized.ngx.var.server_addr return localized.ngx_var_server_addr_run end
 localized.ngx_var_server_port = function() if localized.ngx_var_server_port_run ~= nil then return localized.ngx_var_server_port_run end localized.ngx_var_server_port_run = localized.ngx.var.server_port return localized.ngx_var_server_port_run end
-localized.ngx_var_http_user_agent = localized.ngx_req_get_headers()["User-Agent"] or "" (function() local value = localized.ngx_var_http_user_agent if localized.type(value) == "table" then local output = nil for i=1, #value do output = value[i] end localized.ngx_var_http_user_agent = output else localized.ngx_var_http_user_agent = value end end)()
+localized.ngx_var_http_user_agent = function() if localized.ngx_var_http_user_agent_run ~= nil then return localized.ngx_var_http_user_agent_run end local out = localized.ngx_req_get_headers()["User-Agent"] or "" (function() local value = out if localized.type(value) == "table" then local output = nil for i=1, #value do output = value[i] end out = output else out = value end end)() localized.ngx_var_http_user_agent_run = out return out end
 localized.ngx_log = localized.ngx.log
 -- https://openresty-reference.readthedocs.io/en/latest/Lua_Nginx_API/#nginx-log-level-constants
 localized.ngx_LOG_TYPE = localized.ngx.STDERR
@@ -141,7 +140,6 @@ localized.scheme = function() if localized.scheme_run ~= nil then return localiz
 localized.host = function() if localized.host_run ~= nil then return localized.host_run end localized.host_run = localized.ngx.var.host return localized.host_run end
 localized.request_uri = function() if localized.request_uri_run ~= nil then return localized.request_uri_run end localized.request_uri_run = localized.ngx.var.request_uri or "/" return localized.request_uri_run end
 localized.URL = function() if localized.URL_run ~= nil then return localized.URL_run end localized.URL_run = localized.scheme() .. "://" .. localized.host() .. localized.request_uri() return localized.URL_run end
-localized.user_agent = localized.ngx_var_http_user_agent or "" --user agent of browser
 localized.currenttime = localized.ngx.time() --Current time on server
 localized.os_time_saved = localized.currenttime-24*60*60
 localized.os_date = function(wanted_type, unix_time) if localized.get_date_from_unix_cached == nil then localized.get_date_from_unix_cached = {} local day_count, year, days, month = function(yr) return (yr % 4 == 0 and (yr % 100 ~= 0 or yr % 400 == 0)) and 366 or 365 end, 1970, localized.math_floor(unix_time/86400) while days >= day_count(year) do days = days - day_count(year) year = year + 1 end local days_count = days local week = 0 local count = 0 for i=1, 52 do count = 7*i if count <= days_count then localized.get_date_from_unix_cached.week = i end end local tab_overflow = function(seed, table) for i = 1, #table do if seed - table[i] <= 0 then return i, seed end seed = seed - table[i] end end month, days = tab_overflow(days, {31,(day_count(year) == 366 and 29 or 28),31,30,31,30,31,31,30,31,30,31}) local hours, minutes, seconds = localized.math_floor(unix_time / 3600 % 24), localized.math_floor(unix_time / 60 % 60), localized.math_floor(unix_time % 60) localized.get_date_from_unix_cached.period = hours > 12 and "pm" or "am" localized.get_date_from_unix_cached.seconds = seconds localized.get_date_from_unix_cached.minutes = minutes localized.get_date_from_unix_cached.hours = hours localized.get_date_from_unix_cached.days = days localized.get_date_from_unix_cached.month = month localized.get_date_from_unix_cached.year = year end if wanted_type == "%M" then return localized.get_date_from_unix_cached.minutes end if wanted_type == "%H" then return localized.get_date_from_unix_cached.hours end if wanted_type == "%d" then return localized.get_date_from_unix_cached.days end if wanted_type == "%W" then return localized.get_date_from_unix_cached.week end if wanted_type == "%m" then return localized.get_date_from_unix_cached.month end if wanted_type == "%Y" then return localized.get_date_from_unix_cached.year end if wanted_type == "%z" then return localized.get_date_from_unix_cached.year+9 end if wanted_type == "%Y%m%d" then if localized.get_date_from_unix_cached.ymd == nil then localized.get_date_from_unix_cached.ymd = localized.string_gsub(localized.ngx.today(), "[-]", "") end return localized.get_date_from_unix_cached.ymd end if localized.get_date_from_unix_cached.full == nil then localized.get_date_from_unix_cached.full = localized.string_format("%d/%d/%04d %02d:%02d:%02d %s", localized.get_date_from_unix_cached.days, localized.get_date_from_unix_cached.month, localized.get_date_from_unix_cached.year, localized.get_date_from_unix_cached.hours, localized.get_date_from_unix_cached.minutes, localized.get_date_from_unix_cached.seconds, localized.get_date_from_unix_cached.period) end return localized.get_date_from_unix_cached.full end
@@ -611,13 +609,13 @@ localized.secret_encryption = 1 --1 = default HMAC SHA1 2 = xor encryption both 
 --[[
 Unique id to identify each individual user and machine trying to access your website IP address works well.
 
-localized.ngx_var_http_cf_connecting_ip --If you proxy your traffic through cloudflare use this
-localized.ngx_var_http_x_forwarded_for --If your traffic is proxied through another server / service.
+localized.ngx_var_http_cf_connecting_ip() or "" --If you proxy your traffic through cloudflare use this
+localized.ngx_var_http_x_forwarded_for() or "" --If your traffic is proxied through another server / service.
 localized.ngx_var_remote_addr() --Users IP address
-localized.ngx_var_http_user_agent or "" --User-Agent
+localized.ngx_var_http_user_agent() or "" --User-Agent
 
 You can combine multiple if you like. You can do so like this.
-localized.remote_addr = localized.ngx_var_remote_addr() .. (localized.ngx_var_http_user_agent or "")
+localized.remote_addr = localized.ngx_var_remote_addr() .. (localized.ngx_var_http_user_agent() or "")
 
 remote_addr = "tor" this will mean this script will be functioning for tor users only
 remote_addr = "auto" the script will automatically get the clients IP this is the default it is the smartest and most compatible method with every service proxy etc
@@ -794,10 +792,9 @@ localized.tor = 1 --Allow Tor Users
 --[[
 Unique ID to identify each individual Tor user who connects to the website
 Using their User-Agent as a static variable to latch onto works well.
-localized.tor_remote_addr = localized.ngx_var_remote_addr() .. localized.os_date("%W",localized.os_time_saved) .. (localized.ngx_var_http_user_agent or "") --Tor / Onion users can use this if you dont like the "auto" behaviour
+localized.tor_remote_addr = localized.ngx_var_remote_addr() .. localized.os_date("%W",localized.os_time_saved) .. (localized.ngx_var_http_user_agent() or "") --Tor / Onion users can use this if you dont like the "auto" behaviour
 ]]
---localized.tor_remote_addr = "auto"
-localized.tor_remote_addr = localized.ngx_var_remote_addr() .. localized.os_date("%W",localized.os_time_saved) .. (localized.ngx_var_http_user_agent or "")
+localized.tor_remote_addr = "auto"
 
 --[[
 X-Tor-Header to be static or Dynamic setting this as dynamic is the best form of security
@@ -1985,7 +1982,7 @@ The way to check if we are running any private services
 We check the host or the URL or port against a matching string for example if host contains .onion we know we are using a Tor SERVICE and to apply settings for compatibility
 Allows us to easily add other privacy services and nodes to protect from attacks.
 ]]
-localized.check_privacy = {
+localized.check_privacy = function() return {
 	{localized.host(),".onion$",}, --Tor
 	{localized.host(),".eth$",}, --ENS
 	--{localized.URL(),"usk%@",}, --Freenet
@@ -1998,6 +1995,7 @@ localized.check_privacy = {
 	--{localized.ngx_var_server_port(), "4444"}, --port matches node or hidden service that nginx is protecting
 	--{localized.ngx_var_server_port(), "43310"}, --zeronet
 }
+end
 
 --[[
 End Configuration
@@ -3627,15 +3625,15 @@ if localized.WAF_Runs ~= nil then --only run once
 	return
 end
 if localized.remote_addr == "auto" then
-	if localized.ngx_var_http_cf_connecting_ip ~= nil then
+	if localized.ngx_var_http_cf_connecting_ip() ~= nil then
 		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
-			localized.remote_addr = localized.ngx_var_http_cf_connecting_ip
+			localized.remote_addr = localized.ngx_var_http_cf_connecting_ip()
 		else --you are not really cloudflare dont pretend you are to bypass flood protection
 			localized.remote_addr = localized.ngx_var_remote_addr()
 		end
-	elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+	elseif localized.ngx_var_http_x_forwarded_for() ~= nil then
 		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
-			localized.remote_addr = localized.ngx_var_http_x_forwarded_for
+			localized.remote_addr = localized.ngx_var_http_x_forwarded_for()
 		else
 			localized.remote_addr = localized.ngx_var_remote_addr()
 		end
@@ -3963,9 +3961,9 @@ local function get_resp_content_type(forced) --incase content-type header not ye
 	local resp_content_type = nil
 	if forced == nil then
 		localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+1
-		if localized.ngx_header["content-type"] then
-			--localized.ngx_log(localized.ngx_LOG_TYPE, " localized.ngx_header['content-type'] " .. localized.ngx_header["content-type"] )
-			resp_content_type = localized.ngx_header["content-type"]
+		if localized.ngx.header["content-type"] then
+			--localized.ngx_log(localized.ngx_LOG_TYPE, " localized.ngx.header['content-type'] " .. localized.ngx.header["content-type"] )
+			resp_content_type = localized.ngx.header["content-type"]
 			return resp_content_type
 		end
 	end
@@ -4009,7 +4007,7 @@ local function get_resp_content_type(forced) --incase content-type header not ye
 			end
 		end
 	end
-	localized.ngx_header["content-type"] = resp_content_type --set header as content-type be either nil or the content-type
+	localized.ngx.header["content-type"] = resp_content_type --set header as content-type be either nil or the content-type
 	localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
 	return resp_content_type
 
@@ -4539,15 +4537,15 @@ local function internal_header_setup()
 					end
 					local ip = v[22]
 					if ip == "auto" then
-						if localized.ngx_var_http_cf_connecting_ip ~= nil then
+						if localized.ngx_var_http_cf_connecting_ip() ~= nil then
 							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
-								ip = localized.ngx_var_http_cf_connecting_ip
+								ip = localized.ngx_var_http_cf_connecting_ip()
 							else --you are not really cloudflare dont pretend you are to bypass flood protection
 								ip = localized.ngx_var_remote_addr()
 							end
-						elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+						elseif localized.ngx_var_http_x_forwarded_for() ~= nil then
 							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
-								ip = localized.ngx_var_http_x_forwarded_for
+								ip = localized.ngx_var_http_x_forwarded_for()
 							else
 								ip = localized.ngx_var_remote_addr()
 							end
@@ -4681,8 +4679,8 @@ internal_header_setup()
 
 local function check_tor_onion()
 	if localized.check_tor_onion_cached == nil then
-		for i=1,#localized.check_privacy do
-			if localized.string_find(localized.string_lower(localized.check_privacy[i][1]), localized.check_privacy[i][2]) then
+		for i=1,#localized.check_privacy() do
+			if localized.string_find(localized.string_lower(localized.check_privacy()[i][1]), localized.check_privacy()[i][2]) then
 				localized.check_tor_onion_cached = true
 				break
 			else
@@ -4707,15 +4705,15 @@ local function ip_whitelist_flood_checks(ip_table)
 	end
 	if localized.ip_whitelist_bypass_flood_protection == 1 and ip_table ~= nil and #ip_table > 0 then
 		if localized.ip_whitelist_remote_addr == "auto" then
-			if localized.ngx_var_http_cf_connecting_ip ~= nil then
+			if localized.ngx_var_http_cf_connecting_ip() ~= nil then
 				if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
-					localized.ip_whitelist_remote_addr = localized.ngx_var_http_cf_connecting_ip
+					localized.ip_whitelist_remote_addr = localized.ngx_var_http_cf_connecting_ip()
 				else --you are not really cloudflare dont pretend you are to bypass flood protection
 					localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr()
 				end
-			elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+			elseif localized.ngx_var_http_x_forwarded_for() ~= nil then
 				if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
-					localized.ip_whitelist_remote_addr = localized.ngx_var_http_x_forwarded_for
+					localized.ip_whitelist_remote_addr = localized.ngx_var_http_x_forwarded_for()
 				else
 					localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr()
 				end
@@ -4817,15 +4815,15 @@ local function blocked_address_check(log_message, jsval)
 				end
 				local ip = localized.anti_ddos_table[i][22]
 				if ip == "auto" then
-					if localized.ngx_var_http_cf_connecting_ip ~= nil then
+					if localized.ngx_var_http_cf_connecting_ip() ~= nil then
 						if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
-							ip = localized.ngx_var_http_cf_connecting_ip
+							ip = localized.ngx_var_http_cf_connecting_ip()
 						else --you are not really cloudflare dont pretend you are to bypass flood protection
 							ip = localized.ngx_var_remote_addr()
 						end
-					elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+					elseif localized.ngx_var_http_x_forwarded_for() ~= nil then
 						if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
-							ip = localized.ngx_var_http_x_forwarded_for
+							ip = localized.ngx_var_http_x_forwarded_for()
 						else
 							ip = localized.ngx_var_remote_addr()
 						end
@@ -5198,7 +5196,7 @@ local function anti_ddos()
 					end
 					get_resp_content_type() --grab content-type incase does not exist
 				end
-				if localized.content_type_fix == false or localized.ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
+				if localized.content_type_fix == false or localized.ngx.header["content-type"] then --the content type that the user is requesting to use a range header on
 					if #range_table > 0 then
 						local whitelist_set = 0
 						local regex_g = "%s*(%-?%d+)%s*-%s*(%-?%d+)%s*[^,]+" --multi segment regex
@@ -5216,7 +5214,7 @@ local function anti_ddos()
 								for x=1,#range_table[i] do
 									if x == 1 and localized.content_type_fix then
 										if range_table[i][x] ~= "" then
-											if localized.string_find(localized.ngx_header["content-type"], range_table[i][x]) then
+											if localized.string_find(localized.ngx.header["content-type"], range_table[i][x]) then
 												if range_whitelist_blacklist == 0 then --0 blacklist 1 whitelist
 													if logging_value == 1 then
 														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Blacklist match " .. range_table[i][x] )
@@ -5648,7 +5646,7 @@ local function anti_ddos()
 						end
 						get_resp_content_type() --grab content-type incase does not exist
 					end
-					if localized.content_type_fix == false or localized.ngx_header["content-type"] then --the content type that the user is requesting to use a range header on
+					if localized.content_type_fix == false or localized.ngx.header["content-type"] then --the content type that the user is requesting to use a range header on
 						if #range_table > 0 then
 							local whitelist_set = 0
 							local regex_g = "%s*(%-?%d+)%s*-%s*(%-?%d+)%s*[^,]+" --multi segment regex
@@ -5666,7 +5664,7 @@ local function anti_ddos()
 									for x=1,#range_table[i] do
 										if x == 1 and localized.content_type_fix then
 											if range_table[i][x] ~= "" then
-												if localized.string_find(localized.ngx_header["content-type"], range_table[i][x]) then
+												if localized.string_find(localized.ngx.header["content-type"], range_table[i][x]) then
 													if range_whitelist_blacklist == 0 then --0 blacklist 1 whitelist
 														if logging_value == 1 then
 															localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Range Header] Blacklist match " .. range_table[i][x] )
@@ -6324,9 +6322,9 @@ local function anti_ddos()
 
 					if ip == "auto" then
 						--localized.ngx_log(localized.ngx_LOG_TYPE, "Proxy IP found in whitelist - " .. localized.tostring(proxy_header_ip_check(localized.proxy_header_table)) .. " http_internal = " .. localized.tostring(localized.ngx_var_http_internal) )
-						if localized.ngx_var_http_cf_connecting_ip ~= nil then
+						if localized.ngx_var_http_cf_connecting_ip() ~= nil then
 							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
-								ip = localized.ngx_var_http_cf_connecting_ip
+								ip = localized.ngx_var_http_cf_connecting_ip()
 							else --you are not really cloudflare dont pretend you are to bypass flood protection
 								if localized.ngx_var_http_internal_log == 1 then --log the internal request headers
 									localized.ngx_log(localized.ngx_LOG_TYPE, " we expect these to match - " .. localized.tostring(localized.ngx_var_http_internal) .. " and " .. localized.tostring(localized.ngx_var_http_internal_string) )
@@ -6348,9 +6346,9 @@ local function anti_ddos()
 								end
 								ip = localized.ngx_var_remote_addr()
 							end
-						elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+						elseif localized.ngx_var_http_x_forwarded_for() ~= nil then
 							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
-								ip = localized.ngx_var_http_x_forwarded_for
+								ip = localized.ngx_var_http_x_forwarded_for()
 							else
 								if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
 									if localized.ngx_var_http_internal_header_name ~= nil and localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
@@ -6731,15 +6729,15 @@ local function anti_ddos()
 
 					if ip == "auto" then
 						--localized.ngx_log(localized.ngx_LOG_TYPE, "Proxy IP found in whitelist - " .. localized.tostring(proxy_header_ip_check(localized.proxy_header_table)) .. " http_internal = " .. localized.tostring(localized.ngx_var_http_internal) )
-						if localized.ngx_var_http_cf_connecting_ip ~= nil then
+						if localized.ngx_var_http_cf_connecting_ip() ~= nil then
 							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
-								ip = localized.ngx_var_http_cf_connecting_ip
+								ip = localized.ngx_var_http_cf_connecting_ip()
 							else --you are not really cloudflare dont pretend you are to bypass flood protection
 								ip = localized.ngx_var_remote_addr()
 							end
-						elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+						elseif localized.ngx_var_http_x_forwarded_for() ~= nil then
 							if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
-								ip = localized.ngx_var_http_x_forwarded_for
+								ip = localized.ngx_var_http_x_forwarded_for()
 							else
 								ip = localized.ngx_var_remote_addr()
 							end
@@ -6976,10 +6974,10 @@ local function header_modification()
 					local value1 = v[2][first][1]
 					local value2 = v[2][first][2]
 					if value1 ~= nil and value2 ~= nil then
-						localized.ngx_header[value1] = value2
+						localized.ngx.header[value1] = value2
 					end
 					if value2 == nil then
-						localized.ngx_header[value1] = nil --remove the header
+						localized.ngx.header[value1] = nil --remove the header
 					end
 				end
 			end
@@ -6995,9 +6993,9 @@ End Header Modifications
 
 --automatically figure out the IP address of the connecting Client
 if localized.remote_addr == "auto" then
-	if localized.ngx_var_http_cf_connecting_ip ~= nil then
+	if localized.ngx_var_http_cf_connecting_ip() ~= nil then
 		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
-			localized.remote_addr = localized.ngx_var_http_cf_connecting_ip
+			localized.remote_addr = localized.ngx_var_http_cf_connecting_ip()
 		else --you are not really cloudflare dont pretend you are to bypass flood protection
 			if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
 				if localized.ngx_var_http_internal_header_name ~= nil and localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
@@ -7006,9 +7004,9 @@ if localized.remote_addr == "auto" then
 			end
 			localized.remote_addr = localized.ngx_var_remote_addr()
 		end
-	elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+	elseif localized.ngx_var_http_x_forwarded_for() ~= nil then
 		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
-			localized.remote_addr = localized.ngx_var_http_x_forwarded_for
+			localized.remote_addr = localized.ngx_var_http_x_forwarded_for()
 		else
 			if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
 				if localized.ngx_var_http_internal_header_name ~= nil and localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
@@ -7022,9 +7020,9 @@ if localized.remote_addr == "auto" then
 	end
 end
 if localized.ip_whitelist_remote_addr == "auto" then
-	if localized.ngx_var_http_cf_connecting_ip ~= nil then
+	if localized.ngx_var_http_cf_connecting_ip() ~= nil then
 		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
-			localized.ip_whitelist_remote_addr = localized.ngx_var_http_cf_connecting_ip
+			localized.ip_whitelist_remote_addr = localized.ngx_var_http_cf_connecting_ip()
 		else --you are not really cloudflare dont pretend you are to bypass flood protection
 			if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
 				if localized.ngx_var_http_internal_header_name ~= nil and localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
@@ -7033,9 +7031,9 @@ if localized.ip_whitelist_remote_addr == "auto" then
 			end
 			localized.ip_whitelist_remote_addr = localized.ngx_var_remote_addr()
 		end
-	elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+	elseif localized.ngx_var_http_x_forwarded_for() ~= nil then
 		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
-			localized.ip_whitelist_remote_addr = localized.ngx_var_http_x_forwarded_for
+			localized.ip_whitelist_remote_addr = localized.ngx_var_http_x_forwarded_for()
 		else
 			if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
 				if localized.ngx_var_http_internal_header_name ~= nil and localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
@@ -7049,9 +7047,9 @@ if localized.ip_whitelist_remote_addr == "auto" then
 	end
 end
 if localized.ip_blacklist_remote_addr == "auto" then
-	if localized.ngx_var_http_cf_connecting_ip ~= nil then
+	if localized.ngx_var_http_cf_connecting_ip() ~= nil then
 		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
-			localized.ip_blacklist_remote_addr = localized.ngx_var_http_cf_connecting_ip
+			localized.ip_blacklist_remote_addr = localized.ngx_var_http_cf_connecting_ip()
 		else --you are not really cloudflare dont pretend you are to bypass flood protection
 			if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
 				if localized.ngx_var_http_internal_header_name ~= nil and localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
@@ -7060,9 +7058,9 @@ if localized.ip_blacklist_remote_addr == "auto" then
 			end
 			localized.ip_blacklist_remote_addr = localized.ngx_var_remote_addr()
 		end
-	elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+	elseif localized.ngx_var_http_x_forwarded_for() ~= nil then
 		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
-			localized.ip_blacklist_remote_addr = localized.ngx_var_http_x_forwarded_for
+			localized.ip_blacklist_remote_addr = localized.ngx_var_http_x_forwarded_for()
 		else
 			if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
 				if localized.ngx_var_http_internal_header_name ~= nil and localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
@@ -7709,9 +7707,9 @@ end
 --Auth puzzle status code responses
 local expected_header_status = localized.ngx_HTTP_NO_CONTENT --(204)
 local authentication_page_status_output = localized.ngx_HTTP_OK --(200)
-if localized.ngx_var_http_cf_connecting_ip ~= nil then
+if localized.ngx_var_http_cf_connecting_ip() ~= nil then
 	authentication_page_status_output = localized.ngx_HTTP_OK --(200) cloudflare may not like a 503 status code response so send them a 200 instead
-elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+elseif localized.ngx_var_http_x_forwarded_for() ~= nil then
 	authentication_page_status_output = localized.ngx_HTTP_OK --(200) proxy servers may not like a 503 status code response so send them a 200 instead
 end
 
@@ -7850,7 +7848,7 @@ local function check_authorization(authorization, authorization_dynamic)
 					if localized.authorization == 2 then --Cookie sessions
 						localized.set_cookie1 = localized.authorization_cookie.."="..expected_cookie_value.."; path=/; expires=" .. localized.ngx_cookie_time(localized.currenttime+localized.expire_time) .. "; Max-Age=" .. localized.expire_time .. ";"
 						localized.set_cookies = {localized.set_cookie1}
-						localized.ngx_header["Set-Cookie"] = localized.set_cookies --send client a cookie for their session to be valid
+						localized.ngx.header["Set-Cookie"] = localized.set_cookies --send client a cookie for their session to be valid
 					end
 					allow_access = 1 --grant access
 					break --break out foreach loop since our user and pass was correct
@@ -7871,7 +7869,7 @@ local function check_authorization(authorization, authorization_dynamic)
 			if localized.authorization == 2 then --Cookie sessions
 				localized.set_cookie1 = localized.authorization_cookie.."="..expected_cookie_value.."; path=/; expires=" .. localized.ngx_cookie_time(localized.currenttime+localized.expire_time) .. "; Max-Age=" .. localized.expire_time .. ";"
 				localized.set_cookies = {localized.set_cookie1}
-				localized.ngx_header["Set-Cookie"] = localized.set_cookies --send client a cookie for their session to be valid
+				localized.ngx.header["Set-Cookie"] = localized.set_cookies --send client a cookie for their session to be valid
 			end
 			allow_access = 1 --grant access
 		end
@@ -7882,9 +7880,9 @@ local function check_authorization(authorization, authorization_dynamic)
 	else
 		localized.ngx_status = localized.ngx_HTTP_UNAUTHORIZED --send client unathorized header
 		if authorization_display_user_details == 0 then
-			localized.ngx_header['WWW-Authenticate'] = 'Basic realm="' .. localized.authorization_message .. '", charset="' .. localized.default_charset .. '"' --send client a box to input required username and password fields
+			localized.ngx.header['WWW-Authenticate'] = 'Basic realm="' .. localized.authorization_message .. '", charset="' .. localized.default_charset .. '"' --send client a box to input required username and password fields
 		else
-			localized.ngx_header['WWW-Authenticate'] = 'Basic realm="' .. localized.authorization_message .. ' ' .. localized.authorization_username_message .. ' ' .. authorization_username .. ' ' .. localized.authorization_password_message .. ' ' .. authorization_password .. '", charset="' .. localized.default_charset .. '"' --send client a box to input required username and password fields
+			localized.ngx.header['WWW-Authenticate'] = 'Basic realm="' .. localized.authorization_message .. ' ' .. localized.authorization_username_message .. ' ' .. authorization_username .. ' ' .. localized.authorization_password_message .. ' ' .. authorization_password .. '", charset="' .. localized.default_charset .. '"' --send client a box to input required username and password fields
 		end
 		close_connection()
 		localized.ngx_exit(localized.ngx_HTTP_UNAUTHORIZED) --deny access any further
@@ -7994,14 +7992,14 @@ local function grant_access()
 			localized.set_cookie5 = localized.cookie_tor.."="..cookie_tor_value.."; path=/; expires=" .. localized.ngx_cookie_time(localized.currenttime+localized.expire_time) .. "; Max-Age=" .. localized.expire_time .. ";" --create our tor cookie to identify the client as a tor user
 
 			localized.set_cookies = {localized.set_cookie1 , localized.set_cookie2 , localized.set_cookie3 , localized.set_cookie4, localized.set_cookie5}
-			localized.ngx_header["Set-Cookie"] = localized.set_cookies
-			localized.ngx_header["X-Content-Type-Options"] = "nosniff"
-			localized.ngx_header["X-Frame-Options"] = "SAMEORIGIN"
-			localized.ngx_header["X-XSS-Protection"] = "1; mode=block"
-			localized.ngx_header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
-			localized.ngx_header["Pragma"] = "no-cache"
-			localized.ngx_header["Expires"] = "0"
-			localized.ngx_header.content_type = "text/html; charset=" .. localized.default_charset
+			localized.ngx.header["Set-Cookie"] = localized.set_cookies
+			localized.ngx.header["X-Content-Type-Options"] = "nosniff"
+			localized.ngx.header["X-Frame-Options"] = "SAMEORIGIN"
+			localized.ngx.header["X-XSS-Protection"] = "1; mode=block"
+			localized.ngx.header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+			localized.ngx.header["Pragma"] = "no-cache"
+			localized.ngx.header["Expires"] = "0"
+			localized.ngx.header.content_type = "text/html; charset=" .. localized.default_charset
 			localized.ngx_status = expected_header_status
 			close_connection()
 			localized.ngx_exit(expected_header_status)
@@ -8013,14 +8011,14 @@ local function grant_access()
 			localized.set_cookie4 = localized.cookie_name_encrypted_start_and_end_date.."="..calculate_signature(localized.remote_addr .. localized.currenttime .. (localized.currenttime+localized.expire_time) ).."; path=/; expires=" .. localized.ngx_cookie_time(localized.currenttime+localized.expire_time) .. "; Max-Age=" .. localized.expire_time .. ";" --start and end date combined to unique id
 
 			localized.set_cookies = {localized.set_cookie1 , localized.set_cookie2 , localized.set_cookie3 , localized.set_cookie4}
-			localized.ngx_header["Set-Cookie"] = localized.set_cookies
-			localized.ngx_header["X-Content-Type-Options"] = "nosniff"
-			localized.ngx_header["X-Frame-Options"] = "SAMEORIGIN"
-			localized.ngx_header["X-XSS-Protection"] = "1; mode=block"
-			localized.ngx_header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
-			localized.ngx_header["Pragma"] = "no-cache"
-			localized.ngx_header["Expires"] = "0"
-			localized.ngx_header.content_type = "text/html; charset=" .. localized.default_charset
+			localized.ngx.header["Set-Cookie"] = localized.set_cookies
+			localized.ngx.header["X-Content-Type-Options"] = "nosniff"
+			localized.ngx.header["X-Frame-Options"] = "SAMEORIGIN"
+			localized.ngx.header["X-XSS-Protection"] = "1; mode=block"
+			localized.ngx.header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+			localized.ngx.header["Pragma"] = "no-cache"
+			localized.ngx.header["Expires"] = "0"
+			localized.ngx.header.content_type = "text/html; charset=" .. localized.default_charset
 			localized.ngx_status = expected_header_status
 			close_connection()
 			localized.ngx_exit(expected_header_status)
@@ -8066,9 +8064,9 @@ if localized.log_users_on_puzzle == 1 then
 end
 
 --Fix localized.remote_addr output as what ever IP address the Client is using
-if localized.ngx_var_http_cf_connecting_ip ~= nil then
+if localized.ngx_var_http_cf_connecting_ip() ~= nil then
 	if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
-		localized.remote_addr = localized.ngx_var_http_cf_connecting_ip
+		localized.remote_addr = localized.ngx_var_http_cf_connecting_ip()
 	else --you are not really cloudflare dont pretend you are to bypass flood protection
 		if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
 			if localized.ngx_var_http_internal_header_name ~= nil and localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
@@ -8077,9 +8075,9 @@ if localized.ngx_var_http_cf_connecting_ip ~= nil then
 		end
 		localized.remote_addr = localized.ngx_var_remote_addr()
 	end
-elseif localized.ngx_var_http_x_forwarded_for ~= nil then
+elseif localized.ngx_var_http_x_forwarded_for() ~= nil then
 	if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
-		localized.remote_addr = localized.ngx_var_http_x_forwarded_for
+		localized.remote_addr = localized.ngx_var_http_x_forwarded_for()
 	else
 		if localized.tostring(localized.ngx_var_http_internal) ~= localized.ngx_var_http_internal_string then
 			if localized.ngx_var_http_internal_header_name ~= nil and localized.ngx_var_http_internal == nil then --1st layer only do blocking on 1st layer not the internal
@@ -8303,7 +8301,7 @@ IP address : ]] .. localized.remote_addr .. [[
 <br>
 Request URL : ]] .. localized.URL() .. [[
 <br>
-User-Agent : ]] .. localized.user_agent .. [[
+User-Agent : ]] .. localized.ngx_var_http_user_agent() .. [[
 <br>
 ]]
 
@@ -8367,17 +8365,17 @@ localized.anti_ddos_html_output = [[
 if localized.set_cookies == nil then
 localized.set_cookies = localized.challenge.."="..answer.."; path=/; expires=" .. localized.ngx_cookie_time(localized.currenttime+localized.expire_time) .. "; Max-Age=" .. localized.expire_time .. ";" --apply our uid cookie in header here incase browsers javascript can't set cookies due to permissions.
 end
-localized.ngx_header["Set-Cookie"] = localized.set_cookies
-localized.ngx_header["X-Content-Type-Options"] = "nosniff"
-localized.ngx_header["X-Frame-Options"] = "SAMEORIGIN"
-localized.ngx_header["X-XSS-Protection"] = "1; mode=block"
-localized.ngx_header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
-localized.ngx_header["Pragma"] = "no-cache"
-localized.ngx_header["Expires"] = "0"
+localized.ngx.header["Set-Cookie"] = localized.set_cookies
+localized.ngx.header["X-Content-Type-Options"] = "nosniff"
+localized.ngx.header["X-Frame-Options"] = "SAMEORIGIN"
+localized.ngx.header["X-XSS-Protection"] = "1; mode=block"
+localized.ngx.header["Cache-Control"] = "public, max-age=0 no-store, no-cache, must-revalidate, post-check=0, pre-check=0"
+localized.ngx.header["Pragma"] = "no-cache"
+localized.ngx.header["Expires"] = "0"
 if localized.credits == 1 then
-localized.ngx_header["X-Anti-DDoS"] = "Conor McKnight | facebook.com/C0nw0nk"
+localized.ngx.header["X-Anti-DDoS"] = "Conor McKnight | facebook.com/C0nw0nk"
 end
-localized.ngx_header.content_type = "text/html; charset=" .. localized.default_charset
+localized.ngx.header.content_type = "text/html; charset=" .. localized.default_charset
 localized.ngx_status = authentication_page_status_output
 localized.ngx_say(localized.anti_ddos_html_output)
 if localized.os_clock ~= nil then
@@ -8463,7 +8461,7 @@ local function minification(content_type_list)
 	for i=1,#content_type_list do
 		if faster_than_match(content_type_list[i][1]) or localized.string_find(localized.URL(), content_type_list[i][1]) then --if our host matches one in the table
 			if content_type_list[i][10] == 1 then
-				localized.ngx_header["X-Cache-Status"] = "MISS"
+				localized.ngx.header["X-Cache-Status"] = "MISS"
 			end
 
 			local request_method_match = 0
@@ -8833,9 +8831,9 @@ local function minification(content_type_list)
 													if content_type_list[i][5] == 1 then
 														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Cache] Page not yet cached or ttl has expired so putting into cache key : " .. key )
 													end
-													localized.ngx_header.content_type = content_type_list[i][2]
+													localized.ngx.header.content_type = content_type_list[i][2]
 													if content_type_list[i][10] == 1 then
-														localized.ngx_header["X-Cache-Status"] = "UPDATING"
+														localized.ngx.header["X-Cache-Status"] = "UPDATING"
 													end
 													if localized.resty_redis == 1 then
 														cached:set(secure_storage(1, key), secure_storage(4, output_minified))
@@ -8862,13 +8860,13 @@ local function minification(content_type_list)
 																end
 															end
 															--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
-															localized.ngx_header[headerName] = header
+															localized.ngx.header[headerName] = header
 														end
 													end
 													if content_type_list[i][11] == 1 or content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
-														localized.ngx_header["Set-Cookie"] = nil
+														localized.ngx.header["Set-Cookie"] = nil
 													end
-													localized.ngx_header["Content-Length"] = #output_minified
+													localized.ngx.header["Content-Length"] = #output_minified
 													--localized.ngx_status = res.status
 													localized.ngx_status = response_status_match(res.status)
 													localized.ngx_say(output_minified)
@@ -8943,9 +8941,9 @@ local function minification(content_type_list)
 													if content_type_list[i][5] == 1 then
 														localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Cache] Page not yet cached or ttl has expired so putting into cache key : " .. key )
 													end
-													localized.ngx_header.content_type = content_type_list[i][2]
+													localized.ngx.header.content_type = content_type_list[i][2]
 													if content_type_list[i][10] == 1 then
-														localized.ngx_header["X-Cache-Status"] = "UPDATING"
+														localized.ngx.header["X-Cache-Status"] = "UPDATING"
 													end
 													if localized.resty_redis == 1 then
 														cached:set(secure_storage(1, key), secure_storage(4, output_minified))
@@ -8972,13 +8970,13 @@ local function minification(content_type_list)
 																end
 															end
 															--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
-															localized.ngx_header[headerName] = header
+															localized.ngx.header[headerName] = header
 														end
 													end
 													if content_type_list[i][11] == 1 or content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
-														localized.ngx_header["Set-Cookie"] = nil
+														localized.ngx.header["Set-Cookie"] = nil
 													end
-													localized.ngx_header["Content-Length"] = #output_minified
+													localized.ngx.header["Content-Length"] = #output_minified
 													--localized.ngx_status = res.status
 													localized.ngx_status = response_status_match(res.status)
 													localized.ngx_say(output_minified)
@@ -9025,9 +9023,9 @@ local function minification(content_type_list)
 								end
 							end
 
-							--localized.ngx_header.content_type = content_type_list[i][2]
+							--localized.ngx.header.content_type = content_type_list[i][2]
 							if content_type_list[i][10] == 1 then
-								localized.ngx_header["X-Cache-Status"] = "HIT"
+								localized.ngx.header["X-Cache-Status"] = "HIT"
 							end
 							if content_type_list[i][17] ~= "" or #content_type_list[i][17] > 0 then
 								for a=1, #content_type_list[i][17] do
@@ -9046,14 +9044,14 @@ local function minification(content_type_list)
 											end
 										end
 										--localized.ngx_log(localized.ngx_LOG_TYPE, " check_header " .. check_header .. " - header_name - " .. header_name)
-										localized.ngx_header[header_name] = check_header
+										localized.ngx.header[header_name] = check_header
 									end
 								end
 							end
 							if content_type_list[i][11] == 1 or content_type_list[i][11] == 2 and guest_or_logged_in == 0 or guest_or_logged_in == 1 then
-								localized.ngx_header["Set-Cookie"] = nil
+								localized.ngx.header["Set-Cookie"] = nil
 							end
-							localized.ngx_header["Content-Length"] = #output_minified
+							localized.ngx.header["Content-Length"] = #output_minified
 							--localized.ngx_status = res_status
 							localized.ngx_status = response_status_match(res_status)
 							localized.ngx_say(output_minified)
@@ -9127,13 +9125,13 @@ local function minification(content_type_list)
 												if res.headers ~= nil and localized.type(res.headers) == "table" then
 													for headerName, header in localized.next, res.headers do
 														--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
-														localized.ngx_header[headerName] = header
+														localized.ngx.header[headerName] = header
 													end
 												end
 												--if content_type_list[i][11] == 1 or content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
-													--localized.ngx_header["Set-Cookie"] = nil
+													--localized.ngx.header["Set-Cookie"] = nil
 												--end
-												localized.ngx_header["Content-Length"] = #output_minified
+												localized.ngx.header["Content-Length"] = #output_minified
 												--localized.ngx_status = res.status
 												localized.ngx_status = response_status_match(res.status)
 												localized.ngx_say(output_minified)
@@ -9209,13 +9207,13 @@ local function minification(content_type_list)
 												if res.header ~= nil and localized.type(res.header) == "table" then
 													for headerName, header in localized.next, res.header do
 														--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
-														localized.ngx_header[headerName] = header
+														localized.ngx.header[headerName] = header
 													end
 												end
 												--if content_type_list[i][11] == 1 or content_type_list[i][11] == 3 and guest_or_logged_in == 0 then
-													--localized.ngx_header["Set-Cookie"] = nil
+													--localized.ngx.header["Set-Cookie"] = nil
 												--end
-												localized.ngx_header["Content-Length"] = #output_minified
+												localized.ngx.header["Content-Length"] = #output_minified
 												--localized.ngx_status = res.status
 												localized.ngx_status = response_status_match(res.status)
 												localized.ngx_say(output_minified)
@@ -9239,7 +9237,7 @@ local function minification(content_type_list)
 		--::end_for_loop::
 
 		if i >= #content_type_list then --last occurance
-			--localized.ngx_log(localized.ngx_LOG_TYPE, "count is " .. i .. " " .. localized.get_resp_content_type_counter .. " resp_content_type before " .. get_resp_content_type() .. " and " .. localized.ngx_header["Content-Type"] )
+			--localized.ngx_log(localized.ngx_LOG_TYPE, "count is " .. i .. " " .. localized.get_resp_content_type_counter .. " resp_content_type before " .. get_resp_content_type() .. " and " .. localized.ngx.header["Content-Type"] )
 			if localized.content_type_fix then
 				get_resp_content_type(1) --fix for random bug where content-type output is application/octet-stream on text/html seems to only happen on a / directory not a /index.html
 			end
