@@ -1,3 +1,7 @@
+Version: 5.6
+Date: 2026-09-26
+- Tables into functions to defer execution so that input vars and strings execute in order of when called.
+
 Version: 5.5
 Date: 2026-09-24
 - Remove un-needed vars and Optimise functions for runtime improvements.
