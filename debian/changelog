@@ -1,3 +1,8 @@
+nginx-lua-anti-ddos-challenge (5.6-1) stable; urgency=medium
+  - Tables into functions to defer execution so that input vars and strings execute in order of when called.
+
+ -- C0nw0nk <C0nw0nk@github>  Sat, 26 Sep 2026 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (5.5-1) stable; urgency=medium
   - Remove un-needed vars and Optimise functions for runtime improvements.
 

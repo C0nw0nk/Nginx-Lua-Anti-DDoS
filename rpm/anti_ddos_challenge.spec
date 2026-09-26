@@ -66,6 +66,8 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Sat Sep 26 2026 C0nw0nk <C0nw0nk@github> - 5.6-1
+- Tables into functions to defer execution so that input vars and strings execute in order of when called.
 * Thu Sep 24 2026 C0nw0nk <C0nw0nk@github> - 5.5-1
 - Remove un-needed vars and Optimise functions for runtime improvements.
 * Thu Sep 24 2026 C0nw0nk <C0nw0nk@github> - 5.5-1
