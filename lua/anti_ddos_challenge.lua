@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 5.6
+Script Version: 5.7
 
 Copyright Conor McKnight
 
@@ -2038,14 +2038,14 @@ if localized_global.anti_ddos_table ~= nil then
 if localized.type(localized_global.anti_ddos_table) == "function" then
 localized.anti_ddos_table = function() return localized_global.anti_ddos_table() end
 else
-localized.anti_ddos_table = localized_global.anti_ddos_table
+localized.anti_ddos_table = function() return localized_global.anti_ddos_table end
 end
 end
 if localized_global.content_cache ~= nil then
 if localized.type(localized_global.content_cache) == "function" then
 localized.content_cache = function() return localized_global.content_cache() end
 else
-localized.content_cache = localized_global.content_cache
+localized.content_cache = function() return localized_global.content_cache end
 end
 end
 if localized_global.secret ~= nil then
@@ -2058,7 +2058,7 @@ if localized_global.remote_addr ~= nil then
 if localized.type(localized_global.remote_addr) == "function" then
 localized.remote_addr = function() return localized_global.remote_addr() end
 else
-localized.remote_addr = localized_global.remote_addr
+localized.remote_addr = function() return localized_global.remote_addr end
 end
 end
 if localized_global.expire_time ~= nil then
@@ -2104,7 +2104,7 @@ if localized_global.ip_whitelist_remote_addr ~= nil then
 if localized.type(localized_global.ip_whitelist_remote_addr) == "function" then
 localized.ip_whitelist_remote_addr = function() return localized_global.ip_whitelist_remote_addr() end
 else
-localized.ip_whitelist_remote_addr = localized_global.ip_whitelist_remote_addr
+localized.ip_whitelist_remote_addr = function() return localized_global.ip_whitelist_remote_addr end
 end
 end
 if localized_global.ip_whitelist_block_mode ~= nil then
@@ -2120,7 +2120,7 @@ if localized_global.ip_blacklist_remote_addr ~= nil then
 if localized.type(localized_global.ip_blacklist_remote_addr) == "function" then
 localized.ip_blacklist_remote_addr = function() return localized_global.ip_blacklist_remote_addr() end
 else
-localized.ip_blacklist_remote_addr = localized_global.ip_blacklist_remote_addr
+localized.ip_blacklist_remote_addr = function() return localized_global.ip_blacklist_remote_addr end
 end
 end
 if localized_global.ip_blacklist ~= nil then
@@ -2133,7 +2133,7 @@ if localized_global.tor_remote_addr ~= nil then
 if localized.type(localized_global.tor_remote_addr) == "function" then
 localized.tor_remote_addr = function() return localized_global.tor_remote_addr() end
 else
-localized.tor_remote_addr = localized_global.tor_remote_addr
+localized.tor_remote_addr = function() return localized_global.tor_remote_addr end
 end
 end
 if localized_global.x_tor_header ~= nil then
@@ -2272,7 +2272,7 @@ if localized_global.check_privacy ~= nil then
 if localized.type(localized_global.check_privacy) == "function" then
 localized.check_privacy = function() return localized_global.check_privacy() end
 else
-localized.check_privacy = localized_global.check_privacy
+localized.check_privacy = function() return localized_global.check_privacy end
 end
 end
 if localized_global.encrypt_storage ~= nil then
