@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 5.7
+Script Version: 5.8
 
 Copyright Conor McKnight
 
@@ -211,6 +211,8 @@ if you dont trust a third party you have to use for hosting / storage this will 
 localized.encrypt_storage = 0 --0 = disabled 1 = xor encryption 2 = AES --xor is built in AES requires resty.string library if you use openresty nginx lua builds they come with this compiled
 localized.encrypt_storage_secret = " enigma" --password that encrypts our stored/cached data
 localized.storage_compression = 0 --0 disabled 1 = LuaLZW compression 2 = brotli 3 = zstd 4 = zlib 5 = snappy --https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/Compression-Libraries
+localized.storage_compression_min_size = 0 --nil or 0 for any size do not compress files smaller than this size
+localized.storage_compression_max_size = 0 --nil or 0 for any size do not compress files larger than this size
 
 localized.anti_ddos_table = function() return {
 	{
@@ -738,6 +740,7 @@ localized.ip_whitelist_remote_addr = function() return "auto" end --Automaticall
 localized.ip_whitelist_block_mode = 0 --0 whitelist acts as a bypass to puzzle auth checks 1 is to enforce only allowing whitelisted addresses access other addresses will be blocked.
 localized.ip_whitelist_bypass_flood_protection = 1 --0 IP's in whitelist can still be banned / blocked for DDoS flooding behaviour 1 IP's bypass the flood detection
 localized.ip_whitelist = {
+--localized.ngx_var_server_addr(), --auto add our servers ip address localized.auto_add_server_ip_to_merged_tables = 1 does this already
 "127.0.0.0",
 "127.0.0.1",
 "127.0.0.2",
@@ -1544,6 +1547,7 @@ Add your ip ranges to the list of who you expect to send you a proxy header.
 Example to test with : curl.exe "http://localhost/" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -H "Accept-Language: en-GB,en;q=0.5" -H "Accept-Encoding: gzip, deflate, br, zstd" -H "DNT: 1" -H "Connection: keep-alive" -H "Cookie: name1=1; name2=2; logged_in=1" -H "Upgrade-Insecure-Requests: 1" -H "Sec-Fetch-Dest: document" -H "Sec-Fetch-Mode: navigate" -H "Sec-Fetch-Site: none" -H "Sec-Fetch-User: ?1" -H "Priority: u=0, i" -H "Pragma: no-cache" -H "Cache-Control: no-cache" -H "User-Agent:testagent1" -H "CF-Connecting-IP: 1" -H "X-Forwarded-For: 1" -H "internal:1"
 ]]
 localized.proxy_header_table = {
+--localized.ngx_var_server_addr(), --auto add our servers ip address localized.auto_add_server_ip_to_merged_tables = 1 does this already
 "127.0.0.0",
 "127.0.0.1",
 "127.0.0.2",
@@ -1568,6 +1572,8 @@ localized.proxy_header_table = {
 --Cloudflare IP's https://www.cloudflare.com/en-gb/ips/
 "173.245.48.0/20","103.21.244.0/22","103.22.200.0/22","103.31.4.0/22","141.101.64.0/18","108.162.192.0/18","190.93.240.0/20","188.114.96.0/20","197.234.240.0/22","198.41.128.0/17","162.158.0.0/15","104.16.0.0/13","104.24.0.0/14","172.64.0.0/13","131.0.72.0/22","2400:cb00::/32","2606:4700::/32","2803:f800::/32","2405:b500::/32","2405:8100::/32","2a06:98c0::/29","2c0f:f248::/32",
 }
+localized.merge_proxy_and_ip_whitelist = 1 --0 disable 1 enable merge ip whitelist and proxy list into a single table
+localized.auto_add_server_ip_to_merged_tables = 1 --0 disable 1 enable we automatically add our detected servers ip to our whitelists localized.ngx_var_server_addr()
 
 --[[
 To restore original visitor IP addresses at your origin web server this will send a request header to your backend application or proxy containing the clients real IP address
@@ -2238,6 +2244,12 @@ end
 if localized_global.proxy_header_table ~= nil then
 localized.proxy_header_table = localized_global.proxy_header_table
 end
+if localized_global.merge_proxy_and_ip_whitelist ~= nil then
+localized.merge_proxy_and_ip_whitelist = localized_global.merge_proxy_and_ip_whitelist
+end
+if localized_global.auto_add_server_ip_to_merged_tables ~= nil then
+localized.auto_add_server_ip_to_merged_tables = localized_global.auto_add_server_ip_to_merged_tables
+end
 if localized_global.send_ip_to_backend_custom_headers ~= nil then
 localized.send_ip_to_backend_custom_headers = localized_global.send_ip_to_backend_custom_headers
 end
@@ -2283,6 +2295,12 @@ localized.encrypt_storage_secret = localized_global.encrypt_storage_secret
 end
 if localized_global.storage_compression ~= nil then
 localized.storage_compression = localized_global.storage_compression
+end
+if localized_global.storage_compression_min_size ~= nil then
+localized.storage_compression_min_size = localized_global.storage_compression_min_size
+end
+if localized_global.storage_compression_max_size ~= nil then
+localized.storage_compression_max_size = localized_global.storage_compression_max_size
 end
 end
 
@@ -4249,7 +4267,7 @@ local function secure_storage(get_or_set, input, compress_type)
 	--start compression
 	if compress_type == nil and localized.storage_compression == 1 and check_lualzw() then --LuaLZW compression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
+			if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
 			local lualzw = require("lualzw")
 			local value_compress, err = nil
 			value_compress, err = lualzw.compress(output)
@@ -4257,12 +4275,12 @@ local function secure_storage(get_or_set, input, compress_type)
 				value_compress = localized.string_sub(value_compress, 2) --on success remove control char c
 				output = value_compress
 			end
-			--end --larger than 4kb
+			end --size checks
 		end
 	end
 	if compress_type == nil and localized.storage_compression == 2 and check_brotli() then --Brotli compression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
+			if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
 			local brotli = require("brotli.encoder")
 			local encoder = brotli:new({quality=1,}) --compress on level 0 lowest highest = level 11
 			local value_compress, err = nil
@@ -4273,12 +4291,12 @@ local function secure_storage(get_or_set, input, compress_type)
 				end
 				output = value_compress
 			end
-			--end --larger than 4kb
+			end --size checks
 		end
 	end
 	if compress_type == nil and localized.storage_compression == 3 and check_zstd() then --ZSTD compression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
+			if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
 			local zstandard = require("zstd")
 			local zstd = zstandard:new()
 			local value_compress, err = nil
@@ -4287,12 +4305,12 @@ local function secure_storage(get_or_set, input, compress_type)
 				output = value_compress
 				zstd:free()
 			end
-			--end --larger than 4kb
+			end --size checks
 		end
 	end
 	if compress_type == nil and localized.storage_compression == 4 and check_zlib() then --Zlib compression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
+			if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
 			local zlib = require("resty.zip")
 			local value_compress, err = nil
 			local zregex = "/zs/"
@@ -4301,19 +4319,19 @@ local function secure_storage(get_or_set, input, compress_type)
 				value_compress = zregex .. #output .. zregex .. value_compress --store original size for use later
 				output = value_compress
 			end
-			--end --larger than 4kb
+			end --size checks
 		end
 	end
 	if compress_type == nil and localized.storage_compression == 5 and check_snappy() then --Snappy compression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			--if #output >= 4000 then --larger than 4kb --only compress larger than this size
+			if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
 			local snappy = require("resty.snappy")
 			local value_compress, err = nil
 			local value_compress, err = snappy.compress(output)
 			if value_compress then
 				output = value_compress
 			end
-			--end --larger than 4kb
+			end --size checks
 		end
 	end
 	--end compression
@@ -4559,9 +4577,17 @@ local function internal_header_setup()
 					end
 					--end real ip
 					--concatenate tables make sure both these tables are the same
-					if localized.ip_whitelist ~= nil and localized.proxy_header_table ~= nil and #localized.ip_whitelist ~= 0 and #localized.proxy_header_table ~= 0 then
+					if localized.ip_whitelist ~= nil and #localized.ip_whitelist ~= 0 and localized.auto_add_server_ip_to_merged_tables ~= 0 and localized.merge_proxy_and_ip_whitelist == 0 then
+						localized.ip_whitelist[#localized.ip_whitelist+1] = localized.ngx_var_server_addr() --make sure our own server address is whitelisted just incase
+					end
+					if localized.proxy_header_table ~= nil and #localized.proxy_header_table ~= 0 and localized.auto_add_server_ip_to_merged_tables ~= 0 and localized.merge_proxy_and_ip_whitelist == 0 then
+						localized.proxy_header_table[#localized.proxy_header_table+1] = localized.ngx_var_server_addr() --make sure our own server address is whitelisted just incase
+					end
+					if localized.ip_whitelist ~= nil and localized.proxy_header_table ~= nil and #localized.ip_whitelist ~= 0 and #localized.proxy_header_table ~= 0 and localized.merge_proxy_and_ip_whitelist ~= 0 then
 						localized.merge_table = TableConcat(localized.ip_whitelist, localized.proxy_header_table)
-						localized.merge_table[#localized.merge_table+1] = localized.ngx_var_server_addr() --make sure our own server address is whitelisted just incase
+						if localized.auto_add_server_ip_to_merged_tables ~= 0 then
+							localized.merge_table[#localized.merge_table+1] = localized.ngx_var_server_addr() --make sure our own server address is whitelisted just incase
+						end
 						localized.ip_whitelist = localized.merge_table
 						localized.proxy_header_table = localized.merge_table
 					end
@@ -4661,7 +4687,7 @@ local function internal_header_setup()
 		end
 	end
 	if localized.secret == " enigma" then --if its still default and unchanged by user
-		localized.secret = localized.secret .. localized.os_date("%W",localized.os_time_saved) --make more dynamic than default hopefully nobody does try to use default in production
+		localized.secret = localized.secret .. (function() local out = "" if localized.get_date_from_unix_cached ~= nil then out = localized.os_date("%W",localized.os_time_saved) end return out end)() --make more dynamic than default hopefully nobody does try to use default in production
 		--you dont want this to change to frequently every time you change your secret key you will see users on a javascript puzzle page will need to pass auth again
 	end
 	--openresty have a simple version of this https://github.com/openresty/lua-nginx-module?tab=readme-ov-file#ngxreqis_internal but for old versions of nginx with lua i created this so backwards compatibility
@@ -4670,9 +4696,9 @@ local function internal_header_setup()
 		localized.ngx_var_http_internal_string = "1337"--internal bypass header value
 		localized.ngx_var_http_internal_header_name = "internal" --internal bypass header name
 		if localized.secret_encryption == nil or localized.secret_encryption == 1 then
-			localized.ngx_var_http_internal_header_name = localized.ngx_hmac_sha1(localized.secret .. localized.os_date("%W",localized.os_time_saved), localized.ngx_var_http_internal_header_name) --encrypt this header so nobody can guess it or use it other than internal work calls
+			localized.ngx_var_http_internal_header_name = localized.ngx_hmac_sha1(localized.secret .. (function() local out = "" if localized.get_date_from_unix_cached ~= nil then out = localized.os_date("%W",localized.os_time_saved) end return out end)(), localized.ngx_var_http_internal_header_name) --encrypt this header so nobody can guess it or use it other than internal work calls
 		else
-			localized.ngx_var_http_internal_header_name = xor_crypt(localized.ngx_var_http_internal_header_name, localized.secret .. localized.os_date("%W",localized.os_time_saved)) --encrypt this header so nobody can guess it or use it other than internal work calls
+			localized.ngx_var_http_internal_header_name = xor_crypt(localized.ngx_var_http_internal_header_name, localized.secret .. (function() local out = "" if localized.get_date_from_unix_cached ~= nil then out = localized.os_date("%W",localized.os_time_saved) end return out end)()) --encrypt this header so nobody can guess it or use it other than internal work calls
 		end
 		localized.ngx_var_http_internal_header_name = localized.ngx_encode_base64(localized.ngx_var_http_internal_header_name) --wrap encrypted header in base64
 		localized.ngx_var_http_internal_header_name = localized.string_gsub(localized.ngx_var_http_internal_header_name, "[+/=]", "") --Remove +/=
