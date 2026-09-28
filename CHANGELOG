@@ -1,3 +1,9 @@
+Version: 5.8
+Date: 2026-09-28
+- Added Feature Merge IP lists
+- Added Feature auto add server IP address to IP lists
+- Added Feature Compressed storage min/max size
+
 Version: 5.7
 Date: 2026-09-26
 - Allow both tables or functions in script overrides
