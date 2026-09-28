@@ -1,3 +1,10 @@
+nginx-lua-anti-ddos-challenge (5.8-1) stable; urgency=medium
+  - Added Feature Merge IP lists
+  - Added Feature auto add server IP address to IP lists
+  - Added Feature Compressed storage min/max size
+
+ -- C0nw0nk <C0nw0nk@github>  Mon, 28 Sep 2026 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (5.7-1) stable; urgency=medium
   - Allow both tables or functions in script overrides
 

@@ -66,6 +66,10 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Mon Sep 28 2026 C0nw0nk <C0nw0nk@github> - 5.8-1
+- Added Feature Merge IP lists
+- Added Feature auto add server IP address to IP lists
+- Added Feature Compressed storage min/max size
 * Sat Sep 26 2026 C0nw0nk <C0nw0nk@github> - 5.7-1
 - Allow both tables or functions in script overrides
 * Sat Sep 26 2026 C0nw0nk <C0nw0nk@github> - 5.7-1
