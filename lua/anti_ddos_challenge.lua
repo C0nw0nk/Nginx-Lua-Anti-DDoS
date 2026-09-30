@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 5.8
+Script Version: 5.9
 
 Copyright Conor McKnight
 
@@ -37,6 +37,9 @@ localized.tonumber = tonumber
 localized.tostring = tostring
 localized.next = next
 localized.type = type
+localized.package = package
+localized.pcall = pcall
+localized.require = require
 localized.math_random = math.random
 localized.math_floor = math.floor
 localized.math_sin = math.sin
@@ -57,6 +60,8 @@ localized.string_gsub = string.gsub
 localized.string_format = string.format
 localized.string_byte = string.byte
 localized.bit_bxor = bit.bxor
+localized.bit_lshift = bit.lshift
+localized.bit_band = bit.band
 localized.ngx = ngx
 localized.ngx_hmac_sha1 = localized.ngx.hmac_sha1
 localized.ngx_encode_base64 = localized.ngx.encode_base64
@@ -2370,671 +2375,141 @@ end
 --[[
 Start IP range function
 ]]
-local function ip_address_in_range(input_ip, client_connecting_ip)
-	if localized.string_find(input_ip, "/") then --input ip is a subnet
-		--do nothing
+localized.ffi_ip_range = localized.package.loaded.ffi or (localized.pcall(localized.require, "ffi") and localized.require("ffi"))
+localized.AF_INET6 = 10 --default to 10 for linux macos etc
+if localized.ffi_ip_range then
+	localized.pcall(function()
+		localized.ffi_ip_range.cdef[[
+			int inet_pton(int af, const char *src, void *dst);
+		]]
+	end)
+
+	localized.uint32_array_t = localized.ffi_ip_range.typeof("uint32_t[4]") 
+	localized.net_lib = localized.ffi_ip_range.C
+
+	if jit and jit.os == "Windows" then
+		localized.AF_INET6 = 23
+		local status, ws2 = localized.pcall(localized.ffi_ip_range.load, "Ws2_32.dll")
+		if status then
+			localized.net_lib = ws2
+		end
+	end
+end
+
+--Fast numeric transformation for IPv4
+local function fast_ipv4_to_long(ip)
+	local o1, o2, o3, o4 = localized.string_match(ip, "^(%d+)%.(%d+)%.(%d+)%.(%d+)$")
+	if not o1 or not o2 or not o3 or not o4 then
+		return nil
+	end
+	return localized.tonumber(o1) * 16777216 + localized.tonumber(o2) * 65536 + localized.tonumber(o3) * 256 + localized.tonumber(o4)
+end
+
+--Compile network mask settings once during boot phase
+local function compile_cidr(cidr_string)
+	local subnet_ip = localized.string_match(cidr_string, "^([^/]+)")
+	local mask = localized.tonumber(localized.string_match(cidr_string, "/(%d+)$"))
+	if not subnet_ip or not mask then
+		return nil
+	end
+
+	local is_ipv4 = localized.string_find(subnet_ip, ".", 1, true) ~= nil
+	local rule = { is_ipv4 = is_ipv4 }
+
+	if is_ipv4 then
+		if mask < 0 or mask > 32 then
+			return nil
+		end
+		rule.subnet_num = fast_ipv4_to_long(subnet_ip)
+		rule.bitmask = (mask == 0) and 0 or localized.bit_lshift(0xFFFFFFFF, 32 - mask)
+		if not rule.subnet_num then
+			return nil
+		end
 	else
-		return
+		if mask < 0 or mask > 128 then 
+			return nil
+		end
+		rule.mask = mask
+		if localized.ffi_ip_range and localized.net_lib and localized.uint32_ptr_t then
+			rule.sub_bytes = localized.uint32_ptr_t()
+			if localized.net_lib.inet_pton(localized.AF_INET6, subnet_ip, rule.sub_bytes) ~= 1 then
+				return nil
+			end
+		else
+			return nil 
+		end
 	end
 
-	local ip_type = nil
-	if localized.string_find(input_ip, "%:") and localized.string_find(client_connecting_ip, "%:") then --if both input and connecting ip are ipv6 addresses
-		--ipv6
-		ip_type = 1
-	elseif localized.string_find(input_ip, "%.") and localized.string_find(client_connecting_ip, "%.") then --if both input and connecting ip are ipv4 addresses
-		--ipv4
-		ip_type = 2
+	if is_ipv4 then
+		rule.match = function(self, client_num)
+			return localized.bit_band(self.subnet_num, self.bitmask) == localized.bit_band(client_num, self.bitmask)
+		end
 	else
-		return
-	end
-	if ip_type == nil then
-		--input and connecting IP one is ipv4 and one is ipv6
-		return
-	end
-
-	if ip_type == 1 then --ipv6
-
-		local function explode(string, divide)
-			if divide == '' then return false end
-			local pos, arr = 0, {}
-			local arr_table_length = 1
-			--for each divider found
-			for st, sp in function() return localized.string_find(string, divide, pos, true) end do
-				arr[arr_table_length] = localized.string_sub(string, pos, st - 1 ) --attach chars left of current divider
-				arr_table_length=arr_table_length+1
-				pos = sp + 1 --jump past current divider
-			end
-				arr[arr_table_length] = localized.string_sub(string, pos) -- Attach chars right of last divider
-				arr_table_length=arr_table_length+1
-			return arr
-		end
-
-		--[[
-		Input IP
-		]]
-		--validate actual ip
-		local a, b, ip, mask = localized.string_find(input_ip, '([%w:]+)/(%d+)')
-
-		--get ip bits
-		local ipbits = explode(ip, ':')
-
-		--now to build an expanded ip
-		local zeroblock
-		--local ipbits_length = #ipbits
-		for i=1,#ipbits do
-			local k = i
-			local v = ipbits[i]
-			--length 0? we're at the :: bit
-			if localized.string_len(v) == 0 then
-				zeroblock = k
-
-				--length not 0 but not 4, prepend 0's
-			elseif localized.string_len(v) < 4 then
-				--local padding = 4 - localized.string_len(v)
-				for i = 1, 4 - localized.string_len(v) do
-					ipbits[k] = 0 .. ipbits[k]
+		rule.match = function(self, cli_bytes)
+			local current_mask = self.mask
+			for i=0, 3 do
+				if current_mask <= 0 then
+					return true
 				end
-			end
-		end
-		if zeroblock and #ipbits < 8 then
-			--remove zeroblock
-			ipbits[zeroblock] = '0000'
-			--local padding = 8 - #ipbits
-
-			for i = 1, 8 - #ipbits do
-				ipbits[zeroblock] = '0000'
-				--ipbits_length=ipbits_length+1
-			end
-		end
-		--[[
-		End Input IP
-		]]
-
-		--[[
-		Client IP
-		]]
-		--validate actual ip
-		local a, b, clientip, mask_client = localized.string_find(client_connecting_ip, '([%w:]+)')
-
-		--get ip bits
-		local ipbits_client = explode(clientip, ':')
-
-		--now to build an expanded ip
-		local zeroblock_client
-		--local ipbits_client_length = #ipbits_client
-		for i=1,#ipbits_client do
-			local k = i
-			local v = ipbits_client[i]
-			--length 0? we're at the :: bit
-			if localized.string_len(v) == 0 then
-				zeroblock_client = k
-
-				--length not 0 but not 4, prepend 0's
-			elseif localized.string_len(v) < 4 then
-				--local padding = 4 - localized.string_len(v)
-				for i = 1, 4 - localized.string_len(v) do
-					ipbits_client[k] = 0 .. ipbits_client[k]
+				local chunk_mask = (current_mask >= 32) and 0xFFFFFFFF or localized.bit_lshift(0xFFFFFFFF, 32 - current_mask)
+				if localized.bit_band(self.sub_bytes[i], chunk_mask) ~= localized.bit_band(cli_bytes[i], chunk_mask) then
+					return false
 				end
+				current_mask = current_mask - 32
 			end
-		end
-		if zeroblock_client and #ipbits_client < 8 then
-			--remove zeroblock
-			ipbits_client[zeroblock_client] = '0000'
-			--local padding = 8 - #ipbits_client
-
-			for i = 1, 8 - #ipbits_client do
-				ipbits_client[zeroblock_client] = '0000'
-				--ipbits_client_length=ipbits_client_length+1
-			end
-		end
-		--[[
-		End Client IP
-		]]
-
-		local expanded_ip_count = (ipbits[1] or "0000") .. ':' .. (ipbits[2] or "0000") .. ':' .. (ipbits[3] or "0000") .. ':' .. (ipbits[4] or "0000") .. ':' .. (ipbits[5] or "0000") .. ':' .. (ipbits[6] or "0000") .. ':' .. (ipbits[7] or "0000") .. ':' .. (ipbits[8] or "0000")
-		expanded_ip_count = localized.string_gsub(expanded_ip_count, ":", "")
-
-		local client_connecting_ip_count = (ipbits_client[1] or "0000") .. ':' .. (ipbits_client[2] or "0000") .. ':' .. (ipbits_client[3] or "0000") .. ':' .. (ipbits_client[4] or "0000") .. ':' .. (ipbits_client[5] or "0000") .. ':' .. (ipbits_client[6] or "0000") .. ':' .. (ipbits_client[7] or "0000") .. ':' .. (ipbits_client[8] or "0000")
-		client_connecting_ip_count = localized.string_gsub(client_connecting_ip_count, ":", "")
-
-		--generate wildcard from mask
-		local indent = mask / 4
-
-		expanded_ip_count = localized.string_sub(expanded_ip_count, 0, indent)
-		client_connecting_ip_count = localized.string_sub(client_connecting_ip_count, 0, indent)
-
-		local client_connecting_ip_expanded = localized.string_gsub(client_connecting_ip_count, "....", "%1:")
-		client_connecting_ip_expanded = localized.string_gsub(client_connecting_ip_count, ":$", "")
-		local expanded_ip = localized.string_gsub(expanded_ip_count, "....", "%1:")
-		expanded_ip = localized.string_gsub(expanded_ip_count, ":$", "")
-
-		local wildcardbits = {}
-		local wildcardbits_table_length = 1
-		for i = 0, indent - 1 do
-			wildcardbits[wildcardbits_table_length] = 'f'
-			wildcardbits_table_length=wildcardbits_table_length+1
-		end
-		for i = 0, 31 - indent do
-			wildcardbits[wildcardbits_table_length] = '0'
-			wildcardbits_table_length=wildcardbits_table_length+1
-		end
-		--convert into 8 string array each w/ 4 chars
-		local count, index, wildcard = 1, 1, {}
-		--local wildcardbits_length = #wildcardbits
-		for i=1,#wildcardbits do
-			local k = i
-			local v = wildcardbits[i]
-			if count > 4 then
-				count = 1
-				index = index + 1
-			end
-			if not wildcard[index] then wildcard[index] = '' end
-			wildcard[index] = wildcard[index] .. v
-			count = count + 1
-		end
-
-			--loop each letter in each ipbit group
-			local topip = {}
-			local bottomip = {}
-			--local ipbits_length = #ipbits
-			for i=1,#ipbits do
-				local k = i
-				local v = ipbits[i]
-				local topbit = ''
-				local bottombit = ''
-				for i = 1, 4 do
-					local wild = localized.string_sub(wildcard[k], i, i)
-					local norm = localized.string_sub(v, i, i)
-					if wild == 'f' then
-						topbit = topbit .. norm
-						bottombit = bottombit .. norm
-					else
-						topbit = topbit .. '0'
-						bottombit = bottombit .. 'f'
-					end
-				end
-				topip[k] = topbit
-				bottomip[k] = bottombit
-			end
-
-		--count ips in mask
-		local ipcount = localized.math_pow(2, 128 - mask)
-
-		if expanded_ip == client_connecting_ip_expanded then
-			--localized.ngx_log(localized.ngx_LOG_TYPE,"ipv6 is in range")
 			return true
 		end
-
-		--output
-		--[[
-		localized.ngx_log(localized.ngx_LOG_TYPE,'indent' .. indent)
-		localized.ngx_log(localized.ngx_LOG_TYPE,'client_ip numeric : ' .. client_connecting_ip_count )
-		localized.ngx_log(localized.ngx_LOG_TYPE,'input ip numeric : ' .. expanded_ip_count )
-		localized.ngx_log(localized.ngx_LOG_TYPE,'client_ip : ' .. client_connecting_ip_expanded )
-		localized.ngx_log(localized.ngx_LOG_TYPE,'input ip : ' .. expanded_ip )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '###### INFO ######' )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'IP in: ' .. ip )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '=> Expanded IP: ' .. (ipbits[1] or "0000") .. ':' .. (ipbits[2] or "0000") .. ':' .. (ipbits[3] or "0000") .. ':' .. (ipbits[4] or "0000") .. ':' .. (ipbits[5] or "0000") .. ':' .. (ipbits[6] or "0000") .. ':' .. (ipbits[7] or "0000") .. ':' .. (ipbits[8] or "0000") )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'Mask in: /' .. mask )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '=> Mask Wildcard: ' .. (wildcard[1] or "0000") .. ':' .. (wildcard[2] or "0000") .. ':' .. (wildcard[3] or "0000") .. ':' .. (wildcard[4] or "0000") .. ':' .. (wildcard[5] or "0000") .. ':' .. (wildcard[6] or "0000") .. ':' .. (wildcard[7] or "0000") .. ':' .. (wildcard[8] or "0000") )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '\n###### BLOCK ######' )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '#IP\'s: ' .. ipcount )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'Range Start: ' .. (topip[1] or "0000") .. ':' .. (topip[2] or "0000") .. ':' .. (topip[3] or "0000") .. ':' .. (topip[4] or "0000") .. ':' .. (topip[5] or "0000") .. ':' .. (topip[6] or "0000") .. ':' .. (topip[7] or "0000") .. ':' .. (topip[8] or "0000") )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'Range End: ' .. (bottomip[1] or "ffff") .. ':' .. (bottomip[2] or "ffff") .. ':' .. (bottomip[3] or "ffff") .. ':' .. (bottomip[4] or "ffff") .. ':' .. (bottomip[5] or "ffff") .. ':' .. (bottomip[6] or "ffff") .. ':' .. (bottomip[7] or "ffff") .. ':' .. (bottomip[8] or "ffff") )
-		]]
-
 	end
-
-	if ip_type == 2 then --ipv4
-
-		local a, b, ip1, ip2, ip3, ip4, mask = localized.string_find(input_ip, '(%d+).(%d+).(%d+).(%d+)/(%d+)')
-		local ip = { localized.tonumber( ip1 ), localized.tonumber( ip2 ), localized.tonumber( ip3 ), localized.tonumber( ip4 ) }
-		local a, b, client_ip1, client_ip2, client_ip3, client_ip4 = localized.string_find(client_connecting_ip, '(%d+).(%d+).(%d+).(%d+)')
-		local client_ip = { localized.tonumber( client_ip1 ), localized.tonumber( client_ip2 ), localized.tonumber( client_ip3 ), localized.tonumber( client_ip4 ) }
-
-		--list masks => wildcard
-		local masks = {
-			[1] = { 127, 255, 255, 255 },
-			[2] = { 63, 255, 255, 255 },
-			[3] = { 31, 255, 255, 255 },
-			[4] = { 15, 255, 255, 255 },
-			[5] = { 7, 255, 255, 255 },
-			[6] = { 3, 255, 255, 255 },
-			[7] = { 1, 255, 255, 255 },
-			[8] = { 0, 255, 255, 255 },
-			[9] = { 0, 127, 255, 255 },
-			[10] = { 0, 63, 255, 255 },
-			[11] = { 0, 31, 255, 255 },
-			[12] = { 0, 15, 255, 255 },
-			[13] = { 0, 7, 255, 255 },
-			[14] = { 0, 3, 255, 255 },
-			[15] = { 0, 1, 255, 255 },
-			[16] = { 0, 0, 255, 255 },
-			[17] = { 0, 0, 127, 255 },
-			[18] = { 0, 0, 63, 255 },
-			[19] = { 0, 0, 31, 255 },
-			[20] = { 0, 0, 15, 255 },
-			[21] = { 0, 0, 7, 255 },
-			[22] = { 0, 0, 3, 255 },
-			[23] = { 0, 0, 1, 255 },
-			[24] = { 0, 0, 0, 255 },
-			[25] = { 0, 0, 0, 127 },
-			[26] = { 0, 0, 0, 63 },
-			[27] = { 0, 0, 0, 31 },
-			[28] = { 0, 0, 0, 15 },
-			[29] = { 0, 0, 0, 7 },
-			[30] = { 0, 0, 0, 3 },
-			[31] = { 0, 0, 0, 1 }
-		}
-
-		--get wildcard
-		local wildcard = masks[localized.tonumber( mask )]
-
-		--number of ips in mask
-		local ipcount = localized.math_pow(2, ( 32 - mask ))
-
-		--network IP (route/bottom IP)
-		local bottomip = {}
-		--local ip_length = #ip
-		for i=1,#ip do
-			local k = i
-			local v = ip[i]
-			--wildcard = 0?
-			if wildcard[k] == 0 then
-				bottomip[k] = v
-			elseif wildcard[k] == 255 then
-				bottomip[k] = 0
-			else
-				local mod = v % (wildcard[k] + 1)
-				bottomip[k] = v - mod
-			end
-		end
-
-		--use network ip + wildcard to get top ip
-		local topip = {}
-		--local bottomip_length = #bottomip
-		for i=1,#bottomip do
-			local k = i
-			local v = bottomip[i]
-			topip[k] = v + wildcard[k]
-		end
-
-		--is input ip = network ip?
-		local isnetworkip = ( ip[1] == bottomip[1] and ip[2] == bottomip[2] and ip[3] == bottomip[3] and ip[4] == bottomip[4] )
-		local isbroadcastip = ( ip[1] == topip[1] and ip[2] == topip[2] and ip[3] == topip[3] and ip[4] == topip[4] )
-
-		local ip1 = localized.tonumber(ip1)
-		local ip2 = localized.tonumber(ip2)
-		local ip3 = localized.tonumber(ip3)
-		local ip4 = localized.tonumber(ip4)
-		local client_ip1 = localized.tonumber(client_ip1)
-		local client_ip2 = localized.tonumber(client_ip2)
-		local client_ip3 = localized.tonumber(client_ip3)
-		local client_ip4 = localized.tonumber(client_ip4)
-		local in_range_low_end1 = localized.tonumber(bottomip[1])
-		local in_range_low_end2 = localized.tonumber(bottomip[2])
-		local in_range_low_end3 = localized.tonumber(bottomip[3])
-		local in_range_low_end4 = localized.tonumber(bottomip[4])
-		local in_range_top_end1 = localized.tonumber(topip[1])
-		local in_range_top_end2 = localized.tonumber(topip[2])
-		local in_range_top_end3 = localized.tonumber(topip[3])
-		local in_range_top_end4 = localized.tonumber(topip[4])
-
-		if localized.tonumber(mask) == 1 then --127, 255, 255, 255
-			if client_ip1 >= in_range_low_end1 --in range low end
-			and client_ip1 <= in_range_top_end1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 2 then --63, 255, 255, 255
-			if client_ip1 >= in_range_low_end1 --in range low end
-			and client_ip1 <= in_range_top_end1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 3 then --31, 255, 255, 255
-			if client_ip1 >= in_range_low_end1 --in range low end
-			and client_ip1 <= in_range_top_end1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 4 then --15, 255, 255, 255
-			if client_ip1 >= in_range_low_end1 --in range low end
-			and client_ip1 <= in_range_top_end1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 5 then --7, 255, 255, 255
-			if client_ip1 >= in_range_low_end1 --in range low end
-			and client_ip1 <= in_range_top_end1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 6 then --3, 255, 255, 255
-			if client_ip1 >= in_range_low_end1 --in range low end
-			and client_ip1 <= in_range_top_end1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 7 then --1, 255, 255, 255
-			if client_ip1 >= in_range_low_end1 --in range low end
-			and client_ip1 <= in_range_top_end1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 8 then --0, 255, 255, 255
-			if ip1 == client_ip1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 9 then --0, 127, 255, 255
-			if ip1 == client_ip1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 10 then --0, 63, 255, 255
-			if ip1 == client_ip1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 11 then --0, 31, 255, 255
-			if ip1 == client_ip1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 12 then --0, 15, 255, 255
-			if ip1 == client_ip1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 13 then --0, 7, 255, 255
-			if ip1 == client_ip1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 14 then --0, 3, 255, 255
-			if ip1 == client_ip1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 15 then --0, 1, 255, 255
-			if ip1 == client_ip1 
-			and client_ip2 >= in_range_low_end2 --in range low end
-			and client_ip2 <= in_range_top_end2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 16 then --0, 0, 255, 255
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 17 then --0, 0, 127, 255
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 18 then --0, 0, 63, 255
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 19 then --0, 0, 31, 255
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 20 then --0, 0, 15, 255
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 21 then --0, 0, 7, 255
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 22 then --0, 0, 3, 255
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 23 then --0, 0, 1, 255
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and client_ip3 >= in_range_low_end3 --in range low end
-			and client_ip3 <= in_range_top_end3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 24 then --0, 0, 0, 255
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and ip3 == client_ip3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 25 then --0, 0, 0, 127
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and ip3 == client_ip3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 26 then --0, 0, 0, 63
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and ip3 == client_ip3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 27 then --0, 0, 0, 31
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and ip3 == client_ip3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 28 then --0, 0, 0, 15
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and ip3 == client_ip3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 29 then --0, 0, 0, 7
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and ip3 == client_ip3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 30 then --0, 0, 0, 3
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and ip3 == client_ip3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-		if localized.tonumber(mask) == 31 then --0, 0, 0, 1
-			if ip1 == client_ip1 
-			and ip2 == client_ip2 
-			and ip3 == client_ip3 
-			and client_ip4 >= in_range_low_end4 --in range low end
-			and client_ip4 <= in_range_top_end4 then --in range top end
-				return true
-			end
-		end
-
-		--output
-		--[[
-		localized.ngx_log(localized.ngx_LOG_TYPE, '###### INFO ######' )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'IP in: ' .. ip[1] .. '.' .. ip[2] .. '.' .. ip[3] .. '.' .. ip[4] )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'Mask in: /' .. mask )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '=> Mask Wildcard: ' .. wildcard[1] .. '.' .. wildcard[2] .. '.' .. wildcard[3] .. '.' .. wildcard[4] )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '=> in IP is network-ip: ' .. localized.tostring( isnetworkip ) )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '=> in IP is broadcast-ip: ' .. localized.tostring( isbroadcastip ) )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '\n###### BLOCK ######' )
-		localized.ngx_log(localized.ngx_LOG_TYPE, '#IP\'s: ' .. ipcount )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'Bottom/Network: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] .. '/' .. mask )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'Top/Broadcast: ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'Subnet Range: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] .. ' - ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] )
-		localized.ngx_log(localized.ngx_LOG_TYPE, 'Host Range: ' .. bottomip[1] .. '.' .. bottomip[2] .. '.' .. bottomip[3] .. '.' .. bottomip[4] + 1 .. ' - ' .. topip[1] .. '.' .. topip[2] .. '.' .. topip[3] .. '.' .. topip[4] - 1 )
-		]]
-
-	end
-
+	return rule
 end
---[[
-usage
-if localized.ngx_var_http_internal == nil then --1st layer
-	if ip_address_in_range("127.0.0.0/16", "127.0.0.1") == true then --ipv4
-		localized.ngx_log(localized.ngx_LOG_TYPE,"IPv4 in range")
+
+--Re-defined ultra-fast request lookup hook
+local function ip_address_in_range(client_ip)
+	if localized.static_exact_map == nil then
+		localized.static_exact_map = {}
 	end
-	if ip_address_in_range("2620:0:860:2::/64", "2620:0:860:2:FFFF:FFFF:FFFF:FFFF") == true then --ipv6
-		localized.ngx_log(localized.ngx_LOG_TYPE,"IPv6 in range")
+	if localized.dynamic_cidr_rules == nil then
+		localized.dynamic_cidr_rules = {}
 	end
+	if localized.global_cli_buffer == nil then
+		localized.global_cli_buffer = localized.uint32_ptr_t and localized.uint32_ptr_t()
+	end
+
+	--Check plain IPs via O(1) Map instantly
+	if localized.static_exact_map[client_ip] then
+		return true
+	end
+
+	--Detect family and query network array registers
+	local is_ipv4 = localized.string_find(client_ip, ".", 1, true) ~= nil
+	if is_ipv4 then
+		local client_num = fast_ipv4_to_long(client_ip)
+		if not client_num then
+			return false
+		end
+
+		for i=1, #localized.dynamic_cidr_rules do
+			local rule = localized.dynamic_cidr_rules[i]
+			if rule.is_ipv4 and localized.string_match(rule, client_num) then
+				return true
+			end
+		end
+	else
+		--Bypasses allocation entirely by reusing our persistent system buffer
+		if not localized.net_lib or localized.net_lib.inet_pton(localized.AF_INET6, client_ip, global_cli_buffer) ~= 1 then
+			return false
+		end
+
+		for i=1, #localized.dynamic_cidr_rules do
+			local rule = localized.dynamic_cidr_rules[i]
+			if not rule.is_ipv4 and localized.string_match(rule, global_cli_buffer) then
+				return true
+			end
+		end
+	end
+
+	return false
 end
-]]
 --[[
 End IP range function
 ]]
@@ -3046,15 +2521,26 @@ local function proxy_header_ip_check(ip_table)
 	end
 	if ip_table ~= nil and #ip_table > 0 then
 		localized.proxy_header_ip_check_count = localized.proxy_header_ip_check_count+2 --make sure we dont run again
-		for i=1,#ip_table do
-			local value = ip_table[i]
-			if value == localized.ngx_var_remote_addr() then --if our ip address matches with one in the whitelist
-				localized.proxy_header_ip_check_cached = true
-				return true
-			elseif ip_address_in_range(value, localized.ngx_var_remote_addr()) == true then
-				localized.proxy_header_ip_check_cached = true
-				return true
+		for i=1, #ip_table do
+			local v = ip_table[i]
+			if localized.static_exact_map == nil then
+				localized.static_exact_map = {}
 			end
+			if localized.dynamic_cidr_rules == nil then
+				localized.dynamic_cidr_rules = {}
+			end
+			if not localized.string_find(v, "/", 1, true) then
+				localized.static_exact_map[v] = true -- O(1) Direct dictionary pointer mapping
+			else
+				local rule = compile_cidr(v)
+				if rule then
+					localized.dynamic_cidr_rules[#localized.dynamic_cidr_rules+1] = rule
+				end
+			end
+		end
+		if ip_address_in_range(localized.ngx_var_remote_addr()) then
+			localized.proxy_header_ip_check_cached = true
+			return true
 		end
 	else
 		localized.proxy_header_ip_check_count = localized.proxy_header_ip_check_count+2 --make sure we dont run again
@@ -3117,9 +2603,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 		if localized.cached_restyredis ~= nil then
 			return localized.cached_restyredis
 		end
-		local pcall = pcall
-		local require = require
-		localized.cached_restyredis = pcall(require, "resty.redis") --check if resty redis library exists will be true or false
+		localized.cached_restyredis = localized.pcall(localized.require, "resty.redis") --check if resty redis library exists will be true or false
 		return localized.cached_restyredis
 	end
 
@@ -3127,9 +2611,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 		if localized.cached_restyredis_fast ~= nil then
 			return localized.cached_restyredis_fast
 		end
-		local pcall = pcall
-		local require = require
-		localized.cached_restyredis_fast = pcall(require, "resty.redis.fast") --check if resty redis fast library exists will be true or false
+		localized.cached_restyredis_fast = localized.pcall(localized.require, "resty.redis.fast") --check if resty redis fast library exists will be true or false
 		return localized.cached_restyredis_fast
 	end
 
@@ -3137,9 +2619,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 		if localized.cached_restyredis_cluster_fast ~= nil then
 			return localized.cached_restyredis_cluster_fast
 		end
-		local pcall = pcall
-		local require = require
-		localized.cached_restyredis_cluster_fast = pcall(require, "resty.redis.cluster.fast") --check if resty redis cluster fast library exists will be true or false
+		localized.cached_restyredis_cluster_fast = localized.pcall(localized.require, "resty.redis.cluster.fast") --check if resty redis cluster fast library exists will be true or false
 		return localized.cached_restyredis_cluster_fast
 	end
 
@@ -3147,9 +2627,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 		if localized.cached_redis_cluster ~= nil then
 			return localized.cached_redis_cluster
 		end
-		local pcall = pcall
-		local require = require
-		localized.cached_redis_cluster = pcall(require, "rediscluster") --check if redis cluster library exists will be true or false
+		localized.cached_redis_cluster = localized.pcall(localized.require, "rediscluster") --check if redis cluster library exists will be true or false
 		return localized.cached_redis_cluster
 	end
 
@@ -3157,9 +2635,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 		if localized.cached_restymemcached ~= nil then
 			return localized.cached_restymemcached
 		end
-		local pcall = pcall
-		local require = require
-		localized.cached_restymemcached = pcall(require, "resty.memcached") --check if resty memcached library exists will be true or false
+		localized.cached_restymemcached = localized.pcall(localized.require, "resty.memcached") --check if resty memcached library exists will be true or false
 		return localized.cached_restymemcached
 	end
 
@@ -3167,9 +2643,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 		if localized.cached_restymemcached_fast ~= nil then
 			return localized.cached_restymemcached_fast
 		end
-		local pcall = pcall
-		local require = require
-		localized.cached_restymemcached_fast = pcall(require, "resty.memcached.fast") --check if resty memcached fast library exists will be true or false
+		localized.cached_restymemcached_fast = localized.pcall(localized.require, "resty.memcached.fast") --check if resty memcached fast library exists will be true or false
 		return localized.cached_restymemcached_fast
 	end
 
@@ -3177,9 +2651,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 		if localized.cached_restylrucache ~= nil then
 			return localized.cached_restylrucache
 		end
-		local pcall = pcall
-		local require = require
-		localized.cached_restylrucache = pcall(require, "resty.lrucache") --check if resty lrucache library exists will be true or false
+		localized.cached_restylrucache = localized.pcall(localized.require, "resty.lrucache") --check if resty lrucache library exists will be true or false
 		return localized.cached_restylrucache
 	end
 
@@ -3197,7 +2669,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 				if input_table[x] == 1 then
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis()) )
 					if check_resty_redis() then
-						localized.libcached = require("resty.redis")
+						localized.libcached = localized.require("resty.redis")
 						--localized.libcached.add_commands("ttl")
 						cached = localized.libcached:new()
 						localized.resty_redis = 1
@@ -3211,7 +2683,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 				if input_table[x] == 2 then
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_resty_memcached()) )
 					if check_resty_memcached() then
-						localized.libcached = require("resty.memcached")
+						localized.libcached = localized.require("resty.memcached")
 						cached = localized.libcached:new()
 						localized.resty_memcached = 1
 					else
@@ -3225,7 +2697,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " lrucache - " .. localized.tostring(check_resty_lrucache()) )
 					if check_resty_lrucache() and input_table[2] ~= nil then
 						localized.resty_lrucache = 1
-						--localized.libcached = require("resty.lrucache")
+						--localized.libcached = localized.require("resty.lrucache")
 						--cached = localized_global.lrucache
 						cached = input_table[2]
 						--[[
@@ -3233,7 +2705,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 						if localized_global == nil then --if global not exists
 						localized_global = {} --define global var that script can read
 						end
-						local libcached = require("resty.lrucache")
+						local libcached = localized.require("resty.lrucache")
 						localized_global.lrucache = libcached.new(100)
 						}
 						]]
@@ -3252,7 +2724,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 				if input_table[x] == 5 then
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis_fast()) )
 					if check_resty_redis_fast() then
-						localized.libcached = require("resty.redis.fast")
+						localized.libcached = localized.require("resty.redis.fast")
 						cached = localized.libcached:new()
 						localized.resty_redis = 1
 					else
@@ -3265,7 +2737,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 				if input_table[x] == 6 then
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis_cluster_fast()) )
 					if check_resty_redis_cluster_fast() then
-						localized.libcached = require("resty.redis.cluster.fast")
+						localized.libcached = localized.require("resty.redis.cluster.fast")
 						cached = localized.libcached:new()
 						localized.resty_redis = 1
 					else
@@ -3278,7 +2750,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 				if input_table[x] == 7 then
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_resty_memcached_fast()) )
 					if check_resty_memcached_fast() then
-						localized.libcached = require("resty.memcached.fast")
+						localized.libcached = localized.require("resty.memcached.fast")
 						cached = localized.libcached:new()
 						localized.resty_memcached = 1
 					else
@@ -3291,7 +2763,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 				if input_table[x] == 8 and input_table[12] ~= nil then
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_redis_cluster()) )
 					if check_redis_cluster() then
-						localized.libcached = require("rediscluster")
+						localized.libcached = localized.require("rediscluster")
 						cached = localized.libcached:new(input_table[12]) --12th var libconoptions
 						localized.resty_redis = 1
 					else
@@ -3431,7 +2903,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 							if fallback_servers[y][z] == 1 then
 								--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis()) )
 								if check_resty_redis() then
-									localized.libcached = require("resty.redis")
+									localized.libcached = localized.require("resty.redis")
 									--localized.libcached.add_commands("ttl")
 									cached = localized.libcached:new()
 									localized.resty_redis = 1
@@ -3445,7 +2917,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 							if fallback_servers[y][z] == 2 then
 								--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_resty_memcached()) )
 								if check_resty_memcached() then
-									localized.libcached = require("resty.memcached")
+									localized.libcached = localized.require("resty.memcached")
 									cached = localized.libcached:new()
 									localized.resty_memcached = 1
 								else
@@ -3459,7 +2931,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 								--localized.ngx_log(localized.ngx_LOG_TYPE, " lrucache - " .. localized.tostring(check_resty_lrucache()) )
 								if check_resty_lrucache() and fallback_servers[y][2] ~= nil then
 									localized.resty_lrucache = 1
-									--localized.libcached = require("resty.lrucache")
+									--localized.libcached = localized.require("resty.lrucache")
 									--cached = localized_global.lrucache
 									cached = fallback_servers[y][2]
 									--[[
@@ -3467,7 +2939,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 									if localized_global == nil then --if global not exists
 									localized_global = {} --define global var that script can read
 									end
-									local libcached = require("resty.lrucache")
+									local libcached = localized.require("resty.lrucache")
 									localized_global.lrucache = libcached.new(100)
 									}
 									]]
@@ -3493,7 +2965,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 							if fallback_servers[y][z] == 5 then
 								--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis_fast()) )
 								if check_resty_redis_fast() then
-									localized.libcached = require("resty.redis.fast")
+									localized.libcached = localized.require("resty.redis.fast")
 									cached = localized.libcached:new()
 									localized.resty_redis = 1
 								else
@@ -3506,7 +2978,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 							if fallback_servers[y][z] == 6 then
 								--localized.ngx_log(localized.ngx_LOG_TYPE, " redis - " .. localized.tostring(check_resty_redis_cluster_fast()) )
 								if check_resty_redis_cluster_fast() then
-									localized.libcached = require("resty.redis.cluster.fast")
+									localized.libcached = localized.require("resty.redis.cluster.fast")
 									cached = localized.libcached:new()
 									localized.resty_redis = 1
 								else
@@ -3519,7 +2991,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 							if fallback_servers[y][z] == 7 then
 								--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_resty_memcached_fast()) )
 								if check_resty_memcached_fast() then
-									localized.libcached = require("resty.memcached.fast")
+									localized.libcached = localized.require("resty.memcached.fast")
 									cached = localized.libcached:new()
 									localized.resty_memcached = 1
 								else
@@ -3532,7 +3004,7 @@ local function remote_cache(input_table, logging, keep, close_conn)
 							if fallback_servers[y][z] == 8 and fallback_servers[y][12] ~= nil then
 								--localized.ngx_log(localized.ngx_LOG_TYPE, " memcached - " .. localized.tostring(check_redis_cluster()) )
 								if check_redis_cluster() then
-									localized.libcached = require("rediscluster")
+									localized.libcached = localized.require("rediscluster")
 									cached = localized.libcached:new(fallback_servers[y][12]) --12th var libconoptions
 									localized.resty_redis = 1
 								else
@@ -3719,13 +3191,11 @@ local function WAF_Post_Requests()
 				if localized.cached_ngx_io ~= nil then
 					return localized.cached_ngx_io
 				end
-				local pcall = pcall
-				local require = require
-				localized.cached_ngx_io = pcall(require, "ngx.io") --check if ngx.io library exists will be true or false
+				localized.cached_ngx_io = localized.pcall(localized.require, "ngx.io") --check if ngx.io library exists will be true or false
 				return localized.cached_ngx_io
 			end
 			if check_ngx_io() and localized.read_file == nil then
-				local read_file = require("ngx.io")
+				local read_file = localized.require("ngx.io")
 				localized.read_file = read_file.open
 			end
 			if not check_ngx_io() and localized.read_file == nil then
@@ -4109,9 +3579,7 @@ local function secure_storage(get_or_set, input, compress_type)
 		if localized.cached_restyaes ~= nil then
 			return localized.cached_restyaes
 		end
-		local pcall = pcall
-		local require = require
-		localized.cached_restyaes = pcall(require, "resty.aes") --check if resty.aes library exists will be true or false
+		localized.cached_restyaes = localized.pcall(localized.require, "resty.aes") --check if resty.aes library exists will be true or false
 		--https://github.com/openresty/lua-resty-string#synopsis
 		return localized.cached_restyaes
 	end
@@ -4119,9 +3587,7 @@ local function secure_storage(get_or_set, input, compress_type)
 		if localized.cached_lualzw ~= nil then
 			return localized.cached_lualzw
 		end
-		local pcall = pcall
-		local require = require
-		localized.cached_lualzw = pcall(require, "lualzw") --check if lualzw library exists will be true or false
+		localized.cached_lualzw = localized.pcall(localized.require, "lualzw") --check if lualzw library exists will be true or false
 		--https://github.com/Rochet2/lualzw/blob/master/lualzw.lua
 		--lua_package_path "./conf/lua/lualzw/?.lua;;";
 		return localized.cached_lualzw
@@ -4130,9 +3596,7 @@ local function secure_storage(get_or_set, input, compress_type)
 		if localized.cached_brotli ~= nil then
 			return localized.cached_brotli
 		end
-		local pcall = pcall
-		local require = require
-		localized.cached_brotli = pcall(require, "brotli.encoder") --check if brotli library exists will be true or false
+		localized.cached_brotli = localized.pcall(localized.require, "brotli.encoder") --check if brotli library exists will be true or false
 		--choose a brotli ffi package thats nonblocking/asynchronous
 		--https://github.com/sjnam/luajit-brotli#installation
 		--lua_package_path "./conf/lua/brotli/?.lua;;";
@@ -4142,9 +3606,7 @@ local function secure_storage(get_or_set, input, compress_type)
 		if localized.cached_zstd ~= nil then
 			return localized.cached_zstd
 		end
-		local pcall = pcall
-		local require = require
-		localized.cached_zstd = pcall(require, "zstd") --check if zstd library exists will be true or false
+		localized.cached_zstd = localized.pcall(localized.require, "zstd") --check if zstd library exists will be true or false
 		--choose a zstd ffi package thats nonblocking/asynchronous
 		--https://github.com/sjnam/luajit-zstd#installation
 		--lua_package_path "./conf/lua/zstd/?.lua;;";
@@ -4154,9 +3616,7 @@ local function secure_storage(get_or_set, input, compress_type)
 		if localized.cached_zlib ~= nil then
 			return localized.cached_zlib
 		end
-		local pcall = pcall
-		local require = require
-		localized.cached_zlib = pcall(require, "resty.zip") --check if zlib library exists will be true or false
+		localized.cached_zlib = localized.pcall(localized.require, "resty.zip") --check if zlib library exists will be true or false
 		--choose a zlib ffi package thats nonblocking/asynchronous
 		--https://github.com/doujiang24/lua-resty-zip
 		return localized.cached_zlib
@@ -4165,9 +3625,7 @@ local function secure_storage(get_or_set, input, compress_type)
 		if localized.cached_snappy ~= nil then
 			return localized.cached_snappy
 		end
-		local pcall = pcall
-		local require = require
-		localized.cached_snappy = pcall(require, "resty.snappy") --check if zlib library exists will be true or false
+		localized.cached_snappy = localized.pcall(localized.require, "resty.snappy") --check if zlib library exists will be true or false
 		--choose a snappy ffi package thats nonblocking/asynchronous
 		--https://github.com/bungle/lua-resty-snappy/tree/master#installation
 		--https://github.com/google/snappy
@@ -4185,7 +3643,7 @@ local function secure_storage(get_or_set, input, compress_type)
 	end
 	if compress_type == 2 and localized.encrypt_storage == 2 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --AES encryption
 		if localized.type(output) ~= "number" and isnumber(output) ~= true and check_restyaes() then
-			local aes = require("resty.aes")
+			local aes = localized.require("resty.aes")
 			local aes_encryption = aes:new(localized.encrypt_storage_secret)
 			--the default cipher is AES 128 CBC with 1 round of MD5
 			--for the key and a nil salt
@@ -4203,7 +3661,7 @@ local function secure_storage(get_or_set, input, compress_type)
 	--start decompression
 	if compress_type == 2 and localized.storage_compression == 1 and check_lualzw() then --LuaLZW decompression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			local lualzw = require("lualzw")
+			local lualzw = localized.require("lualzw")
 			local value_decompress, err = nil
 			value_decompress, err = lualzw.decompress("c"..output)
 			if err == nil then
@@ -4214,7 +3672,7 @@ local function secure_storage(get_or_set, input, compress_type)
 	end
 	if compress_type == 2 and localized.storage_compression == 2 and check_brotli() then --Brotli decompression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			local brotli = require("brotli.decoder")
+			local brotli = localized.require("brotli.decoder")
 			local decoder = brotli:new()
 			local value_decompress, err = nil
 			value_decompress, err = decoder:decompress(output)
@@ -4228,7 +3686,7 @@ local function secure_storage(get_or_set, input, compress_type)
 	end
 	if compress_type == 2 and localized.storage_compression == 3 and check_zstd() then --ZSTD decompression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			local zstandard = require("zstd")
+			local zstandard = localized.require("zstd")
 			local zstd = zstandard:new()
 			local value_decompress, err = nil
 			value_decompress, err = zstd:decompress(output)
@@ -4240,7 +3698,7 @@ local function secure_storage(get_or_set, input, compress_type)
 	end
 	if compress_type == 2 and localized.storage_compression == 4 and check_zlib() then --Zlib decompression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			local zlib = require("resty.zip")
+			local zlib = localized.require("resty.zip")
 			local value_decompress, err = nil
 			local zregex = "^/zs/(.*)/zs/"
 			local zsize = localized.string_match(output, zregex)
@@ -4255,7 +3713,7 @@ local function secure_storage(get_or_set, input, compress_type)
 	end
 	if compress_type == 2 and localized.storage_compression == 5 and check_snappy() then --Snappy decompression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			local snappy = require("resty.snappy")
+			local snappy = localized.require("resty.snappy")
 			local value_decompress, err = nil
 			value_decompress, err = snappy.uncompress(output)
 			if value_decompress then
@@ -4268,7 +3726,7 @@ local function secure_storage(get_or_set, input, compress_type)
 	if compress_type == nil and localized.storage_compression == 1 and check_lualzw() then --LuaLZW compression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
 			if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
-			local lualzw = require("lualzw")
+			local lualzw = localized.require("lualzw")
 			local value_compress, err = nil
 			value_compress, err = lualzw.compress(output)
 			if err == nil then
@@ -4281,7 +3739,7 @@ local function secure_storage(get_or_set, input, compress_type)
 	if compress_type == nil and localized.storage_compression == 2 and check_brotli() then --Brotli compression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
 			if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
-			local brotli = require("brotli.encoder")
+			local brotli = localized.require("brotli.encoder")
 			local encoder = brotli:new({quality=1,}) --compress on level 0 lowest highest = level 11
 			local value_compress, err = nil
 			value_compress, err = encoder:compress(output)
@@ -4297,7 +3755,7 @@ local function secure_storage(get_or_set, input, compress_type)
 	if compress_type == nil and localized.storage_compression == 3 and check_zstd() then --ZSTD compression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
 			if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
-			local zstandard = require("zstd")
+			local zstandard = localized.require("zstd")
 			local zstd = zstandard:new()
 			local value_compress, err = nil
 			value_compress, err = zstd:compress(output, 1) --compress on level 1 lowest highest = level 22
@@ -4311,7 +3769,7 @@ local function secure_storage(get_or_set, input, compress_type)
 	if compress_type == nil and localized.storage_compression == 4 and check_zlib() then --Zlib compression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
 			if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
-			local zlib = require("resty.zip")
+			local zlib = localized.require("resty.zip")
 			local value_compress, err = nil
 			local zregex = "/zs/"
 			value_compress, err = zlib.compress(output, 1) --compress on level 1 lowest highest = level 9
@@ -4325,7 +3783,7 @@ local function secure_storage(get_or_set, input, compress_type)
 	if compress_type == nil and localized.storage_compression == 5 and check_snappy() then --Snappy compression
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
 			if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
-			local snappy = require("resty.snappy")
+			local snappy = localized.require("resty.snappy")
 			local value_compress, err = nil
 			local value_compress, err = snappy.compress(output)
 			if value_compress then
@@ -4358,7 +3816,7 @@ local function secure_storage(get_or_set, input, compress_type)
 		end
 	elseif compress_type == nil and localized.encrypt_storage == 2 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --AES encryption
 		if localized.type(output) ~= "number" and isnumber(output) ~= true and check_restyaes() then
-			local aes = require("resty.aes")
+			local aes = localized.require("resty.aes")
 			local aes_encryption = aes:new(localized.encrypt_storage_secret)
 			--the default cipher is AES 128 CBC with 1 round of MD5
 			--for the key and a nil salt
@@ -4778,15 +4236,26 @@ local function ip_whitelist_flood_checks(ip_table)
 			end
 		end
 		localized.ip_whitelist_flood_checks_count = localized.ip_whitelist_flood_checks_count+2 --make sure we dont run again
-		for i=1,#ip_table do
-			local value = ip_table[i]
-			if value == localized.ip_whitelist_remote_addr() then --if our ip address matches with one in the whitelist
-				localized.ip_whitelist_output_cached = false
-				return false
-			elseif ip_address_in_range(value, localized.ip_whitelist_remote_addr()) == true then
-				localized.ip_whitelist_output_cached = false
-				return false
+		for i=1, #ip_table do
+			local v = ip_table[i]
+			if localized.static_exact_map == nil then
+				localized.static_exact_map = {}
 			end
+			if localized.dynamic_cidr_rules == nil then
+				localized.dynamic_cidr_rules = {}
+			end
+			if not localized.string_find(v, "/", 1, true) then
+				localized.static_exact_map[v] = true -- O(1) Direct dictionary pointer mapping
+			else
+				local rule = compile_cidr(v)
+				if rule then
+					localized.dynamic_cidr_rules[#localized.dynamic_cidr_rules+1] = rule
+				end
+			end
+		end
+		if ip_address_in_range(localized.ip_whitelist_remote_addr()) then
+			localized.ip_whitelist_output_cached = false
+			return false
 		end
 	else
 		localized.ip_whitelist_flood_checks_count = localized.ip_whitelist_flood_checks_count+2 --make sure we dont run again
@@ -4805,20 +4274,15 @@ local function check_system(number,command,logging,ip)
 		if localized.cached_restyshell ~= nil then
 			return localized.cached_restyshell
 		end
-		local pcall = pcall
-		local require = require
-		localized.cached_restyshell = pcall(require, "resty.shell") --check if resty shell library exists will be true or false
+		localized.cached_restyshell = localized.pcall(localized.require, "resty.shell") --check if resty shell library exists will be true or false
 		return localized.cached_restyshell
 	end
 	if check_resty_shell() and localized.os_exe == nil then
-		local shell = require("resty.shell")
+		local shell = localized.require("resty.shell")
 		localized.os_exe = shell.run
 	end
 	if not check_resty_shell() and localized.os_exe == nil then
 		localized.os_execute = io.popen --openresty xray shows this is cpu intensive so if user has resty.shell we use that above this is a fallback method
-	end
-	if localized.package == nil then
-		localized.package = package
 	end
 	if localized.system_os == nil then
 		localized.system_os = localized.string_match(localized.package.cpath, "%p[".. localized.string_sub(localized.package.config, 1, 1 ) .."]?%p(%a+)")
@@ -5063,9 +4527,7 @@ end
 
 --Anti DDoS function
 local function anti_ddos()
-	--local pcall = pcall
-	--local require = require
-	--local shdict = pcall(require, "resty.core.shdict") --check if resty core shdict function exists will be true or false
+	--local shdict = localized.pcall(localized.require, "resty.core.shdict") --check if resty core shdict function exists will be true or false
 
 	--Slowhttp / Slowloris attack detection
 	local function check_slowhttp(content_limit, timeout, connection_header_timeout, connection_header_max_conns, range_whitelist_blacklist, range_table, logging_value)
@@ -7294,13 +6756,25 @@ local function check_ips()
 	--function to check if ip address is whitelisted to bypass our auth
 	local function check_ip_whitelist(ip_table)
 		if ip_table ~= nil and #ip_table > 0 then
-			for i=1,#ip_table do
-				local value = ip_table[i]
-				if value == localized.ip_whitelist_remote_addr() then --if our ip address matches with one in the whitelist
-					return master_exit() --Go to content
-				elseif ip_address_in_range(value, localized.ip_whitelist_remote_addr()) == true then
-					return master_exit() --Go to content
+			for i=1, #ip_table do
+				local v = ip_table[i]
+				if localized.static_exact_map == nil then
+					localized.static_exact_map = {}
 				end
+				if localized.dynamic_cidr_rules == nil then
+					localized.dynamic_cidr_rules = {}
+				end
+				if not localized.string_find(v, "/", 1, true) then
+					localized.static_exact_map[v] = true -- O(1) Direct dictionary pointer mapping
+				else
+					local rule = compile_cidr(v)
+					if rule then
+						localized.dynamic_cidr_rules[#localized.dynamic_cidr_rules+1] = rule
+					end
+				end
+			end
+			if ip_address_in_range(localized.ip_whitelist_remote_addr()) then
+				return master_exit() --Go to content
 			end
 			if localized.ip_whitelist_block_mode == 1 then --ip address not matched the above
 				blocked_address_check("[Anti-DDoS] Blocked IP attempt for not being in whitelist : ")
@@ -7320,19 +6794,28 @@ local function check_ips()
 
 	local function check_ip_blacklist(ip_table)
 		if ip_table ~= nil and #ip_table > 0 then
-			for i=1,#ip_table do
-				local value = ip_table[i]
-				if value == localized.ip_blacklist_remote_addr() then
-					blocked_address_check("[Anti-DDoS] Blocked IP attempt for being in blacklist : ")
-					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked IP in blacklist - " .. value .. " -" .. " IP : " .. localized.ip_blacklist_remote_addr())
-					close_connection()
-					return localized.ngx_exit(localized.ngx_HTTP_CLOSE) --deny user access
-				elseif ip_address_in_range(value, localized.ip_blacklist_remote_addr()) == true then
-					blocked_address_check("[Anti-DDoS] Blocked IP attempt for being in blacklist : ")
-					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked IP in blacklist - " .. value .. " -" .. " IP : " .. localized.ip_blacklist_remote_addr())
-					close_connection()
-					return localized.ngx_exit(localized.ngx_HTTP_CLOSE) --deny user access
+			for i=1, #ip_table do
+				local v = ip_table[i]
+				if localized.static_exact_map == nil then
+					localized.static_exact_map = {}
 				end
+				if localized.dynamic_cidr_rules == nil then
+					localized.dynamic_cidr_rules = {}
+				end
+				if not localized.string_find(v, "/", 1, true) then
+					localized.static_exact_map[v] = true -- O(1) Direct dictionary pointer mapping
+				else
+					local rule = compile_cidr(v)
+					if rule then
+						localized.dynamic_cidr_rules[#localized.dynamic_cidr_rules+1] = rule
+					end
+				end
+			end
+			if ip_address_in_range(localized.ip_blacklist_remote_addr()) then
+				blocked_address_check("[Anti-DDoS] Blocked IP attempt for being in blacklist : ")
+				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked IP in blacklist - IP : " .. localized.ip_blacklist_remote_addr())
+				close_connection()
+				return localized.ngx_exit(localized.ngx_HTTP_CLOSE) --deny user access
 			end
 		end
 
@@ -8761,13 +8244,11 @@ local function minification(content_type_list)
 						if localized.cached_ngx_io ~= nil then
 							return localized.cached_ngx_io
 						end
-						local pcall = pcall
-						local require = require
-						localized.cached_ngx_io = pcall(require, "ngx.io") --check if ngx.io library exists will be true or false
+						localized.cached_ngx_io = localized.pcall(localized.require, "ngx.io") --check if ngx.io library exists will be true or false
 						return localized.cached_ngx_io
 					end
 					if check_ngx_io() and localized.read_file == nil then
-						local read_file = require("ngx.io")
+						local read_file = localized.require("ngx.io")
 						localized.read_file = read_file.open
 					end
 					if not check_ngx_io() and localized.read_file == nil then
@@ -8793,9 +8274,7 @@ local function minification(content_type_list)
 					if localized.cached_restyhttp ~= nil then
 						return localized.cached_restyhttp
 					end
-					local pcall = pcall
-					local require = require
-					localized.cached_restyhttp = pcall(require, "resty.http") --check if resty http library exists will be true or false
+					localized.cached_restyhttp = localized.pcall(localized.require, "resty.http") --check if resty http library exists will be true or false
 					return localized.cached_restyhttp
 				end
 
@@ -8828,7 +8307,7 @@ local function minification(content_type_list)
 						if #content_type_list[i][6] > 0 then
 
 							if content_type_list[i][13] and check_resty_http() then
-								local httpc = require("resty.http").new()
+								local httpc = localized.require("resty.http").new()
 								local res = httpc:request_uri(content_type_list[i][12], {
 									method = map[localized.ngx.req.get_method()],
 									body = request_body, --localized.ngx.var.request_body,
@@ -9122,7 +8601,7 @@ local function minification(content_type_list)
 					if #content_type_list[i][6] > 0 then
 						--[[]]
 						if content_type_list[i][13] and check_resty_http() then
-							local httpc = require("resty.http").new()
+							local httpc = localized.require("resty.http").new()
 							local res = httpc:request_uri(content_type_list[i][12], {
 								method = map[localized.ngx.req.get_method()],
 								body = request_body, --localized.ngx.var.request_body,
