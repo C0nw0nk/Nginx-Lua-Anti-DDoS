@@ -1,3 +1,8 @@
+nginx-lua-anti-ddos-challenge (6.0-1) stable; urgency=medium
+  - Performance Improvements on IPv4/IPv6 matching
+
+ -- C0nw0nk <C0nw0nk@github>  Wed, 30 Sep 2026 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (5.9-1) stable; urgency=medium
   - Improve performance fast IP range/address lookups
 
