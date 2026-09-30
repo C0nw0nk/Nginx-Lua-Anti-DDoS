@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 5.9
+Script Version: 6.0
 
 Copyright Conor McKnight
 
@@ -2396,13 +2396,41 @@ if localized.ffi_ip_range then
 	end
 end
 
---Fast numeric transformation for IPv4
+-- Ultra-fast raw byte scanning for IPv4 (No Regex, No String Allocations)
 local function fast_ipv4_to_long(ip)
-	local o1, o2, o3, o4 = localized.string_match(ip, "^(%d+)%.(%d+)%.(%d+)%.(%d+)$")
-	if not o1 or not o2 or not o3 or not o4 then
-		return nil
+	local len = #ip
+	if len < 7 or len > 15 then return nil end -- Shortest: "0.0.0.0", Longest: "255.255.255.255"
+
+	local n1, n2, n3, n4 = 0, 0, 0, 0
+	local octet = 1
+	local current_val = 0
+	local has_digits = false
+
+	for i=1, len do
+		local c = localized.string_byte(ip, i)
+		if c >= 48 and c <= 57 then -- Character is a digit '0'-'9'
+			current_val = current_val * 10 + (c - 48)
+			if current_val > 255 then return nil end -- Invalid octet size
+			has_digits = true
+		elseif c == 46 then -- Character is a '.' dot
+			if not has_digits then return nil end -- Double dots or leading dot
+			if octet == 1 then n1 = current_val
+			elseif octet == 2 then n2 = current_val
+			elseif octet == 3 then n3 = current_val
+			else return nil end -- Too many dots
+			octet = octet + 1
+			current_val = 0
+			has_digits = false
+		else
+			return nil -- Invalid character found
+		end
 	end
-	return localized.tonumber(o1) * 16777216 + localized.tonumber(o2) * 65536 + localized.tonumber(o3) * 256 + localized.tonumber(o4)
+
+	if octet ~= 4 or not has_digits then return nil end -- Missing final octet
+	n4 = current_val
+
+	-- Shift into a single 32-bit unsigned long equivalent
+	return n1 * 16777216 + n2 * 65536 + n3 * 256 + n4
 end
 
 --Compile network mask settings once during boot phase
@@ -2430,8 +2458,8 @@ local function compile_cidr(cidr_string)
 			return nil
 		end
 		rule.mask = mask
-		if localized.ffi_ip_range and localized.net_lib and localized.uint32_ptr_t then
-			rule.sub_bytes = localized.uint32_ptr_t()
+		if localized.ffi_ip_range and localized.net_lib and localized.uint32_array_t then
+			rule.sub_bytes = localized.uint32_array_t()
 			if localized.net_lib.inet_pton(localized.AF_INET6, subnet_ip, rule.sub_bytes) ~= 1 then
 				return nil
 			end
@@ -2472,7 +2500,7 @@ local function ip_address_in_range(client_ip)
 		localized.dynamic_cidr_rules = {}
 	end
 	if localized.global_cli_buffer == nil then
-		localized.global_cli_buffer = localized.uint32_ptr_t and localized.uint32_ptr_t()
+		localized.global_cli_buffer = localized.uint32_array_t and localized.uint32_array_t()
 	end
 
 	--Check plain IPs via O(1) Map instantly
@@ -2490,19 +2518,19 @@ local function ip_address_in_range(client_ip)
 
 		for i=1, #localized.dynamic_cidr_rules do
 			local rule = localized.dynamic_cidr_rules[i]
-			if rule.is_ipv4 and localized.string_match(rule, client_num) then
+			if rule.is_ipv4 and rule:match(client_num) then
 				return true
 			end
 		end
 	else
 		--Bypasses allocation entirely by reusing our persistent system buffer
-		if not localized.net_lib or localized.net_lib.inet_pton(localized.AF_INET6, client_ip, global_cli_buffer) ~= 1 then
+		if not localized.net_lib or localized.net_lib.inet_pton(localized.AF_INET6, client_ip, localized.global_cli_buffer) ~= 1 then
 			return false
 		end
 
 		for i=1, #localized.dynamic_cidr_rules do
 			local rule = localized.dynamic_cidr_rules[i]
-			if not rule.is_ipv4 and localized.string_match(rule, global_cli_buffer) then
+			if not rule.is_ipv4 and rule:match(localized.global_cli_buffer) then
 				return true
 			end
 		end
@@ -3510,8 +3538,8 @@ local function get_resp_content_type(forced) --incase content-type header not ye
 		CONNECT = localized.ngx_HTTP_CONNECT, --does not exist but put here never know in the future
 	}
 	local res = localized.ngx.location.capture(localized.request_uri(), {
-	method = map[localized.ngx.req.get_method()],
-	--method = map[HEAD],
+	--method = map[localized.ngx.req.get_method()],
+	method = map[HEAD],
 	--headers = req_headers,
 	})
 	if res then
