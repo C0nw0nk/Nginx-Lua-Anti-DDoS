@@ -66,6 +66,8 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Wed Sep 30 2026 C0nw0nk <C0nw0nk@github> - 5.9-1
+- Improve performance fast IP range/address lookups
 * Mon Sep 28 2026 C0nw0nk <C0nw0nk@github> - 5.8-1
 - Added Feature Merge IP lists
 - Added Feature auto add server IP address to IP lists
