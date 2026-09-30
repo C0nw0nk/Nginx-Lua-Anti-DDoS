@@ -68,6 +68,8 @@ fi
 %changelog
 * Wed Sep 30 2026 C0nw0nk <C0nw0nk@github> - 6.0-1
 - Performance Improvements on IPv4/IPv6 matching
+* Wed Sep 30 2026 C0nw0nk <C0nw0nk@github> - 6.0-1
+- Performance Improvements on IPv4/IPv6 matching
 * Wed Sep 30 2026 C0nw0nk <C0nw0nk@github> - 5.9-1
 - Improve performance fast IP range/address lookups
 * Wed Sep 30 2026 C0nw0nk <C0nw0nk@github> - 5.9-1
