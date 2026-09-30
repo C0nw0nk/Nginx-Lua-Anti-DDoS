@@ -1,3 +1,7 @@
+Version: 6.0
+Date: 2026-09-30
+- Performance Improvements on IPv4/IPv6 matching
+
 Version: 5.9
 Date: 2026-09-30
 - Improve performance fast IP range/address lookups
