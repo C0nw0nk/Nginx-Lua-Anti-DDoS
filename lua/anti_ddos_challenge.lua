@@ -7223,6 +7223,8 @@ if localized.ffi and not localized.ffi_random_charset then
 	localized.char_array_t = localized.ffi.typeof("char[?]")
 	localized.ffi_random_charset = localized.char_array_t(12, "0123456789_")
 	localized.uint8_ptr_t = localized.ffi.typeof("uint8_t*")
+
+	localized.ffi_variable_buffer = localized.ffi.new(localized.char_array_t, 64)
 end
 
 -- O(1) Fast Tracking Dictionary Set to prevent duplicates instantly
@@ -7260,15 +7262,14 @@ local function stringrandom(length)
 	-- --- ULTIMATE FAST FFI + PRNG PATH ---
 	local c_charset = localized.ffi_random_charset
 	local seen_set = localized.stringrandom_seen
-	
+
 	-- Localize fast bitwise methods to skip math_random call layers
 	local bxor = localized.bit_bxor
 	local lshift = localized.bit_lshift
 	local rshift = localized.bit_rshift
 	local state = localized.prng_state
 
-	-- Dynamically bound variable block allocation
-	local buffer = localized.char_array_t(length)
+	local buffer = (length <= 64) and localized.ffi_variable_buffer or ffi_lib.new(localized.char_array_t, length)
 	local dst = ffi_lib.cast(localized.uint8_ptr_t, buffer)
 	local output
 	
