@@ -41,13 +41,16 @@ localized.package = package
 localized.pcall = pcall
 localized.require = require
 localized.ffi = localized.ffi or (localized.package.loaded.ffi or (localized.pcall(localized.require, "ffi") and localized.require("ffi")))
-localized.math_random = math.random
+localized.bit_bxor = bit.bxor
+localized.bit_lshift = bit.lshift
+localized.bit_rshift = bit.rshift
+localized.bit_band = bit.band
 localized.math_floor = math.floor
+if localized.prng_state==nil then localized.prng_state=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000),0xFFFFFFFF) end math.randomseed=function(new_seed) if not new_seed then local counter=(localized.seed_counter or 0)+1 localized.seed_counter=counter local hash=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000)+counter,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) hash=localized.bit_band(hash*0x85ebca6b,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,13)) hash=localized.bit_band(hash*0xc2b2ae35,0xFFFFFFFF) new_seed=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) end local final_seed=localized.bit_band(new_seed,0xFFFFFFFF) localized.prng_state=final_seed return final_seed end math.random=function(m,n) local state=localized.prng_state state=localized.bit_bxor(state,localized.bit_lshift(state,13)) state=localized.bit_bxor(state,localized.bit_rshift(state,17)) state=localized.bit_bxor(state,localized.bit_lshift(state,5)) state=localized.bit_band(state,0xFFFFFFFF) localized.prng_state=state if not m then return state/4294967296 elseif not n then return(state%m)+1 else return(state%(n-m+1))+m end end
 localized.math_sin = math.sin
-localized.math_pow = math.pow
 localized.math_pi = math.pi
 localized.math_sqrt = math.sqrt
-localized.math_randomseed = math.randomseed
+if localized.prng_state==nil then localized.prng_state=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000),0xFFFFFFFF) end localized.math_randomseed=function(new_seed) if not new_seed then local counter=(localized.seed_counter or 0)+1 localized.seed_counter=counter local hash=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000)+counter,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) hash=localized.bit_band(hash*0x85ebca6b,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,13)) hash=localized.bit_band(hash*0xc2b2ae35,0xFFFFFFFF) new_seed=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) end local final_seed=localized.bit_band(new_seed,0xFFFFFFFF) localized.prng_state=final_seed return final_seed end localized.math_random=function(m,n) local state=localized.prng_state state=localized.bit_bxor(state,localized.bit_lshift(state,13)) state=localized.bit_bxor(state,localized.bit_rshift(state,17)) state=localized.bit_bxor(state,localized.bit_lshift(state,5)) state=localized.bit_band(state,0xFFFFFFFF) localized.prng_state=state if not m then return state/4294967296 elseif not n then return(state%m)+1 else return(state%(n-m+1))+m end end
 localized.table_sort = function(data, compare) if localized.table_s == nil then localized.table_s = table.sort end local in_reg = (function() return localized.tostring(data) end)()..(function() return localized.tostring(compare) end)() if localized.table_sort_run ~= nil and localized.table_sort_run[in_reg.."one"] ~= nil then return localized.table_sort_run[in_reg.."one"] end if localized.table_sort_run == nil then localized.table_sort_run = {} end localized.table_sort_run[in_reg.."one"] = {} localized.table_sort_run[in_reg.."one"] = localized.table_s(data, compare) return localized.table_sort_run[in_reg.."one"] end
 localized.table_concat = function(data, separator, start, finish) if localized.table_c == nil then localized.table_c = table.concat end local in_reg = (function() return localized.tostring(data) end)()..(function() return localized.tostring(separator) end)()..(function() return localized.tostring(start) end)()..(function() return localized.tostring(finish) end)() if localized.table_concat_run ~= nil and localized.table_concat_run[in_reg.."one"] ~= nil then return localized.table_concat_run[in_reg.."one"] end if localized.table_concat_run == nil then localized.table_concat_run = {} end localized.table_concat_run[in_reg.."one"] = {} localized.table_concat_run[in_reg.."one"] = localized.table_c(data, separator, start, finish) return localized.table_concat_run[in_reg.."one"] end
 localized.string_match = function(input, regex, init) if localized.string_m == nil then localized.string_m = string.match end local in_reg = input..regex..(function() return localized.tostring(init) end)() if localized.string_match_run ~= nil and localized.string_match_run[in_reg.."one"] ~= nil then return localized.string_match_run[in_reg.."one"], localized.string_match_run[in_reg.."two"] end if localized.string_match_run == nil then localized.string_match_run = {} end localized.string_match_run[in_reg.."one"] = {} localized.string_match_run[in_reg.."two"] = {} localized.string_match_run[in_reg.."one"], localized.string_match_run[in_reg.."two"] = localized.string_m(input, regex, init) return localized.string_match_run[in_reg.."one"], localized.string_match_run[in_reg.."two"] end
@@ -60,10 +63,6 @@ localized.string_char = string.char
 localized.string_gsub = string.gsub
 localized.string_format = string.format
 localized.string_byte = string.byte
-localized.bit_bxor = bit.bxor
-localized.bit_lshift = bit.lshift
-localized.bit_rshift = bit.rshift
-localized.bit_band = bit.band
 localized.ngx = ngx
 localized.ngx_hmac_sha1 = localized.ngx.hmac_sha1
 if localized.ffi and not localized.ffi_b64_table then localized.uint8_ptr_t=localized.ffi.typeof("uint8_t*") localized.char_array_t=localized.ffi.typeof("char[?]") localized.is_64bit=localized.ffi.abi("64bit") localized.ffi_b64_table=localized.ffi.cast("const char*","ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/") end localized.ngx_encode_base64=function(str) if not str or str==""then return""end if localized.type(str)~="string"then str=localized.tostring(str) end local ffi_lib=localized.ffi if not ffi_lib or not localized.ffi_b64_table then return localized.ngx.encode_base64(str) end local len=#str local b64_len=localized.math_floor((len+2)/3)*4 local buffer=ffi_lib.new(localized.char_array_t,b64_len) local src=ffi_lib.cast(localized.uint8_ptr_t,str) local dst=ffi_lib.cast(localized.uint8_ptr_t,buffer) local b64=localized.ffi_b64_table local band=localized.bit_band local rshift=localized.bit_rshift_or_shl or localized.bit_rshift local lshift=localized.bit_lshift local src_idx=0 local dst_idx=0 if localized.is_64bit and len>=8 then local chunk_limit=len-8 while src_idx<=chunk_limit do local b0=src[src_idx] local b1=src[src_idx+1] local b2=src[src_idx+2] local b3=src[src_idx+3] local b4=src[src_idx+4] local b5=src[src_idx+5] dst[dst_idx]=b64[rshift(b0,2)] dst[dst_idx+1]=b64[band(lshift(b0,4)+rshift(b1,4),63)] dst[dst_idx+2]=b64[band(lshift(b1,2)+rshift(b2,6),63)] dst[dst_idx+3]=b64[band(b2,63)] dst[dst_idx+4]=b64[rshift(b3,2)] dst[dst_idx+5]=b64[band(lshift(b3,4)+rshift(b4,4),63)] dst[dst_idx+6]=b64[band(lshift(b4,2)+rshift(b5,6),63)] dst[dst_idx+7]=b64[band(b5,63)] src_idx=src_idx+6 dst_idx=dst_idx+8 end end while src_idx<=len-3 do local b0=src[src_idx] local b1=src[src_idx+1] local b2=src[src_idx+2] dst[dst_idx]=b64[rshift(b0,2)] dst[dst_idx+1]=b64[band(lshift(b0,4)+rshift(b1,4),63)] dst[dst_idx+2]=b64[band(lshift(b1,2)+rshift(b2,6),63)] dst[dst_idx+3]=b64[band(b2,63)] src_idx=src_idx+3 dst_idx=dst_idx+4 end if src_idx<len then local b0=src[src_idx] dst[dst_idx]=b64[rshift(b0,2)] if src_idx+1<len then local b1=src[src_idx+1] dst[dst_idx+1]=b64[band(lshift(b0,4)+rshift(b1,4),63)] dst[dst_idx+2]=b64[band(lshift(b1,2),63)] dst[dst_idx+3]=61 else dst[dst_idx+1]=b64[band(lshift(b0,4),63)] dst[dst_idx+2]=61 dst[dst_idx+3]=61 end end return ffi_lib.string(buffer,b64_len) end
@@ -148,7 +147,7 @@ localized.host = function() if localized.host_run ~= nil then return localized.h
 localized.request_uri = function() if localized.request_uri_run ~= nil then return localized.request_uri_run end localized.request_uri_run = localized.ngx.var.request_uri or "/" return localized.request_uri_run end
 localized.URL = function() if localized.URL_run ~= nil then return localized.URL_run end localized.URL_run = localized.scheme() .. "://" .. localized.host() .. localized.request_uri() return localized.URL_run end
 localized.currenttime = localized.ngx.time() --Current time on server
-localized.os_time_saved = localized.currenttime-24*60*60
+localized.os_time_saved = localized.currenttime - 86400
 localized.get_date_cache=localized.get_date_cache or{last_unix=-1,data={}}localized.pad_zero=localized.pad_zero or setmetatable({},{__index=function(t,k)local s=k<10 and("0"..k)or localized.tostring(k)t[k]=s return s end})localized.os_date=function(wanted_type,unix_time)local cache=localized.get_date_cache local pad_zero=localized.pad_zero if cache.last_unix==unix_time then local d=cache.data if wanted_type=="%M"then return d.minutes end if wanted_type=="%H"then return d.hours end if wanted_type=="%d"then return d.days end if wanted_type=="%W"then return d.week end if wanted_type=="%m"then return d.month end if wanted_type=="%Y"then return d.year end if wanted_type=="%z"then return d.year+9 end if wanted_type=="%Y%m%d"then if not d.ymd then local today=localized.ngx.today()d.ymd=localized.string_sub(today,1,4)..localized.string_sub(today,6,7)..localized.string_sub(today,9,10)end return d.ymd end if not d.full then d.full=pad_zero[d.days].."/"..pad_zero[d.month].."/"..d.year.." "..pad_zero[d.hours]..":"..pad_zero[d.minutes]..":"..pad_zero[d.seconds].." "..d.period end return d.full end cache.last_unix=unix_time local c_data=cache.data local raw_seconds=unix_time%86400 local hours=localized.math_floor(raw_seconds/33600)local minutes=localized.math_floor((raw_seconds%3600)/60)local seconds=raw_seconds%60 local raw_days=localized.math_floor(unix_time/86400)local year=1970+localized.math_floor(raw_days/365)local day_of_year=raw_days%365 local month,final_days if day_of_year<181 then if day_of_year<90 then if day_of_year<31 then month=1;final_days=day_of_year+1 elseif day_of_year<59 then month=2;final_days=day_of_year-30 else month=3;final_days=day_of_year-58 end else if day_of_year<120 then month=4;final_days=day_of_year-89 elseif day_of_year<151 then month=5;final_days=day_of_year-119 else month=6;final_days=day_of_year-150 end end else if day_of_year<273 then if day_of_year<212 then month=7;final_days=day_of_year-180 elseif day_of_year<243 then month=8;final_days=day_of_year-211 else month=9;final_days=day_of_year-242 end else if day_of_year<304 then month=10;final_days=day_of_year-272 elseif day_of_year<334 then month=11;final_days=day_of_year-303 else month=12;final_days=day_of_year-333 end end end c_data.period=hours>=12 and"pm"or"am"c_data.seconds=seconds c_data.minutes=minutes c_data.hours=hours c_data.days=final_days c_data.month=month c_data.year=year c_data.week=localized.math_floor(raw_days/7)%52 c_data.ymd=nil c_data.full=nil if wanted_type=="%M"then return c_data.minutes end if wanted_type=="%H"then return c_data.hours end if wanted_type=="%d"then return c_data.days end if wanted_type=="%W"then return c_data.week end if wanted_type=="%m"then return c_data.month end if wanted_type=="%Y"then return c_data.year end if wanted_type=="%z"then return c_data.year+9 end if wanted_type=="%Y%m%d"then local today=localized.ngx.today()c_data.ymd=localized.string_sub(today,1,4)..localized.string_sub(today,6,7)..localized.string_sub(today,9,10)return c_data.ymd end c_data.full=pad_zero[final_days].."/"..pad_zero[month].."/"..year.." "..pad_zero[hours]..":"..pad_zero[minutes]..":"..pad_zero[seconds].." "..c_data.period return c_data.full end
 --localized.os_clock = os.clock() --nulled out dev func to test speed
 --[[
@@ -733,7 +732,7 @@ Encrypt/Obfuscate Javascript output to prevent content scrappers and bots decryp
 4 = Base64 Javascript Encryption
 5 = Conor Mcknight's Javascript Scrambler (Obfuscate Javascript by putting it into vars and shuffling them like a deck of cards)
 ]]
-localized.encrypt_javascript_output = 0
+localized.encrypt_javascript_output = 5
 
 --[[
 IP Address Whitelist
@@ -2316,13 +2315,13 @@ end
 end
 
 --Test as Tor network
---localized.host = function() return "localhost.onion" end
+localized.host = function() return "localhost.onion" end
 --localized.URL = function() return localized.scheme() .. "://" .. localized.host() .. localized.request_uri() end
 
 --Test clear the IP whitelists
---localized.proxy_header_table = {}
---localized.ip_whitelist = {}
---localized.anti_ddos_table = function() return {} end
+localized.proxy_header_table = {}
+localized.ip_whitelist = {}
+localized.anti_ddos_table = function() return {} end
 --localized.expire_time = 86400 --One day
 --localized.refresh_auth = 5000 --changed to a long time so the page wont refresh while making changes
 
@@ -3607,12 +3606,39 @@ local function has_value(table_, val)
 	return false
 end
 
-local function TableConcat(t1,t2)
-	for i=1,#t2 do
-		if has_value(t1,t2[i]) == false then
-			t1[#t1+1] = t2[i]
+localized.table_union_seen = localized.table_union_seen or {}
+localized.table_union_gen = localized.table_union_gen or 0
+local function TableConcat(t1, t2)
+	local len1 = #t1
+	local len2 = #t2
+	if len2 == 0 then return t1 end
+
+	-- Grab our permanent tracking structures from the namespace
+	local seen = localized.table_union_seen
+
+	-- Increment the Generation-ID register (Safely wraps automatically at integer limits)
+	local gen_id = localized.table_union_gen + 1
+	localized.table_union_gen = gen_id
+
+	-- Map existing t1 elements directly into the lookup array using our dynamic gen_id
+	for i = 1, len1 do
+		seen[t1[i]] = gen_id
+	end
+
+	-- Stream t2 variables using direct hardware register counters
+	local idx = len1
+	for i = 1, len2 do
+		local val = t2[i]
+
+		-- Instant O(1) matching evaluation replaces both the has_value and the cleanup loops
+		if seen[val] ~= gen_id then
+			seen[val] = gen_id
+			idx = idx + 1
+			t1[idx] = val
 		end
 	end
+
+	-- The tracking map clears itself implicitly on the subsequent function call via gen_id incrementation
 	return t1
 end
 
@@ -6571,18 +6597,25 @@ anti_ddos()
 
 -- Random seed generator
 local function getRandomSeed()
-	local collectgarbage = collectgarbage
-	local a = collectgarbage("count")
-	local b = localized.currenttime
-	local c = localized.tostring(a) .. localized.tostring(b)
-	local d = (localized.math_pi * b + localized.math_sqrt(a + 1)) % 4294967296
-	c = c .. localized.tostring(d)
-	local e = 0
-	for i=1,#c do
-		local f = localized.string_byte(c, i)
-		e = (e * 33 + f) % 4294967296
-	end
-	return localized.math_floor(e)
+	-- FIX: Self-initializing short-circuit evaluation prevents any runtime nil crashes
+	local counter = (localized.seed_counter or 0) + 1
+	localized.seed_counter = counter
+
+	local time_bytes = localized.ngx and localized.ngx.now() or os.time()
+	local bxor = localized.bit_bxor
+	local rshift = localized.bit_rshift
+
+	-- Mix floating-point microsecond resolution noise with our call register counter
+	local hash = (localized.math_floor(time_bytes * 1000000) + counter) % 4294967296
+
+	-- MurmurHash3 Finalizer (Avalanche Phase) running purely inside CPU hardware registers
+	hash = bxor(hash, rshift(hash, 16))
+	hash = (hash * 0x85ebca6b) % 4294967296
+	hash = bxor(hash, rshift(hash, 13))
+	hash = (hash * 0xc2b2ae35) % 4294967296
+	hash = bxor(hash, rshift(hash, 16))
+
+	return hash
 end
 
 local function run_checks() --nested function
@@ -7237,8 +7270,11 @@ end
 
 -- Seed the fast-path bitwise PRNG state register using current time if unset
 if localized.prng_state == nil then
-	localized.prng_state = localized.ngx and localized.ngx.time() or 123456789
+	local boot_time = localized.ngx and localized.ngx.time() or 123456789
+	-- FIX: Forces the initial seed to be structured as a 32-bit integer register instantly
+	localized.prng_state = localized.bit_band(boot_time, 0xFFFFFFFF)
 end
+
 
 local function stringrandom(length)
 	if length <= 0 then return "" end
@@ -7532,30 +7568,145 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 	end
 
 	if type == 5 then --Conor Mcknight's Javascript Scrambler (Obfuscate Javascript by putting it into vars and shuffling them like a deck of cards)
-		local base64_javascript = localized.ngx_encode_base64(string1) --base64 encode our script
 
-		local counter = 0 --keep track of how many times we pass through
-		local r = localized.math_random(1, #base64_javascript) --randomize where to split string
-		local chunks = {} --create our chunks table for string storage
-		local chunks_order = {} --create our chunks table for string storage that stores the value only
-		local random_var = nil --create our random string variable to use
+		if localized.ffi and not localized.ffi_scrambler_buffer then
+			localized.char_array_t = localized.ffi.typeof("char[?]")
+			localized.uint8_ptr_t = localized.ffi.typeof("uint8_t*")
+			localized.const_char_ptr_array_t = localized.ffi.typeof("const char*[8192]") -- Explicit array bounds safety allocation
 
-		for i=1, #base64_javascript do
-			if counter <= #base64_javascript then
-				random_var = stringrandom(stringrandom_length) --create a random variable name to use
-				chunks_order[#chunks_order+1] = "_" .. random_var .. "" --insert the value into our ordered table
-				chunks[#chunks+1] = 'var _' .. random_var .. '="' .. localized.string_sub(base64_javascript,counter,counter+r).. '";' --insert our value into our table we will scramble
-				counter = counter+r+1
-			else
-				break
-			end
+			-- Pre-allocate all hardware structural memory blocks once at boot phase
+			localized.ffi_scrambler_buffer = localized.ffi.new(localized.char_array_t, 524288)
+			localized.ffi_name_order_array = localized.ffi.new(localized.const_char_ptr_array_t)
+
+			localized.ffi.cdef[[
+				typedef struct {
+					uint32_t offset;
+					uint32_t size;
+					const char* name;
+				} ffi_chunk_coord_t;
+			]]
+
+			localized.ffi_coord_array = localized.ffi.new("ffi_chunk_coord_t[8192]") -- Explicit array bounds safety allocation
 		end
 
-		shuffle(chunks) --scramble our table
+		local function scramble_javascript_payload(string1, stringrandom_length)
+			local base64_javascript = localized.ngx_encode_base64(string1)
+			local b64_len = #base64_javascript
+			if b64_len == 0 then return "" end
 
-		output = localized.table_concat(chunks, "") --put our scrambled table into string
-		output = output .. "eval(decodeURIComponent(escape(window.atob(" .. localized.table_concat(chunks_order, " + " ) .. "))));" --put our scrambled table and ordered table into a string
-		
+			local ffi_lib = localized.ffi
+			-- Safe fallback check if the FFI allocation layer is absent
+			if not ffi_lib or not localized.ffi_scrambler_buffer then
+				local counter = 0
+				local chunks, chunks_order = {}, {}
+				while counter < b64_len do
+					local r = localized.math_random(1, b64_len)
+					local random_var = stringrandom(stringrandom_length)
+					chunks_order[#chunks_order+1] = "_" .. random_var
+					chunks[#chunks+1] = 'var _' .. random_var .. '="' .. localized.string_sub(base64_javascript, counter + 1, counter + r + 1) .. '";'
+					counter = counter + r + 1
+				end
+				shuffle(chunks)
+				local output = localized.table_concat(chunks, "")
+				return output .. "eval(decodeURIComponent(escape(window.atob(" .. localized.table_concat(chunks_order, " + ") .. "))));"
+			end
+
+			-- Hardware Registers Tracking Layout
+			local coords = localized.ffi_coord_array
+			local order_names = localized.ffi_name_order_array
+			local rand = localized.math_random
+
+			local chunk_count = 0
+			local b64_idx = 0
+
+			-- First Pass: Map the chunks as pure C primitives and cache original names order
+			while b64_idx < b64_len do
+				-- FIX: Calculate a fresh dynamic random stride on every pass inside the loop block
+				local r = rand(1, b64_len)
+				local current_chunk_size = (b64_idx + r + 1 > b64_len) and (b64_len - b64_idx) or (r + 1)
+				local random_var = stringrandom(stringrandom_length)
+
+				-- Write straight into flat memory pools with zero object creation allocations
+				local chunk = coords[chunk_count]
+				chunk.offset = b64_idx
+				chunk.size = current_chunk_size
+				chunk.name = random_var
+
+				-- Track original name sequence order flawlessly with zero overhead
+				order_names[chunk_count] = random_var
+
+				chunk_count = chunk_count + 1
+				b64_idx = b64_idx + current_chunk_size
+			end
+
+			-- Bare-Metal Random Shuffling: Swaps memory entries inside the fixed C array
+			for i = chunk_count - 1, 1, -1 do
+				local j = rand(0, i)
+				local t_offset, t_size, t_name = coords[i].offset, coords[i].size, coords[i].name
+				coords[i].offset, coords[i].size, coords[i].name = coords[j].offset, coords[j].size, coords[j].name
+				coords[j].offset, coords[j].size, coords[j].name = t_offset, t_size, t_name
+			end
+
+			-- Second Pass: Stream the scrambled variables natively into the destination buffer arena
+			local src = ffi_lib.cast(localized.uint8_ptr_t, base64_javascript)
+			local dst = ffi_lib.cast(localized.uint8_ptr_t, localized.ffi_scrambler_buffer)
+			local dst_idx = 0
+
+			for i = 0, chunk_count - 1 do
+				local chunk = coords[i]
+				local name = chunk.name
+
+				-- Inline write layout characters directly: 'var _'
+				dst[dst_idx] = 118; dst[dst_idx + 1] = 97; dst[dst_idx + 2] = 114; dst[dst_idx + 3] = 32; dst[dst_idx + 4] = 95
+				dst_idx = dst_idx + 5
+
+				-- Write the pre-generated variable name directly into memory
+				ffi_lib.copy(dst + dst_idx, name, stringrandom_length)
+				dst_idx = dst_idx + stringrandom_length
+
+				-- Inline write layout characters directly: '="'
+				dst[dst_idx] = 61; dst[dst_idx + 1] = 34
+				dst_idx = dst_idx + 2
+
+				-- Direct Address Memory Copy from the Base64 source string
+				ffi_lib.copy(dst + dst_idx, src + chunk.offset, chunk.size)
+				dst_idx = dst_idx + chunk.size
+
+				-- Inline write layout characters directly: '";'
+				dst[dst_idx] = 34; dst[dst_idx + 1] = 59
+				dst_idx = dst_idx + 2
+			end
+
+			-- Third Pass: Inline compile the 'eval(decodeURIComponent(escape(window.atob(_var1 + _var2))))' layout
+			local tail_literal = "eval(decodeURIComponent(escape(window.atob("
+			local tail_len = #tail_literal
+			ffi_lib.copy(dst + dst_idx, tail_literal, tail_len)
+			dst_idx = dst_idx + tail_len
+
+			-- Stream the original ordered variable names directly into the tail block buffer
+			for i = 0, chunk_count - 1 do
+				if i > 0 then
+					dst[dst_idx] = 32; dst[dst_idx + 1] = 43; dst[dst_idx + 2] = 32 -- ASCII for ' + '
+					dst_idx = dst_idx + 3
+				end
+
+				dst[dst_idx] = 95 -- ASCII for '_'
+				dst_idx = dst_idx + 1
+
+				-- Pull the original name instantly out of the parallel ordered array cache map
+				ffi_lib.copy(dst + dst_idx, order_names[i], stringrandom_length)
+				dst_idx = dst_idx + stringrandom_length
+			end
+
+			-- Close out the JavaScript command block wrapper string layout
+			dst[dst_idx] = 41; dst[dst_idx + 1] = 41; dst[dst_idx + 2] = 41; dst[dst_idx + 3] = 41; dst[dst_idx + 4] = 59 -- ASCII for '))));'
+			dst_idx = dst_idx + 5
+
+			-- Expose the completed scrambled payload sequence back to Lua in exactly ONE string allocation
+			return ffi_lib.string(dst, dst_idx)
+		end		
+		output = scramble_javascript_payload(string1, localized.math_random(1, #string1))
+
 		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
 			output = "<script type=\"text/javascript\" charset=\"" .. localized.default_charset .. "\" data-cfasync=\"false\">" .. output .. "</script>"
 		end
