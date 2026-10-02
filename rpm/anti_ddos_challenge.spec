@@ -66,6 +66,10 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Fri Oct 02 2026 C0nw0nk <C0nw0nk@github> - 6.1-1
+- FFI is faster than most functions so we use FFI in place with C code to improve performance
+- Do not use math.pow anywhere any more so removed and speed up other functions
+- Improve cookie matching on content-cache
 * Wed Sep 30 2026 C0nw0nk <C0nw0nk@github> - 6.0-1
 - Performance Improvements on IPv4/IPv6 matching
 * Wed Sep 30 2026 C0nw0nk <C0nw0nk@github> - 6.0-1
