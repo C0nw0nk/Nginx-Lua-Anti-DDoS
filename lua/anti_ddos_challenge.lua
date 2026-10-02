@@ -732,7 +732,7 @@ Encrypt/Obfuscate Javascript output to prevent content scrappers and bots decryp
 4 = Base64 Javascript Encryption
 5 = Conor Mcknight's Javascript Scrambler (Obfuscate Javascript by putting it into vars and shuffling them like a deck of cards)
 ]]
-localized.encrypt_javascript_output = 5
+localized.encrypt_javascript_output = 0
 
 --[[
 IP Address Whitelist
@@ -2315,13 +2315,13 @@ end
 end
 
 --Test as Tor network
-localized.host = function() return "localhost.onion" end
+--localized.host = function() return "localhost.onion" end
 --localized.URL = function() return localized.scheme() .. "://" .. localized.host() .. localized.request_uri() end
 
 --Test clear the IP whitelists
-localized.proxy_header_table = {}
-localized.ip_whitelist = {}
-localized.anti_ddos_table = function() return {} end
+--localized.proxy_header_table = {}
+--localized.ip_whitelist = {}
+--localized.anti_ddos_table = function() return {} end
 --localized.expire_time = 86400 --One day
 --localized.refresh_auth = 5000 --changed to a long time so the page wont refresh while making changes
 
@@ -2409,7 +2409,7 @@ if localized.ffi then
 
 	localized.uint8_array_16_t = localized.ffi.typeof("uint8_t[16]")
 	localized.net_lib = localized.ffi.C
-	
+
 	-- Allocate a persistent buffer for zero-allocation IPv6 scans
 	localized.global_cli_buffer = localized.uint8_array_16_t()
 
@@ -2474,7 +2474,7 @@ local function compile_cidr(cidr_string)
 		rule.subnet_num = fast_ipv4_to_long(subnet_ip)
 		rule.bitmask = (mask == 0) and 0 or localized.bit_lshift(0xFFFFFFFF, 32 - mask)
 		if not rule.subnet_num then return nil end
-		
+
 		rule.match = function(self, client_num)
 			return localized.bit_band(self.subnet_num, self.bitmask) == localized.bit_band(client_num, self.bitmask)
 		end
@@ -3662,7 +3662,7 @@ local function xor_crypt(data, key)
 
 	local ffi_lib = localized.ffi
 	local types = localized.ffi_types
-	
+
 	-- Safe fallback check if the FFI layer or its cached types are missing
 	if not ffi_lib or not types then
 		local bxor = localized.bit_bxor
@@ -3689,7 +3689,7 @@ local function xor_crypt(data, key)
 	local key_src = ffi_lib.cast(uint8_ptr_t, key)
 
 	if key_len == 4 or key_len == 8 then
-		
+
 		-- --- PATH A: 64-Bit Core Fast Path Execution ---
 		if localized.is_64bit and types.uint64_ptr_t then
 			local key_word = ffi_lib.new("uint64_t", 0)
@@ -3699,7 +3699,7 @@ local function xor_crypt(data, key)
 			local src64 = ffi_lib.cast(types.uint64_ptr_t, data)
 			local dst64 = ffi_lib.cast(types.uint64_ptr_t, buffer)
 			local num_words = localized.math_floor(len / 8)
-			
+
 			local mask = key_word
 			for i = 0, num_words - 1 do
 				dst64[i] = ffi_lib.bit.bxor(src64[i], mask)
@@ -3716,7 +3716,7 @@ local function xor_crypt(data, key)
 				end
 			end
 			return ffi_lib.string(buffer, len)
-			
+
 		-- --- PATH B: 32-Bit Core Fast Path Execution ---
 		elseif types.uint32_ptr_t then
 			local key_word = ffi_lib.new("uint32_t", 0)
@@ -3726,7 +3726,7 @@ local function xor_crypt(data, key)
 			local src32 = ffi_lib.cast(types.uint32_ptr_t, data)
 			local dst32 = ffi_lib.cast(types.uint32_ptr_t, buffer)
 			local num_words = localized.math_floor(len / 4)
-			
+
 			local mask = key_word
 			for i = 0, num_words - 1 do
 				dst32[i] = ffi_lib.bit.bxor(src32[i], mask)
@@ -3750,7 +3750,7 @@ local function xor_crypt(data, key)
 	local dst = ffi_lib.cast(uint8_ptr_t, buffer)
 	local data_idx = 0
 	local chunk_limit = len - key_len
-	
+
 	while data_idx <= chunk_limit do
 		for k_idx = 0, key_len - 1 do
 			dst[data_idx + k_idx] = bxor(src[data_idx + k_idx], key_src[k_idx])
@@ -3765,7 +3765,7 @@ local function xor_crypt(data, key)
 			k_idx = k_idx + 1
 		end
 	end
-	
+
 	return ffi_lib.string(buffer, len)
 end
 
@@ -7174,11 +7174,11 @@ local function calculateAnswer(client_signature)
 	-- Instantly defines the final output string size without dynamic padding guesses
 	local b64_len = localized.math_floor((len + 2) / 3) * 4
 	local buffer = localized.char_array_t(b64_len)
-	
+
 	local src = ffi_lib.cast(localized.uint8_ptr_t, client_signature)
 	local dst = ffi_lib.cast(localized.uint8_ptr_t, buffer)
 	local b64 = localized.ffi_b64_table
-	
+
 	local band = localized.bit_band
 	local bxor = localized.bit_bxor
 	local rshift = localized.bit_rshift
@@ -7195,13 +7195,13 @@ local function calculateAnswer(client_signature)
 		local b0 = band(bxor(src[src_idx], k) + shiftAmount, 255)
 		local b1 = band(bxor(src[src_idx + 1], band(k + 1, 255)) + shiftAmount, 255)
 		local b2 = band(bxor(src[src_idx + 2], band(k + 2, 255)) + shiftAmount, 255)
-		
+
 		-- Pack the processed bytes straight into high-speed 6-bit Base64 index positions
 		dst[dst_idx]     = b64[rshift(b0, 2)]
 		dst[dst_idx + 1] = b64[band(lshift(b0, 4) + rshift(b1, 4), 63)]
 		dst[dst_idx + 2] = b64[band(lshift(b1, 2) + rshift(b2, 6), 63)]
 		dst[dst_idx + 3] = b64[band(b2, 63)]
-		
+
 		k = band(k + 3, 255)
 		src_idx = src_idx + 3
 		dst_idx = dst_idx + 4
@@ -7211,7 +7211,7 @@ local function calculateAnswer(client_signature)
 	if src_idx < len then
 		local b0 = band(bxor(src[src_idx], k) + shiftAmount, 255)
 		dst[dst_idx] = b64[rshift(b0, 2)]
-		
+
 		if src_idx + 1 < len then
 			local b1 = band(bxor(src[src_idx + 1], band(k + 1, 255)) + shiftAmount, 255)
 			dst[dst_idx + 1] = b64[band(lshift(b0, 4) + rshift(b1, 4), 63)]
@@ -7275,7 +7275,6 @@ if localized.prng_state == nil then
 	localized.prng_state = localized.bit_band(boot_time, 0xFFFFFFFF)
 end
 
-
 local function stringrandom(length)
 	if length <= 0 then return "" end
 
@@ -7308,7 +7307,7 @@ local function stringrandom(length)
 	local buffer = (length <= 64) and localized.ffi_variable_buffer or ffi_lib.new(localized.char_array_t, length)
 	local dst = ffi_lib.cast(localized.uint8_ptr_t, buffer)
 	local output
-	
+
 	while true do
 		-- Stream characters natively using hardware shifting logic
 		for i=0, length - 1 do
@@ -7316,24 +7315,24 @@ local function stringrandom(length)
 			state = bxor(state, lshift(state, 13))
 			state = bxor(state, rshift(state, 17))
 			state = bxor(state, lshift(state, 5))
-			
+
 			-- Keep the internal state safely bounded to 32-bit unsigned spaces
 			state = state % 4294967296
-			
+
 			-- Map register value cleanly into the index constraints (0 to 10)
 			dst[i] = c_charset[state % 11]
 		end
-		
+
 		-- Convert raw memory block to standard Lua string in a single operation
 		output = ffi_lib.string(buffer, length)
-		
+
 		-- Instant O(1) tracking confirmation lookup
 		if not seen_set[output] then
 			seen_set[output] = true
 			break
 		end
 	end
-	
+
 	-- Update the persistent global seed pointer for subsequent calls
 	localized.prng_state = state
 	return output
@@ -7359,7 +7358,7 @@ end
 if localized.ffi and not localized.ffi_hex_map then
 	localized.uint8_ptr_t = localized.ffi.typeof("uint8_t*")
 	localized.char_array_t = localized.ffi.typeof("char[?]")
-	
+
 	-- FIX: Declared as an array type 'const char*' so it accepts a string literal properly
 	localized.ffi_hex_map = localized.ffi.cast("const char*", 
 		"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F" ..
@@ -7407,30 +7406,30 @@ local function stringtohex(str)
 	-- Pre-allocate exactly the right number of bytes in raw memory buffer space
 	local hex_len = len * 2
 	local buffer = localized.char_array_t(hex_len)
-	
+
 	-- Cast pointers to allow ultra-fast sequential byte increments
 	local src = ffi_lib.cast(localized.uint8_ptr_t, str)
 	local dst = ffi_lib.cast(localized.uint8_ptr_t, buffer)
 	local c_map = localized.ffi_hex_map
-	
+
 	local dst_idx = 0
 	for i=0, len - 1 do
 		-- Extract byte integer, calculate structural offset multiplier
 		local offset = src[i] * 2
-		
+
 		-- Pull individual high/low characters out of the flat C character buffer matrix
 		dst[dst_idx]     = c_map[offset]
 		dst[dst_idx + 1] = c_map[offset + 1]
-		
+
 		dst_idx = dst_idx + 2
 	end
-	
+
 	return ffi_lib.string(buffer, hex_len)
 end
 
 local function sep(str, patt, re)
 	local step = (patt == ".") and 1 or ((patt == "..") and 2 or nil)
-	
+
 	if not step then
 		local t, idx = {}, 1
 		for m in localized.string_gmatch(str, patt) do
@@ -7450,13 +7449,13 @@ local function sep(str, patt, re)
 
 	local t, idx = {}, 1
 	local str_sub = localized.string_sub
-	
+
 	for i=1, len, step do
 		t[idx] = str_sub(str, i, i + step - 1)
 		t[idx + 1] = re
 		idx = idx + 2
 	end
-	
+
 	t[idx - 1] = nil 
 	return localized.table_concat(t)
 end
