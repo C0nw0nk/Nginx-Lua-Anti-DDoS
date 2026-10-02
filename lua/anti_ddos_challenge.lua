@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 6.0
+Script Version: 6.1
 
 Copyright Conor McKnight
 
@@ -40,13 +40,17 @@ localized.type = type
 localized.package = package
 localized.pcall = pcall
 localized.require = require
-localized.math_random = math.random
+localized.ffi = localized.ffi or (localized.package.loaded.ffi or (localized.pcall(localized.require, "ffi") and localized.require("ffi")))
+localized.bit_bxor = bit.bxor
+localized.bit_lshift = bit.lshift
+localized.bit_rshift = bit.rshift
+localized.bit_band = bit.band
 localized.math_floor = math.floor
+if localized.prng_state==nil then localized.prng_state=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000),0xFFFFFFFF) end math.randomseed=function(new_seed) if not new_seed then local counter=(localized.seed_counter or 0)+1 localized.seed_counter=counter local hash=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000)+counter,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) hash=localized.bit_band(hash*0x85ebca6b,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,13)) hash=localized.bit_band(hash*0xc2b2ae35,0xFFFFFFFF) new_seed=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) end local final_seed=localized.bit_band(new_seed,0xFFFFFFFF) localized.prng_state=final_seed return final_seed end math.random=function(m,n) local state=localized.prng_state state=localized.bit_bxor(state,localized.bit_lshift(state,13)) state=localized.bit_bxor(state,localized.bit_rshift(state,17)) state=localized.bit_bxor(state,localized.bit_lshift(state,5)) state=localized.bit_band(state,0xFFFFFFFF) localized.prng_state=state if not m then return state/4294967296 elseif not n then return(state%m)+1 else return(state%(n-m+1))+m end end
 localized.math_sin = math.sin
-localized.math_pow = math.pow
 localized.math_pi = math.pi
 localized.math_sqrt = math.sqrt
-localized.math_randomseed = math.randomseed
+if localized.prng_state==nil then localized.prng_state=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000),0xFFFFFFFF) end localized.math_randomseed=function(new_seed) if not new_seed then local counter=(localized.seed_counter or 0)+1 localized.seed_counter=counter local hash=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000)+counter,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) hash=localized.bit_band(hash*0x85ebca6b,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,13)) hash=localized.bit_band(hash*0xc2b2ae35,0xFFFFFFFF) new_seed=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) end local final_seed=localized.bit_band(new_seed,0xFFFFFFFF) localized.prng_state=final_seed return final_seed end localized.math_random=function(m,n) local state=localized.prng_state state=localized.bit_bxor(state,localized.bit_lshift(state,13)) state=localized.bit_bxor(state,localized.bit_rshift(state,17)) state=localized.bit_bxor(state,localized.bit_lshift(state,5)) state=localized.bit_band(state,0xFFFFFFFF) localized.prng_state=state if not m then return state/4294967296 elseif not n then return(state%m)+1 else return(state%(n-m+1))+m end end
 localized.table_sort = function(data, compare) if localized.table_s == nil then localized.table_s = table.sort end local in_reg = (function() return localized.tostring(data) end)()..(function() return localized.tostring(compare) end)() if localized.table_sort_run ~= nil and localized.table_sort_run[in_reg.."one"] ~= nil then return localized.table_sort_run[in_reg.."one"] end if localized.table_sort_run == nil then localized.table_sort_run = {} end localized.table_sort_run[in_reg.."one"] = {} localized.table_sort_run[in_reg.."one"] = localized.table_s(data, compare) return localized.table_sort_run[in_reg.."one"] end
 localized.table_concat = function(data, separator, start, finish) if localized.table_c == nil then localized.table_c = table.concat end local in_reg = (function() return localized.tostring(data) end)()..(function() return localized.tostring(separator) end)()..(function() return localized.tostring(start) end)()..(function() return localized.tostring(finish) end)() if localized.table_concat_run ~= nil and localized.table_concat_run[in_reg.."one"] ~= nil then return localized.table_concat_run[in_reg.."one"] end if localized.table_concat_run == nil then localized.table_concat_run = {} end localized.table_concat_run[in_reg.."one"] = {} localized.table_concat_run[in_reg.."one"] = localized.table_c(data, separator, start, finish) return localized.table_concat_run[in_reg.."one"] end
 localized.string_match = function(input, regex, init) if localized.string_m == nil then localized.string_m = string.match end local in_reg = input..regex..(function() return localized.tostring(init) end)() if localized.string_match_run ~= nil and localized.string_match_run[in_reg.."one"] ~= nil then return localized.string_match_run[in_reg.."one"], localized.string_match_run[in_reg.."two"] end if localized.string_match_run == nil then localized.string_match_run = {} end localized.string_match_run[in_reg.."one"] = {} localized.string_match_run[in_reg.."two"] = {} localized.string_match_run[in_reg.."one"], localized.string_match_run[in_reg.."two"] = localized.string_m(input, regex, init) return localized.string_match_run[in_reg.."one"], localized.string_match_run[in_reg.."two"] end
@@ -59,12 +63,9 @@ localized.string_char = string.char
 localized.string_gsub = string.gsub
 localized.string_format = string.format
 localized.string_byte = string.byte
-localized.bit_bxor = bit.bxor
-localized.bit_lshift = bit.lshift
-localized.bit_band = bit.band
 localized.ngx = ngx
 localized.ngx_hmac_sha1 = localized.ngx.hmac_sha1
-localized.ngx_encode_base64 = localized.ngx.encode_base64
+if localized.ffi and not localized.ffi_b64_table then localized.uint8_ptr_t=localized.ffi.typeof("uint8_t*") localized.char_array_t=localized.ffi.typeof("char[?]") localized.is_64bit=localized.ffi.abi("64bit") localized.ffi_b64_table=localized.ffi.cast("const char*","ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/") end localized.ngx_encode_base64=function(str) if not str or str==""then return""end if localized.type(str)~="string"then str=localized.tostring(str) end local ffi_lib=localized.ffi if not ffi_lib or not localized.ffi_b64_table then return localized.ngx.encode_base64(str) end local len=#str local b64_len=localized.math_floor((len+2)/3)*4 local buffer=ffi_lib.new(localized.char_array_t,b64_len) local src=ffi_lib.cast(localized.uint8_ptr_t,str) local dst=ffi_lib.cast(localized.uint8_ptr_t,buffer) local b64=localized.ffi_b64_table local band=localized.bit_band local rshift=localized.bit_rshift_or_shl or localized.bit_rshift local lshift=localized.bit_lshift local src_idx=0 local dst_idx=0 if localized.is_64bit and len>=8 then local chunk_limit=len-8 while src_idx<=chunk_limit do local b0=src[src_idx] local b1=src[src_idx+1] local b2=src[src_idx+2] local b3=src[src_idx+3] local b4=src[src_idx+4] local b5=src[src_idx+5] dst[dst_idx]=b64[rshift(b0,2)] dst[dst_idx+1]=b64[band(lshift(b0,4)+rshift(b1,4),63)] dst[dst_idx+2]=b64[band(lshift(b1,2)+rshift(b2,6),63)] dst[dst_idx+3]=b64[band(b2,63)] dst[dst_idx+4]=b64[rshift(b3,2)] dst[dst_idx+5]=b64[band(lshift(b3,4)+rshift(b4,4),63)] dst[dst_idx+6]=b64[band(lshift(b4,2)+rshift(b5,6),63)] dst[dst_idx+7]=b64[band(b5,63)] src_idx=src_idx+6 dst_idx=dst_idx+8 end end while src_idx<=len-3 do local b0=src[src_idx] local b1=src[src_idx+1] local b2=src[src_idx+2] dst[dst_idx]=b64[rshift(b0,2)] dst[dst_idx+1]=b64[band(lshift(b0,4)+rshift(b1,4),63)] dst[dst_idx+2]=b64[band(lshift(b1,2)+rshift(b2,6),63)] dst[dst_idx+3]=b64[band(b2,63)] src_idx=src_idx+3 dst_idx=dst_idx+4 end if src_idx<len then local b0=src[src_idx] dst[dst_idx]=b64[rshift(b0,2)] if src_idx+1<len then local b1=src[src_idx+1] dst[dst_idx+1]=b64[band(lshift(b0,4)+rshift(b1,4),63)] dst[dst_idx+2]=b64[band(lshift(b1,2),63)] dst[dst_idx+3]=61 else dst[dst_idx+1]=b64[band(lshift(b0,4),63)] dst[dst_idx+2]=61 dst[dst_idx+3]=61 end end return ffi_lib.string(buffer,b64_len) end
 localized.ngx_req_get_uri_args = function() if localized.ngx_req_get_uri_args_run ~= nil then return localized.ngx_req_get_uri_args_run end localized.ngx_req_get_uri_args_run = localized.ngx.req.get_uri_args() return localized.ngx_req_get_uri_args_run end
 localized.ngx_req_set_header = localized.ngx.req.set_header
 localized.ngx_req_get_headers = function() if localized.ngx_req_get_headers_run ~= nil then return localized.ngx_req_get_headers_run end localized.ngx_req_get_headers_run = localized.ngx.req.get_headers() return localized.ngx_req_get_headers_run end
@@ -144,10 +145,12 @@ localized.ngx_LOG_TYPE = localized.ngx.STDERR
 localized.scheme = function() if localized.scheme_run ~= nil then return localized.scheme_run end localized.scheme_run = localized.ngx.var.scheme return localized.scheme_run end
 localized.host = function() if localized.host_run ~= nil then return localized.host_run end localized.host_run = localized.ngx.var.host return localized.host_run end
 localized.request_uri = function() if localized.request_uri_run ~= nil then return localized.request_uri_run end localized.request_uri_run = localized.ngx.var.request_uri or "/" return localized.request_uri_run end
+localized.uri = function() if localized.uri_run ~= nil then return localized.uri_run end localized.uri_run = localized.ngx.var.uri return localized.uri_run end
+localized.ngx_var_args = function() if localized.ngx_var_args_run ~= nil then return localized.ngx_var_args_run end localized.ngx_var_args_run = localized.ngx.var.args return localized.ngx_var_args_run end
 localized.URL = function() if localized.URL_run ~= nil then return localized.URL_run end localized.URL_run = localized.scheme() .. "://" .. localized.host() .. localized.request_uri() return localized.URL_run end
 localized.currenttime = localized.ngx.time() --Current time on server
-localized.os_time_saved = localized.currenttime-24*60*60
-localized.os_date = function(wanted_type, unix_time) if localized.get_date_from_unix_cached == nil then localized.get_date_from_unix_cached = {} local day_count, year, days, month = function(yr) return (yr % 4 == 0 and (yr % 100 ~= 0 or yr % 400 == 0)) and 366 or 365 end, 1970, localized.math_floor(unix_time/86400) while days >= day_count(year) do days = days - day_count(year) year = year + 1 end local days_count = days local week = 0 local count = 0 for i=1, 52 do count = 7*i if count <= days_count then localized.get_date_from_unix_cached.week = i end end local tab_overflow = function(seed, table) for i = 1, #table do if seed - table[i] <= 0 then return i, seed end seed = seed - table[i] end end month, days = tab_overflow(days, {31,(day_count(year) == 366 and 29 or 28),31,30,31,30,31,31,30,31,30,31}) local hours, minutes, seconds = localized.math_floor(unix_time / 3600 % 24), localized.math_floor(unix_time / 60 % 60), localized.math_floor(unix_time % 60) localized.get_date_from_unix_cached.period = hours > 12 and "pm" or "am" localized.get_date_from_unix_cached.seconds = seconds localized.get_date_from_unix_cached.minutes = minutes localized.get_date_from_unix_cached.hours = hours localized.get_date_from_unix_cached.days = days localized.get_date_from_unix_cached.month = month localized.get_date_from_unix_cached.year = year end if wanted_type == "%M" then return localized.get_date_from_unix_cached.minutes end if wanted_type == "%H" then return localized.get_date_from_unix_cached.hours end if wanted_type == "%d" then return localized.get_date_from_unix_cached.days end if wanted_type == "%W" then return localized.get_date_from_unix_cached.week end if wanted_type == "%m" then return localized.get_date_from_unix_cached.month end if wanted_type == "%Y" then return localized.get_date_from_unix_cached.year end if wanted_type == "%z" then return localized.get_date_from_unix_cached.year+9 end if wanted_type == "%Y%m%d" then if localized.get_date_from_unix_cached.ymd == nil then localized.get_date_from_unix_cached.ymd = localized.string_gsub(localized.ngx.today(), "[-]", "") end return localized.get_date_from_unix_cached.ymd end if localized.get_date_from_unix_cached.full == nil then localized.get_date_from_unix_cached.full = localized.string_format("%d/%d/%04d %02d:%02d:%02d %s", localized.get_date_from_unix_cached.days, localized.get_date_from_unix_cached.month, localized.get_date_from_unix_cached.year, localized.get_date_from_unix_cached.hours, localized.get_date_from_unix_cached.minutes, localized.get_date_from_unix_cached.seconds, localized.get_date_from_unix_cached.period) end return localized.get_date_from_unix_cached.full end
+localized.os_time_saved = localized.currenttime - 86400
+localized.get_date_cache=localized.get_date_cache or{last_unix=-1,data={}}localized.pad_zero=localized.pad_zero or setmetatable({},{__index=function(t,k)local s=k<10 and("0"..k)or localized.tostring(k)t[k]=s return s end})localized.os_date=function(wanted_type,unix_time)local cache=localized.get_date_cache local pad_zero=localized.pad_zero if cache.last_unix==unix_time then local d=cache.data if wanted_type=="%M"then return d.minutes end if wanted_type=="%H"then return d.hours end if wanted_type=="%d"then return d.days end if wanted_type=="%W"then return d.week end if wanted_type=="%m"then return d.month end if wanted_type=="%Y"then return d.year end if wanted_type=="%z"then return d.year+9 end if wanted_type=="%Y%m%d"then if not d.ymd then local today=localized.ngx.today()d.ymd=localized.string_sub(today,1,4)..localized.string_sub(today,6,7)..localized.string_sub(today,9,10)end return d.ymd end if not d.full then d.full=pad_zero[d.days].."/"..pad_zero[d.month].."/"..d.year.." "..pad_zero[d.hours]..":"..pad_zero[d.minutes]..":"..pad_zero[d.seconds].." "..d.period end return d.full end cache.last_unix=unix_time local c_data=cache.data local raw_seconds=unix_time%86400 local hours=localized.math_floor(raw_seconds/33600)local minutes=localized.math_floor((raw_seconds%3600)/60)local seconds=raw_seconds%60 local raw_days=localized.math_floor(unix_time/86400)local year=1970+localized.math_floor(raw_days/365)local day_of_year=raw_days%365 local month,final_days if day_of_year<181 then if day_of_year<90 then if day_of_year<31 then month=1;final_days=day_of_year+1 elseif day_of_year<59 then month=2;final_days=day_of_year-30 else month=3;final_days=day_of_year-58 end else if day_of_year<120 then month=4;final_days=day_of_year-89 elseif day_of_year<151 then month=5;final_days=day_of_year-119 else month=6;final_days=day_of_year-150 end end else if day_of_year<273 then if day_of_year<212 then month=7;final_days=day_of_year-180 elseif day_of_year<243 then month=8;final_days=day_of_year-211 else month=9;final_days=day_of_year-242 end else if day_of_year<304 then month=10;final_days=day_of_year-272 elseif day_of_year<334 then month=11;final_days=day_of_year-303 else month=12;final_days=day_of_year-333 end end end c_data.period=hours>=12 and"pm"or"am"c_data.seconds=seconds c_data.minutes=minutes c_data.hours=hours c_data.days=final_days c_data.month=month c_data.year=year c_data.week=localized.math_floor(raw_days/7)%52 c_data.ymd=nil c_data.full=nil if wanted_type=="%M"then return c_data.minutes end if wanted_type=="%H"then return c_data.hours end if wanted_type=="%d"then return c_data.days end if wanted_type=="%W"then return c_data.week end if wanted_type=="%m"then return c_data.month end if wanted_type=="%Y"then return c_data.year end if wanted_type=="%z"then return c_data.year+9 end if wanted_type=="%Y%m%d"then local today=localized.ngx.today()c_data.ymd=localized.string_sub(today,1,4)..localized.string_sub(today,6,7)..localized.string_sub(today,9,10)return c_data.ymd end c_data.full=pad_zero[final_days].."/"..pad_zero[month].."/"..year.." "..pad_zero[hours]..":"..pad_zero[minutes]..":"..pad_zero[seconds].." "..c_data.period return c_data.full end
 --localized.os_clock = os.clock() --nulled out dev func to test speed
 --[[
 End localization
@@ -218,6 +221,7 @@ localized.encrypt_storage_secret = " enigma" --password that encrypts our stored
 localized.storage_compression = 0 --0 disabled 1 = LuaLZW compression 2 = brotli 3 = zstd 4 = zlib 5 = snappy --https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/Compression-Libraries
 localized.storage_compression_min_size = 0 --nil or 0 for any size do not compress files smaller than this size
 localized.storage_compression_max_size = 0 --nil or 0 for any size do not compress files larger than this size
+localized.storage_compression_ratio = 1 --depending on your above choice different ratios for different libraries example (brotli = 0 lowest highest = level 11)(ZSTD = 1 lowest highest = level 22)(zlib = 1 lowest highest = level 9)
 
 localized.anti_ddos_table = function() return {
 	{
@@ -486,7 +490,7 @@ localized.content_cache = function() return {
 		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls use nil or empty string "" to not bypass on urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
 		2, --0 do not remove set-cookie header 1 remove set-cookie header on both HIT/UPDATING 2 remove from HIT ONLY 3 remove from UPDATING ONLY if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
-		localized.request_uri(), --url to use you can do "/index.html", as an example localized.request_uri() is best.
+		localized.uri(), --url to use you can do "/index.html", as an example localized.uri() is best.
 		false, --true to use lua resty.http library if exist if you set this to true you can change localized.request_uri() above to "https://www.google.com/", as an example.
 		{ --Content Modifier Modification/Minification / Minify HTML output
 			--Usage :
@@ -542,7 +546,7 @@ localized.content_cache = function() return {
 		"", --nil or empty string "" to not bypass on urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
 		2, --0 do not remove set-cookie header 1 remove set-cookie header on both HIT/UPDATING 2 remove from HIT ONLY 3 remove from UPDATING ONLY if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
-		localized.request_uri(), --url to use you can do "/index.html", as an example localized.request_uri() is best.
+		localized.uri(), --url to use you can do "/index.html", as an example localized.uri() is best.
 		false, --true to use lua resty.http library if exist if you set this to true you can change localized.request_uri() above to "https://www.google.com/", as an example.
 		"", --content modified not needed for this format
 		4e+7, --Maximum content size to cache in bytes 1e+6 = 1MB, 1e+7 = 10MB, 1e+8 = 100MB, 1e+9 = 1GB content larger than this wont be cached empty string "" to skip
@@ -580,7 +584,7 @@ localized.content_cache = function() return {
 		nil, --nil or empty string "" to not bypass on urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
 		2, --0 do not remove set-cookie header 1 remove set-cookie header on both HIT/UPDATING 2 remove from HIT ONLY 3 remove from UPDATING ONLY if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
-		localized.request_uri(), --url to use you can do "/index.html", as an example localized.request_uri() is best.
+		localized.uri(), --url to use you can do "/index.html", as an example localized.uri() is best.
 		false, --true to use lua resty.http library if exist if you set this to true you can change localized.request_uri() above to "https://www.google.com/", as an example.
 		"", --content modified not needed for this format
 		"", --Maximum content size to cache in bytes 1e+6 = 1MB, 1e+7 = 10MB, 1e+8 = 100MB, 1e+9 = 1GB content larger than this wont be cached empty string "" to skip
@@ -2307,6 +2311,9 @@ end
 if localized_global.storage_compression_max_size ~= nil then
 localized.storage_compression_max_size = localized_global.storage_compression_max_size
 end
+if localized_global.storage_compression_ratio ~= nil then
+localized.storage_compression_ratio = localized_global.storage_compression_ratio
+end
 end
 
 --Test as Tor network
@@ -2375,21 +2382,42 @@ end
 --[[
 Start IP range function
 ]]
-localized.ffi_ip_range = localized.package.loaded.ffi or (localized.pcall(localized.require, "ffi") and localized.require("ffi"))
-localized.AF_INET6 = 10 --default to 10 for linux macos etc
-if localized.ffi_ip_range then
+localized.AF_INET6 = 10
+
+-- Initialize unified memory structures ONCE at boot phase
+localized.static_exact_map = localized.static_exact_map or {}
+localized.dynamic_cidr_rules = localized.dynamic_cidr_rules or {}
+localized.dynamic_cidr_seen = localized.dynamic_cidr_seen or {}
+
+-- Secure static lookup array map handles partial byte calculations perfectly
+local byte_mask_lookup = {
+	[0] = 0x00,
+	[1] = 0x80,
+	[2] = 0xC0,
+	[3] = 0xE0,
+	[4] = 0xF0,
+	[5] = 0xF8,
+	[6] = 0xFC,
+	[7] = 0xFE,
+	[8] = 0xFF
+}
+
+if localized.ffi then
 	localized.pcall(function()
-		localized.ffi_ip_range.cdef[[
+		localized.ffi.cdef[[
 			int inet_pton(int af, const char *src, void *dst);
 		]]
 	end)
 
-	localized.uint32_array_t = localized.ffi_ip_range.typeof("uint32_t[4]") 
-	localized.net_lib = localized.ffi_ip_range.C
+	localized.uint8_array_16_t = localized.ffi.typeof("uint8_t[16]")
+	localized.net_lib = localized.ffi.C
+
+	-- Allocate a persistent buffer for zero-allocation IPv6 scans
+	localized.global_cli_buffer = localized.uint8_array_16_t()
 
 	if jit and jit.os == "Windows" then
 		localized.AF_INET6 = 23
-		local status, ws2 = localized.pcall(localized.ffi_ip_range.load, "Ws2_32.dll")
+		local status, ws2 = localized.pcall(localized.ffi.load, "Ws2_32.dll")
 		if status then
 			localized.net_lib = ws2
 		end
@@ -2399,41 +2427,40 @@ end
 -- Ultra-fast raw byte scanning for IPv4 (No Regex, No String Allocations)
 local function fast_ipv4_to_long(ip)
 	local len = #ip
-	if len < 7 or len > 15 then return nil end -- Shortest: "0.0.0.0", Longest: "255.255.255.255"
+	if len < 7 or len > 15 then return nil end
 
 	local n1, n2, n3, n4 = 0, 0, 0, 0
 	local octet = 1
 	local current_val = 0
 	local has_digits = false
 
-	for i=1, len do
+	for i = 1, len do
 		local c = localized.string_byte(ip, i)
-		if c >= 48 and c <= 57 then -- Character is a digit '0'-'9'
+		if c >= 48 and c <= 57 then
 			current_val = current_val * 10 + (c - 48)
-			if current_val > 255 then return nil end -- Invalid octet size
+			if current_val > 255 then return nil end
 			has_digits = true
-		elseif c == 46 then -- Character is a '.' dot
-			if not has_digits then return nil end -- Double dots or leading dot
+		elseif c == 46 then
+			if not has_digits then return nil end
 			if octet == 1 then n1 = current_val
 			elseif octet == 2 then n2 = current_val
 			elseif octet == 3 then n3 = current_val
-			else return nil end -- Too many dots
+			else return nil end
 			octet = octet + 1
 			current_val = 0
 			has_digits = false
 		else
-			return nil -- Invalid character found
+			return nil
 		end
 	end
 
-	if octet ~= 4 or not has_digits then return nil end -- Missing final octet
+	if octet ~= 4 or not has_digits then return nil end
 	n4 = current_val
 
-	-- Shift into a single 32-bit unsigned long equivalent
 	return n1 * 16777216 + n2 * 65536 + n3 * 256 + n4
 end
 
---Compile network mask settings once during boot phase
+-- Compile network mask settings once during boot phase
 local function compile_cidr(cidr_string)
 	local subnet_ip = localized.string_match(cidr_string, "^([^/]+)")
 	local mask = localized.tonumber(localized.string_match(cidr_string, "/(%d+)$"))
@@ -2445,45 +2472,49 @@ local function compile_cidr(cidr_string)
 	local rule = { is_ipv4 = is_ipv4 }
 
 	if is_ipv4 then
-		if mask < 0 or mask > 32 then
-			return nil
-		end
+		if mask < 0 or mask > 32 then return nil end
 		rule.subnet_num = fast_ipv4_to_long(subnet_ip)
 		rule.bitmask = (mask == 0) and 0 or localized.bit_lshift(0xFFFFFFFF, 32 - mask)
-		if not rule.subnet_num then
-			return nil
+		if not rule.subnet_num then return nil end
+
+		rule.match = function(self, client_num)
+			return localized.bit_band(self.subnet_num, self.bitmask) == localized.bit_band(client_num, self.bitmask)
 		end
 	else
-		if mask < 0 or mask > 128 then 
-			return nil
-		end
-		rule.mask = mask
-		if localized.ffi_ip_range and localized.net_lib and localized.uint32_array_t then
-			rule.sub_bytes = localized.uint32_array_t()
+		if mask < 0 or mask > 128 then return nil end
+		if localized.ffi and localized.net_lib and localized.uint8_array_16_t then
+			rule.sub_bytes = localized.uint8_array_16_t()
 			if localized.net_lib.inet_pton(localized.AF_INET6, subnet_ip, rule.sub_bytes) ~= 1 then
 				return nil
 			end
 		else
 			return nil 
 		end
-	end
 
-	if is_ipv4 then
-		rule.match = function(self, client_num)
-			return localized.bit_band(self.subnet_num, self.bitmask) == localized.bit_band(client_num, self.bitmask)
+		local sub_bytes = rule.sub_bytes
+		local masks = {}
+		local temp_mask = mask
+		for i = 0, 15 do
+			if temp_mask >= 8 then
+				masks[i] = 0xFF
+				temp_mask = temp_mask - 8
+			elseif temp_mask > 0 then
+				masks[i] = byte_mask_lookup[temp_mask]
+				temp_mask = 0
+			else
+				masks[i] = 0x00
+			end
 		end
-	else
+
+		local byte_limit = localized.math_floor((mask + 7) / 8)
+		local band = localized.bit_band
+
 		rule.match = function(self, cli_bytes)
-			local current_mask = self.mask
-			for i=0, 3 do
-				if current_mask <= 0 then
-					return true
-				end
-				local chunk_mask = (current_mask >= 32) and 0xFFFFFFFF or localized.bit_lshift(0xFFFFFFFF, 32 - current_mask)
-				if localized.bit_band(self.sub_bytes[i], chunk_mask) ~= localized.bit_band(cli_bytes[i], chunk_mask) then
+			for i = 0, byte_limit - 1 do
+				local m = masks[i]
+				if band(sub_bytes[i], m) ~= band(cli_bytes[i], m) then
 					return false
 				end
-				current_mask = current_mask - 32
 			end
 			return true
 		end
@@ -2491,46 +2522,39 @@ local function compile_cidr(cidr_string)
 	return rule
 end
 
---Re-defined ultra-fast request lookup hook
 local function ip_address_in_range(client_ip)
-	if localized.static_exact_map == nil then
-		localized.static_exact_map = {}
-	end
-	if localized.dynamic_cidr_rules == nil then
-		localized.dynamic_cidr_rules = {}
-	end
-	if localized.global_cli_buffer == nil then
-		localized.global_cli_buffer = localized.uint32_array_t and localized.uint32_array_t()
-	end
-
-	--Check plain IPs via O(1) Map instantly
+	-- Instant O(1) exact map lookup path
 	if localized.static_exact_map[client_ip] then
 		return true
 	end
 
-	--Detect family and query network array registers
-	local is_ipv4 = localized.string_find(client_ip, ".", 1, true) ~= nil
-	if is_ipv4 then
-		local client_num = fast_ipv4_to_long(client_ip)
-		if not client_num then
-			return false
-		end
+	local rules = localized.dynamic_cidr_rules
+	local num_rules = #rules
 
-		for i=1, #localized.dynamic_cidr_rules do
-			local rule = localized.dynamic_cidr_rules[i]
+	-- Branch instantly by address family via quick lookups
+	if localized.string_find(client_ip, ".", 1, true) then
+		local client_num = fast_ipv4_to_long(client_ip)
+		if not client_num then return false end
+
+		-- Unified scanning path filtering for IPv4
+		for i = 1, num_rules do
+			local rule = rules[i]
 			if rule.is_ipv4 and rule:match(client_num) then
 				return true
 			end
 		end
 	else
-		--Bypasses allocation entirely by reusing our persistent system buffer
-		if not localized.net_lib or localized.net_lib.inet_pton(localized.AF_INET6, client_ip, localized.global_cli_buffer) ~= 1 then
+		-- Allocation-Free IPv6 Pointer Verification Path
+		local net = localized.net_lib
+		if not net or net.inet_pton(localized.AF_INET6, client_ip, localized.global_cli_buffer) ~= 1 then
 			return false
 		end
 
-		for i=1, #localized.dynamic_cidr_rules do
-			local rule = localized.dynamic_cidr_rules[i]
-			if not rule.is_ipv4 and rule:match(localized.global_cli_buffer) then
+		-- Unified scanning path filtering for IPv6
+		local buf = localized.global_cli_buffer
+		for i = 1, num_rules do
+			local rule = rules[i]
+			if not rule.is_ipv4 and rule:match(buf) then
 				return true
 			end
 		end
@@ -2549,20 +2573,31 @@ local function proxy_header_ip_check(ip_table)
 	end
 	if ip_table ~= nil and #ip_table > 0 then
 		localized.proxy_header_ip_check_count = localized.proxy_header_ip_check_count+2 --make sure we dont run again
-		for i=1, #ip_table do
+		if localized.static_exact_map == nil then
+			localized.static_exact_map = {}
+		end
+		if localized.dynamic_cidr_rules == nil then
+			localized.dynamic_cidr_rules = {}
+		end
+		if localized.dynamic_cidr_seen == nil then
+			localized.dynamic_cidr_seen = {}
+		end
+		local rules_array = localized.dynamic_cidr_rules
+		local rules_idx = #rules_array
+		for i = 1, #ip_table do
 			local v = ip_table[i]
-			if localized.static_exact_map == nil then
-				localized.static_exact_map = {}
-			end
-			if localized.dynamic_cidr_rules == nil then
-				localized.dynamic_cidr_rules = {}
-			end
-			if not localized.string_find(v, "/", 1, true) then
-				localized.static_exact_map[v] = true -- O(1) Direct dictionary pointer mapping
-			else
-				local rule = compile_cidr(v)
-				if rule then
-					localized.dynamic_cidr_rules[#localized.dynamic_cidr_rules+1] = rule
+			if not localized.dynamic_cidr_seen[v] then
+				localized.dynamic_cidr_seen[v] = true
+				if not localized.string_find(v, "/", 1, true) then
+					localized.static_exact_map[v] = true
+				else
+					local rule = compile_cidr(v)
+					if rule then
+						rules_idx = rules_idx + 1
+						rules_array[rules_idx] = rule
+					else
+						localized.dynamic_cidr_seen[v] = nil
+					end
 				end
 			end
 		end
@@ -3537,10 +3572,10 @@ local function get_resp_content_type(forced) --incase content-type header not ye
 		TRACE = localized.ngx_HTTP_TRACE,
 		CONNECT = localized.ngx_HTTP_CONNECT, --does not exist but put here never know in the future
 	}
-	local res = localized.ngx.location.capture(localized.request_uri(), {
-	--method = map[localized.ngx.req.get_method()],
-	method = map[HEAD],
-	--headers = req_headers,
+	local res = localized.ngx.location.capture(localized.uri(), {
+		method = map["HEAD"],
+		args = localized.ngx_var_args(),
+		--headers = req_headers,
 	})
 	if res then
 		if res.header ~= nil and localized.type(res.header) == "table" then
@@ -3556,7 +3591,6 @@ local function get_resp_content_type(forced) --incase content-type header not ye
 	localized.ngx.header["content-type"] = resp_content_type --set header as content-type be either nil or the content-type
 	localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
 	return resp_content_type
-
 end
 --localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Content-Type header is. " .. get_resp_content_type() )
 --get_resp_content_type()
@@ -3573,29 +3607,169 @@ local function has_value(table_, val)
 	return false
 end
 
-local function TableConcat(t1,t2)
-	for i=1,#t2 do
-		if has_value(t1,t2[i]) == false then
-			t1[#t1+1] = t2[i]
+localized.table_union_seen = localized.table_union_seen or {}
+localized.table_union_gen = localized.table_union_gen or 0
+local function TableConcat(t1, t2)
+	local len1 = #t1
+	local len2 = #t2
+	if len2 == 0 then return t1 end
+
+	-- Grab our permanent tracking structures from the namespace
+	local seen = localized.table_union_seen
+
+	-- Increment the Generation-ID register (Safely wraps automatically at integer limits)
+	local gen_id = localized.table_union_gen + 1
+	localized.table_union_gen = gen_id
+
+	-- Map existing t1 elements directly into the lookup array using our dynamic gen_id
+	for i = 1, len1 do
+		seen[t1[i]] = gen_id
+	end
+
+	-- Stream t2 variables using direct hardware register counters
+	local idx = len1
+	for i = 1, len2 do
+		local val = t2[i]
+
+		-- Instant O(1) matching evaluation replaces both the has_value and the cleanup loops
+		if seen[val] ~= gen_id then
+			seen[val] = gen_id
+			idx = idx + 1
+			t1[idx] = val
 		end
 	end
+
+	-- The tracking map clears itself implicitly on the subsequent function call via gen_id incrementation
 	return t1
 end
 
 --XOR Encryption/Decryption
-local function xor_crypt(data, key)
-	local result = {}
-	local key_len = #key
-	for i=1, #data do
-		--Get byte values for data and corresponding key character
-		local data_byte = localized.string_byte(data, i)
-		local key_byte = localized.string_byte(key, ((i - 1) % key_len) + 1)
-		--Perform XOR and convert back to a character and put into a string
-		--result[#result+1] = localized.string_char(data_byte ~ key_byte) --not compatible
-		result[#result+1] = localized.string_char(localized.bit_bxor(data_byte, key_byte))
-	end
-	return localized.table_concat(result)
+if localized.ffi then
+	-- Initialize your type anchors safely inside a persistent subsystem structure
+	localized.ffi_types = localized.ffi_types or {
+		uint8_ptr_t  = localized.ffi.typeof("uint8_t*"),
+		uint32_ptr_t = localized.ffi.typeof("uint32_t*"),
+		uint64_ptr_t = localized.ffi.typeof("uint64_t*"),
+		char_array_t = localized.ffi.typeof("char[?]")
+	}
+	-- Detect system architecture width at startup
+	localized.is_64bit = localized.ffi.abi("64bit")
 end
+
+local function xor_crypt(data, key)
+	local len = #data
+	local key_len = #key
+	if len == 0 or key_len == 0 then return data end
+
+	local ffi_lib = localized.ffi
+	local types = localized.ffi_types
+
+	-- Safe fallback check if the FFI layer or its cached types are missing
+	if not ffi_lib or not types then
+		local bxor = localized.bit_bxor
+		local str_byte = localized.string_byte
+		local str_char = localized.string_char
+		local t_concat = localized.table_concat
+		local key_bytes = {}
+		for i = 1, key_len do key_bytes[i] = str_byte(key, i) end
+		local t = {}
+		for i = 1, len do
+			local key_byte = key_bytes[((i - 1) % key_len) + 1]
+			t[i] = str_char(bxor(str_byte(data, i), key_byte))
+		end
+		return t_concat(t)
+	end
+
+	-- Extract types out of our validated subsystem safe zone
+	local uint8_ptr_t  = types.uint8_ptr_t
+	local char_array_t = types.char_array_t
+	local bxor          = localized.bit_bxor
+
+	-- Pre-allocate exactly the right number of bytes in raw memory buffer space
+	local buffer = ffi_lib.new(char_array_t, len)
+	local key_src = ffi_lib.cast(uint8_ptr_t, key)
+
+	if key_len == 4 or key_len == 8 then
+
+		-- --- PATH A: 64-Bit Core Fast Path Execution ---
+		if localized.is_64bit and types.uint64_ptr_t then
+			local key_word = ffi_lib.new("uint64_t", 0)
+			local kw_bytes = ffi_lib.cast(uint8_ptr_t, key_word)
+			for i = 0, 7 do kw_bytes[i] = key_src[i % key_len] end
+
+			local src64 = ffi_lib.cast(types.uint64_ptr_t, data)
+			local dst64 = ffi_lib.cast(types.uint64_ptr_t, buffer)
+			local num_words = localized.math_floor(len / 8)
+
+			local mask = key_word
+			for i = 0, num_words - 1 do
+				dst64[i] = ffi_lib.bit.bxor(src64[i], mask)
+			end
+
+			local trailing_start = num_words * 8
+			if trailing_start < len then
+				local src8 = ffi_lib.cast(uint8_ptr_t, data)
+				local dst8 = ffi_lib.cast(uint8_ptr_t, buffer)
+				local k_idx = trailing_start % key_len
+				for i = trailing_start, len - 1 do
+					dst8[i] = bxor(src8[i], key_src[k_idx])
+					k_idx = (k_idx + 1) % key_len
+				end
+			end
+			return ffi_lib.string(buffer, len)
+
+		-- --- PATH B: 32-Bit Core Fast Path Execution ---
+		elseif types.uint32_ptr_t then
+			local key_word = ffi_lib.new("uint32_t", 0)
+			local kw_bytes = ffi_lib.cast(uint8_ptr_t, key_word)
+			for i = 0, 3 do kw_bytes[i] = key_src[i % key_len] end
+
+			local src32 = ffi_lib.cast(types.uint32_ptr_t, data)
+			local dst32 = ffi_lib.cast(types.uint32_ptr_t, buffer)
+			local num_words = localized.math_floor(len / 4)
+
+			local mask = key_word
+			for i = 0, num_words - 1 do
+				dst32[i] = ffi_lib.bit.bxor(src32[i], mask)
+			end
+
+			local trailing_start = num_words * 4
+			if trailing_start < len then
+				local src8 = ffi_lib.cast(uint8_ptr_t, data)
+				local dst8 = ffi_lib.cast(uint8_ptr_t, buffer)
+				local k_idx = trailing_start % key_len
+				for i = trailing_start, len - 1 do
+					dst8[i] = bxor(src8[i], key_src[k_idx])
+					k_idx = (k_idx + 1) % key_len
+				end
+			end
+			return ffi_lib.string(buffer, len)
+		end
+	end
+
+	local src = ffi_lib.cast(uint8_ptr_t, data)
+	local dst = ffi_lib.cast(uint8_ptr_t, buffer)
+	local data_idx = 0
+	local chunk_limit = len - key_len
+
+	while data_idx <= chunk_limit do
+		for k_idx = 0, key_len - 1 do
+			dst[data_idx + k_idx] = bxor(src[data_idx + k_idx], key_src[k_idx])
+		end
+		data_idx = data_idx + key_len
+	end
+
+	if data_idx < len then
+		local k_idx = 0
+		for i = data_idx, len - 1 do
+			dst[i] = bxor(src[i], key_src[k_idx])
+			k_idx = k_idx + 1
+		end
+	end
+
+	return ffi_lib.string(buffer, len)
+end
+
 
 local function secure_storage(get_or_set, input, compress_type)
 	if localized.ss ~= nil and localized.ss[input] ~= nil then
@@ -3768,7 +3942,7 @@ local function secure_storage(get_or_set, input, compress_type)
 		if localized.type(output) ~= "number" and isnumber(output) ~= true then
 			if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
 			local brotli = localized.require("brotli.encoder")
-			local encoder = brotli:new({quality=1,}) --compress on level 0 lowest highest = level 11
+			local encoder = brotli:new({quality=localized.storage_compression_ratio,}) --compress on level 0 lowest highest = level 11
 			local value_compress, err = nil
 			value_compress, err = encoder:compress(output)
 			if err == nil then
@@ -3786,7 +3960,7 @@ local function secure_storage(get_or_set, input, compress_type)
 			local zstandard = localized.require("zstd")
 			local zstd = zstandard:new()
 			local value_compress, err = nil
-			value_compress, err = zstd:compress(output, 1) --compress on level 1 lowest highest = level 22
+			value_compress, err = zstd:compress(output, localized.storage_compression_ratio) --compress on level 1 lowest highest = level 22
 			if err == nil then
 				output = value_compress
 				zstd:free()
@@ -3800,7 +3974,7 @@ local function secure_storage(get_or_set, input, compress_type)
 			local zlib = localized.require("resty.zip")
 			local value_compress, err = nil
 			local zregex = "/zs/"
-			value_compress, err = zlib.compress(output, 1) --compress on level 1 lowest highest = level 9
+			value_compress, err = zlib.compress(output, localized.storage_compression_ratio) --compress on level 1 lowest highest = level 9
 			if err == nil then
 				value_compress = zregex .. #output .. zregex .. value_compress --store original size for use later
 				output = value_compress
@@ -3885,72 +4059,6 @@ local function secure_storage(get_or_set, input, compress_type)
 	localized.ss[input] = output --cache output
 	return output
 end
-
---[[
-localized.os_date above is a one line so nobody tampers with it and to keep config simple but i am putting it here for readability
-to sum this up calling os.date is a sys call and can be a blocking io operation my function is nonblocking.
-https://github.com/openresty/lua-nginx-module#ngxtoday as the docs tell you Lua's os.date library is a syscall and could be slow or a bottle neck
-]]
---[[
-local function get_date_from_unix(wanted_type, unix_time)
-	if localized.get_date_from_unix_cached == nil then
-		localized.get_date_from_unix_cached = {}
-		local day_count, year, days, month = function(yr) return (yr % 4 == 0 and (yr % 100 ~= 0 or yr % 400 == 0)) and 366 or 365 end, 1970, localized.math_floor(unix_time/86400)
-		while days >= day_count(year) do
-			days = days - day_count(year) year = year + 1
-		end
-		local days_count = days
-		local week = 0
-		local count = 0
-		for i=1, 52 do
-			count = 7*i
-			if count <= days_count then localized.get_date_from_unix_cached.week = i end
-		end
-		local tab_overflow = function(seed, table) for i = 1, #table do if seed - table[i] <= 0 then return i, seed end seed = seed - table[i] end end
-		month, days = tab_overflow(days, {31,(day_count(year) == 366 and 29 or 28),31,30,31,30,31,31,30,31,30,31})
-		local hours, minutes, seconds = localized.math_floor(unix_time / 3600 % 24), localized.math_floor(unix_time / 60 % 60), localized.math_floor(unix_time % 60)
-		localized.get_date_from_unix_cached.period = hours > 12 and "pm" or "am"
-		localized.get_date_from_unix_cached.seconds = seconds
-		localized.get_date_from_unix_cached.minutes = minutes
-		localized.get_date_from_unix_cached.hours = hours
-		localized.get_date_from_unix_cached.days = days
-		localized.get_date_from_unix_cached.month = month
-		localized.get_date_from_unix_cached.year = year
-	end
-	if wanted_type == "%M" then
-		return localized.get_date_from_unix_cached.minutes
-	end
-	if wanted_type == "%H" then
-		return localized.get_date_from_unix_cached.hours
-	end
-	if wanted_type == "%d" then
-		return localized.get_date_from_unix_cached.days
-	end
-	if wanted_type == "%W" then
-		return localized.get_date_from_unix_cached.week
-	end
-	if wanted_type == "%m" then
-		return localized.get_date_from_unix_cached.month
-	end
-	if wanted_type == "%Y" then
-		return localized.get_date_from_unix_cached.year
-	end
-	if wanted_type == "%z" then
-		return localized.get_date_from_unix_cached.year+9
-	end
-	if wanted_type == "%Y%m%d" then
-		if localized.get_date_from_unix_cached.ymd == nil then
-			localized.get_date_from_unix_cached.ymd = localized.string_gsub(localized.ngx.today(), "[-]", "")
-		end
-		return localized.get_date_from_unix_cached.ymd
-	end
-	if localized.get_date_from_unix_cached.full == nil then
-		localized.get_date_from_unix_cached.full = localized.string_format("%d/%d/%04d %02d:%02d:%02d %s", localized.get_date_from_unix_cached.days, localized.get_date_from_unix_cached.month, localized.get_date_from_unix_cached.year, localized.get_date_from_unix_cached.hours, localized.get_date_from_unix_cached.minutes, localized.get_date_from_unix_cached.seconds, localized.get_date_from_unix_cached.period)
-	end
-	return localized.get_date_from_unix_cached.full
-end
---get_date_from_unix("%W",localized.os_time_saved)
-]]
 
 local function internal_header_setup()
 	if localized.anti_ddos_table() ~= nil and #localized.anti_ddos_table() > 0 then --do ip block checks before we bother generating headers
@@ -4264,20 +4372,31 @@ local function ip_whitelist_flood_checks(ip_table)
 			end
 		end
 		localized.ip_whitelist_flood_checks_count = localized.ip_whitelist_flood_checks_count+2 --make sure we dont run again
-		for i=1, #ip_table do
+		if localized.static_exact_map == nil then
+			localized.static_exact_map = {}
+		end
+		if localized.dynamic_cidr_rules == nil then
+			localized.dynamic_cidr_rules = {}
+		end
+		if localized.dynamic_cidr_seen == nil then
+			localized.dynamic_cidr_seen = {}
+		end
+		local rules_array = localized.dynamic_cidr_rules
+		local rules_idx = #rules_array
+		for i = 1, #ip_table do
 			local v = ip_table[i]
-			if localized.static_exact_map == nil then
-				localized.static_exact_map = {}
-			end
-			if localized.dynamic_cidr_rules == nil then
-				localized.dynamic_cidr_rules = {}
-			end
-			if not localized.string_find(v, "/", 1, true) then
-				localized.static_exact_map[v] = true -- O(1) Direct dictionary pointer mapping
-			else
-				local rule = compile_cidr(v)
-				if rule then
-					localized.dynamic_cidr_rules[#localized.dynamic_cidr_rules+1] = rule
+			if not localized.dynamic_cidr_seen[v] then
+				localized.dynamic_cidr_seen[v] = true
+				if not localized.string_find(v, "/", 1, true) then
+					localized.static_exact_map[v] = true
+				else
+					local rule = compile_cidr(v)
+					if rule then
+						rules_idx = rules_idx + 1
+						rules_array[rules_idx] = rule
+					else
+						localized.dynamic_cidr_seen[v] = nil
+					end
 				end
 			end
 		end
@@ -6479,18 +6598,25 @@ anti_ddos()
 
 -- Random seed generator
 local function getRandomSeed()
-	local collectgarbage = collectgarbage
-	local a = collectgarbage("count")
-	local b = localized.currenttime
-	local c = localized.tostring(a) .. localized.tostring(b)
-	local d = (localized.math_pi * b + localized.math_sqrt(a + 1)) % 4294967296
-	c = c .. localized.tostring(d)
-	local e = 0
-	for i=1,#c do
-		local f = localized.string_byte(c, i)
-		e = (e * 33 + f) % 4294967296
-	end
-	return localized.math_floor(e)
+	-- FIX: Self-initializing short-circuit evaluation prevents any runtime nil crashes
+	local counter = (localized.seed_counter or 0) + 1
+	localized.seed_counter = counter
+
+	local time_bytes = localized.ngx and localized.ngx.now() or os.time()
+	local bxor = localized.bit_bxor
+	local rshift = localized.bit_rshift
+
+	-- Mix floating-point microsecond resolution noise with our call register counter
+	local hash = (localized.math_floor(time_bytes * 1000000) + counter) % 4294967296
+
+	-- MurmurHash3 Finalizer (Avalanche Phase) running purely inside CPU hardware registers
+	hash = bxor(hash, rshift(hash, 16))
+	hash = (hash * 0x85ebca6b) % 4294967296
+	hash = bxor(hash, rshift(hash, 13))
+	hash = (hash * 0xc2b2ae35) % 4294967296
+	hash = bxor(hash, rshift(hash, 16))
+
+	return hash
 end
 
 local function run_checks() --nested function
@@ -6784,20 +6910,31 @@ local function check_ips()
 	--function to check if ip address is whitelisted to bypass our auth
 	local function check_ip_whitelist(ip_table)
 		if ip_table ~= nil and #ip_table > 0 then
-			for i=1, #ip_table do
+			if localized.static_exact_map == nil then
+				localized.static_exact_map = {}
+			end
+			if localized.dynamic_cidr_rules == nil then
+				localized.dynamic_cidr_rules = {}
+			end
+			if localized.dynamic_cidr_seen == nil then
+				localized.dynamic_cidr_seen = {}
+			end
+			local rules_array = localized.dynamic_cidr_rules
+			local rules_idx = #rules_array
+			for i = 1, #ip_table do
 				local v = ip_table[i]
-				if localized.static_exact_map == nil then
-					localized.static_exact_map = {}
-				end
-				if localized.dynamic_cidr_rules == nil then
-					localized.dynamic_cidr_rules = {}
-				end
-				if not localized.string_find(v, "/", 1, true) then
-					localized.static_exact_map[v] = true -- O(1) Direct dictionary pointer mapping
-				else
-					local rule = compile_cidr(v)
-					if rule then
-						localized.dynamic_cidr_rules[#localized.dynamic_cidr_rules+1] = rule
+				if not localized.dynamic_cidr_seen[v] then
+					localized.dynamic_cidr_seen[v] = true
+					if not localized.string_find(v, "/", 1, true) then
+						localized.static_exact_map[v] = true
+					else
+						local rule = compile_cidr(v)
+						if rule then
+							rules_idx = rules_idx + 1
+							rules_array[rules_idx] = rule
+						else
+							localized.dynamic_cidr_seen[v] = nil
+						end
 					end
 				end
 			end
@@ -6822,20 +6959,31 @@ local function check_ips()
 
 	local function check_ip_blacklist(ip_table)
 		if ip_table ~= nil and #ip_table > 0 then
-			for i=1, #ip_table do
+			if localized.static_exact_map == nil then
+				localized.static_exact_map = {}
+			end
+			if localized.dynamic_cidr_rules == nil then
+				localized.dynamic_cidr_rules = {}
+			end
+			if localized.dynamic_cidr_seen == nil then
+				localized.dynamic_cidr_seen = {}
+			end
+			local rules_array = localized.dynamic_cidr_rules
+			local rules_idx = #rules_array
+			for i = 1, #ip_table do
 				local v = ip_table[i]
-				if localized.static_exact_map == nil then
-					localized.static_exact_map = {}
-				end
-				if localized.dynamic_cidr_rules == nil then
-					localized.dynamic_cidr_rules = {}
-				end
-				if not localized.string_find(v, "/", 1, true) then
-					localized.static_exact_map[v] = true -- O(1) Direct dictionary pointer mapping
-				else
-					local rule = compile_cidr(v)
-					if rule then
-						localized.dynamic_cidr_rules[#localized.dynamic_cidr_rules+1] = rule
+				if not localized.dynamic_cidr_seen[v] then
+					localized.dynamic_cidr_seen[v] = true
+					if not localized.string_find(v, "/", 1, true) then
+						localized.static_exact_map[v] = true
+					else
+						local rule = compile_cidr(v)
+						if rule then
+							rules_idx = rules_idx + 1
+							rules_array[rules_idx] = rule
+						else
+							localized.dynamic_cidr_seen[v] = nil
+						end
 					end
 				end
 			end
@@ -6976,40 +7124,113 @@ end
 localized.math_randomseed(getRandomSeed())
 
 --[[
-String XOR helper function
-]]
-local function xorChar(c, key)
-	return localized.string_char(localized.bit_bxor(localized.string_byte(c), key))
-end
---[[
-End String XOR helper function
-]]
---[[
-Char Shift helper function
-]]
-local function shiftChar(c, amount)
-	return localized.string_char((localized.string_byte(c) + amount) % 256)
-end
---[[
-End Char Shift helper function
-]]
---[[
 Calculate answer Function
-]]--
-local function calculateAnswer(client_signature)
-	local seed = localized.math_floor(localized.math_sin(localized.tonumber(localized.os_date("%Y%m%d", localized.os_time_saved))) * 1000)
-	local key = seed % 256
-	local shiftAmount = localized.math_floor((seed * localized.math_sin(seed)) % 10) + 1
+]]
+if localized.ffi and not localized.ffi_b64_table then
+	-- Map the standard Base64 encoding alphabet directly into a fast C array pointer
+	localized.ffi_b64_table = localized.ffi.new("const char[64]", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
+	localized.uint8_ptr_t = localized.ffi.typeof("uint8_t*")
+	localized.char_array_t = localized.ffi.typeof("char[?]")
+end
 
-	local result = ""
-	for i = 1, #client_signature do
-		result = result .. shiftChar(xorChar(localized.string_sub(client_signature, i, i), (key + i - 1) % 256), shiftAmount)
+-- Persistent state cache to hold the signature constants for the current day
+localized.signature_cache = localized.signature_cache or { last_date = "", key = 0, shift = 0 }
+
+local function calculateAnswer(client_signature)
+	local len = #client_signature
+	if len == 0 then return "" end
+
+	-- 1. Day-level caching guard path
+	local sig_cache = localized.signature_cache
+	local current_date = localized.os_date("%Y%m%d", localized.os_time_saved)
+
+	if sig_cache.last_date ~= current_date then
+		sig_cache.last_date = current_date
+		local seed = localized.math_floor(localized.math_sin(localized.tonumber(current_date)) * 1000)
+		sig_cache.key = seed % 256
+		sig_cache.shift = localized.math_floor((seed * localized.math_sin(seed)) % 10) + 1
 	end
-	return localized.ngx_encode_base64(result)
+
+	local base_key = sig_cache.key
+	local shiftAmount = sig_cache.shift
+	local ffi_lib = localized.ffi
+
+	-- Safe fallback check to an unrolled pure Lua loop if the FFI layer is absent
+	if not ffi_lib then
+		local band = localized.bit_band
+		local bxor = localized.bit_bxor
+		local str_byte = localized.string_byte
+		local str_char = localized.string_char
+		local t_concat = localized.table_concat
+		local t = {}
+		local k = base_key
+		for i = 1, len do
+			t[i] = str_char(band(bxor(str_byte(client_signature, i), k) + shiftAmount, 255))
+			k = band(k + 1, 255)
+		end
+		return localized.ngx_encode_base64(t_concat(t))
+	end
+
+	-- 2. Mathematical allocation sizing for Base64 blocks
+	-- Instantly defines the final output string size without dynamic padding guesses
+	local b64_len = localized.math_floor((len + 2) / 3) * 4
+	local buffer = localized.char_array_t(b64_len)
+
+	local src = ffi_lib.cast(localized.uint8_ptr_t, client_signature)
+	local dst = ffi_lib.cast(localized.uint8_ptr_t, buffer)
+	local b64 = localized.ffi_b64_table
+
+	local band = localized.bit_band
+	local bxor = localized.bit_bxor
+	local rshift = localized.bit_rshift
+	local lshift = localized.bit_lshift
+
+	local src_idx = 0
+	local dst_idx = 0
+	local k = base_key
+
+	-- 3. 3-Byte Vectorized Streaming Chunk Pass
+	-- Pulls 3 input characters, converts them inline, and writes 4 Base64 bytes at once
+	while src_idx <= len - 3 do
+		-- Process all 3 bytes inline with their sequential dynamic keys and shifts
+		local b0 = band(bxor(src[src_idx], k) + shiftAmount, 255)
+		local b1 = band(bxor(src[src_idx + 1], band(k + 1, 255)) + shiftAmount, 255)
+		local b2 = band(bxor(src[src_idx + 2], band(k + 2, 255)) + shiftAmount, 255)
+
+		-- Pack the processed bytes straight into high-speed 6-bit Base64 index positions
+		dst[dst_idx]     = b64[rshift(b0, 2)]
+		dst[dst_idx + 1] = b64[band(lshift(b0, 4) + rshift(b1, 4), 63)]
+		dst[dst_idx + 2] = b64[band(lshift(b1, 2) + rshift(b2, 6), 63)]
+		dst[dst_idx + 3] = b64[band(b2, 63)]
+
+		k = band(k + 3, 255)
+		src_idx = src_idx + 3
+		dst_idx = dst_idx + 4
+	end
+
+	-- 4. Clean up any remaining trailing bytes and apply precise Base64 padding '='
+	if src_idx < len then
+		local b0 = band(bxor(src[src_idx], k) + shiftAmount, 255)
+		dst[dst_idx] = b64[rshift(b0, 2)]
+
+		if src_idx + 1 < len then
+			local b1 = band(bxor(src[src_idx + 1], band(k + 1, 255)) + shiftAmount, 255)
+			dst[dst_idx + 1] = b64[band(lshift(b0, 4) + rshift(b1, 4), 63)]
+			dst[dst_idx + 2] = b64[band(lshift(b1, 2), 63)]
+			dst[dst_idx + 3] = 61 -- Ascii for '='
+		else
+			dst[dst_idx + 1] = b64[band(lshift(b0, 4), 63)]
+			dst[dst_idx + 2] = 61 -- Ascii for '='
+			dst[dst_idx + 3] = 61 -- Ascii for '='
+		end
+	end
+
+	-- 5. Expose the pre-compiled buffer back to Lua in exactly ONE string allocation
+	return ffi_lib.string(buffer, b64_len)
 end
 --[[
 End Calculate answer Function
-]]--
+]]
 
 --function to encrypt strings with our secret key / password provided
 local function calculate_signature(str)
@@ -7032,45 +7253,91 @@ local function calculate_signature(str)
 end
 --calculate_signature(str)
 
---generate random strings on the fly
---qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890
-local charset = {}
-for i=48, 57 do
-charset[#charset+1] = localized.string_char(i)
-end --0-9 numeric
---[[
-for i=65, 90 do
-charset[#charset+1] = localized.string_char(i)
-end --A-Z uppercase
-]]
---[[
-for i = 97, 122 do
-charset[#charset+1] = localized.string_char(i)
-end --a-z lowercase
-]]
-charset[#charset+1] = localized.string_char(95) --insert number 95 underscore
-local stringrandom_table = {} --create table to store our generated vars to avoid duplicates
+if localized.ffi and not localized.ffi_random_charset then
+	localized.char_array_t = localized.ffi.typeof("char[?]")
+	localized.ffi_random_charset = localized.char_array_t(12, "0123456789_")
+	localized.uint8_ptr_t = localized.ffi.typeof("uint8_t*")
+
+	localized.ffi_variable_buffer = localized.ffi.new(localized.char_array_t, 64)
+end
+
+-- O(1) Fast Tracking Dictionary Set to prevent duplicates instantly
+localized.stringrandom_seen = localized.stringrandom_seen or {}
+
+-- Fallback: Pure Lua map if FFI is absent
+if not localized.ffi and not localized.random_charset then
+	localized.random_charset = {"0","1","2","3","4","5","6","7","8","9","_"}
+end
+
+-- Seed the fast-path bitwise PRNG state register using current time if unset
+if localized.prng_state == nil then
+	local boot_time = localized.ngx and localized.ngx.time() or 123456789
+	-- FIX: Forces the initial seed to be structured as a 32-bit integer register instantly
+	localized.prng_state = localized.bit_band(boot_time, 0xFFFFFFFF)
+end
+
 local function stringrandom(length)
-	if length > 0 then
-		local output = stringrandom(length - 1) .. charset[localized.math_random(1, #charset)]
-		local duplicate_found = 0 --mark if we find a duplicate or not
-		for i=1,#stringrandom_table do --for each value in our generated var table
-			if stringrandom_table[i] == output then --if a value in our table matches our generated var
-				duplicate_found = 1 --mark as duplicate var
-				output = "_" .. output --append an underscore to the duplicate var
-				stringrandom_table[#stringrandom_table+1] = output --insert to the table
-				break --break out of for each loop since we found a duplicate
-			end
-		end
-		if duplicate_found == 0 then --if no duplicate found
-			stringrandom_table[#stringrandom_table+1] = output --insert the output to our table
+	if length <= 0 then return "" end
+
+	local ffi_lib = localized.ffi
+	-- Safe fallback path to the optimized flat Lua loop if FFI layer is absent
+	if not ffi_lib or not localized.ffi_random_charset then
+		local r_charset = localized.random_charset
+		local r_set_len = #r_charset
+		local rand = localized.math_random
+		local seen_set = localized.stringrandom_seen
+		local t, output = {}
+		while true do
+			for i=1, length do t[i] = r_charset[rand(1, r_set_len)] end
+			output = localized.table_concat(t, "")
+			if not seen_set[output] then seen_set[output] = true break end
 		end
 		return output
-	else
-		return ""
 	end
+
+	-- --- ULTIMATE FAST FFI + PRNG PATH ---
+	local c_charset = localized.ffi_random_charset
+	local seen_set = localized.stringrandom_seen
+
+	-- Localize fast bitwise methods to skip math_random call layers
+	local bxor = localized.bit_bxor
+	local lshift = localized.bit_lshift
+	local rshift = localized.bit_rshift
+	local state = localized.prng_state
+
+	local buffer = (length <= 64) and localized.ffi_variable_buffer or ffi_lib.new(localized.char_array_t, length)
+	local dst = ffi_lib.cast(localized.uint8_ptr_t, buffer)
+	local output
+
+	while true do
+		-- Stream characters natively using hardware shifting logic
+		for i=0, length - 1 do
+			-- Xorshift32 PRNG logic execution (Runs completely inside CPU registers)
+			state = bxor(state, lshift(state, 13))
+			state = bxor(state, rshift(state, 17))
+			state = bxor(state, lshift(state, 5))
+
+			-- Keep the internal state safely bounded to 32-bit unsigned spaces
+			state = state % 4294967296
+
+			-- Map register value cleanly into the index constraints (0 to 10)
+			dst[i] = c_charset[state % 11]
+		end
+
+		-- Convert raw memory block to standard Lua string in a single operation
+		output = ffi_lib.string(buffer, length)
+
+		-- Instant O(1) tracking confirmation lookup
+		if not seen_set[output] then
+			seen_set[output] = true
+			break
+		end
+	end
+
+	-- Update the persistent global seed pointer for subsequent calls
+	localized.prng_state = state
+	return output
 end
---stringrandom(10)
 
 local stringrandom_length = "" --create our random length variable
 if localized.dynamic_javascript_vars_length == 1 then --if our javascript random var length is to be static
@@ -7088,16 +7355,110 @@ local function shuffle(tbl)
 	return tbl
 end
 
---for my javascript Hex output
-local function sep(str, patt, re)
-	local rstr = localized.string_gsub(str, patt, "%1%" .. re)
-	return localized.string_sub(rstr, 1, #rstr - #re)
+-- Allocate a flat character buffer map for all 256 byte variations sequentially
+if localized.ffi and not localized.ffi_hex_map then
+	localized.uint8_ptr_t = localized.ffi.typeof("uint8_t*")
+	localized.char_array_t = localized.ffi.typeof("char[?]")
+
+	-- FIX: Declared as an array type 'const char*' so it accepts a string literal properly
+	localized.ffi_hex_map = localized.ffi.cast("const char*", 
+		"000102030405060708090A0B0C0D0E0F101112131415161718191A1B1C1D1E1F" ..
+		"202122232425262728292A2B2C2D2E2F303132333435363738393A3B3C3D3E3F" ..
+		"404142434445464748494A4B4C4D4E4F505152535455565758595A5B5C5D5E5F" ..
+		"606162636465666768696A6B6C6D6E6F707172737475767778797A7B7C7D7E7F" ..
+		"808182838485868788898A8B8C8D8E8F909192939495969798999A9B9C9D9E9F" ..
+		"A0A1A2A3A4A5A6A7A8A9AAABACADAEAFB0B1B2B3B4B5B6B7B8B9BABBBCBDBEBF" ..
+		"C0C1C2C3C4C5C6C7C8C9CACBCCCDCECFD0D1D2D3D4D5D6D7D8D9DADBDCDDDEDF" ..
+		"E0E1E2E3E4E5E6E7E8E9EAEBECEDEEEFF0F1F2F3F4F5F6F7F8F9FAFBFCFDFEFF"
+	)
+end
+
+-- Fallback: Pure Lua map if FFI is absent
+if not localized.ffi and not localized.hex_dump_map then
+	localized.hex_dump_map = {}
+	for i=0, 255 do
+		localized.hex_dump_map[i] = localized.string_format("%02X", i)
+	end
 end
 
 local function stringtohex(str)
-	return localized.string_gsub(str, '.', function (c)
-		return localized.string_format('%02X', localized.string_byte(c))
-	end)
+	local len = #str
+	if len == 0 then return "" end
+
+	local ffi_lib = localized.ffi
+	-- Safe fallback check to the 4-way unrolled pure Lua loop if FFI initialization failed
+	if not ffi_lib or not localized.ffi_hex_map then
+		local hex_map = localized.hex_dump_map
+		local str_byte = localized.string_byte
+		local t = {}
+		local left = len % 4
+		for i = 1, len - left, 4 do
+			t[i]     = hex_map[str_byte(str, i)]
+			t[i + 1] = hex_map[str_byte(str, i + 1)]
+			t[i + 2] = hex_map[str_byte(str, i + 2)]
+			t[i + 3] = hex_map[str_byte(str, i + 3)]
+		end
+		for i = len - left + 1, len do
+			t[i] = hex_map[str_byte(str, i)]
+		end
+		return localized.table_concat(t)
+	end
+
+	-- Pre-allocate exactly the right number of bytes in raw memory buffer space
+	local hex_len = len * 2
+	local buffer = localized.char_array_t(hex_len)
+
+	-- Cast pointers to allow ultra-fast sequential byte increments
+	local src = ffi_lib.cast(localized.uint8_ptr_t, str)
+	local dst = ffi_lib.cast(localized.uint8_ptr_t, buffer)
+	local c_map = localized.ffi_hex_map
+
+	local dst_idx = 0
+	for i=0, len - 1 do
+		-- Extract byte integer, calculate structural offset multiplier
+		local offset = src[i] * 2
+
+		-- Pull individual high/low characters out of the flat C character buffer matrix
+		dst[dst_idx]     = c_map[offset]
+		dst[dst_idx + 1] = c_map[offset + 1]
+
+		dst_idx = dst_idx + 2
+	end
+
+	return ffi_lib.string(buffer, hex_len)
+end
+
+local function sep(str, patt, re)
+	local step = (patt == ".") and 1 or ((patt == "..") and 2 or nil)
+
+	if not step then
+		local t, idx = {}, 1
+		for m in localized.string_gmatch(str, patt) do
+			t[idx] = m
+			t[idx + 1] = re
+			idx = idx + 2
+		end
+		if idx > 1 then
+			t[idx - 1] = nil
+			return localized.table_concat(t)
+		end
+		return str
+	end
+
+	local len = #str
+	if len <= step then return str end
+
+	local t, idx = {}, 1
+	local str_sub = localized.string_sub
+
+	for i=1, len, step do
+		t[idx] = str_sub(str, i, i + step - 1)
+		t[idx + 1] = re
+		idx = idx + 2
+	end
+
+	t[idx - 1] = nil 
+	return localized.table_concat(t)
 end
 
 --encrypt_javascript function
@@ -7207,30 +7568,145 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 	end
 
 	if type == 5 then --Conor Mcknight's Javascript Scrambler (Obfuscate Javascript by putting it into vars and shuffling them like a deck of cards)
-		local base64_javascript = localized.ngx_encode_base64(string1) --base64 encode our script
 
-		local counter = 0 --keep track of how many times we pass through
-		local r = localized.math_random(1, #base64_javascript) --randomize where to split string
-		local chunks = {} --create our chunks table for string storage
-		local chunks_order = {} --create our chunks table for string storage that stores the value only
-		local random_var = nil --create our random string variable to use
+		if localized.ffi and not localized.ffi_scrambler_buffer then
+			localized.char_array_t = localized.ffi.typeof("char[?]")
+			localized.uint8_ptr_t = localized.ffi.typeof("uint8_t*")
+			localized.const_char_ptr_array_t = localized.ffi.typeof("const char*[8192]") -- Explicit array bounds safety allocation
 
-		for i=1, #base64_javascript do
-			if counter <= #base64_javascript then
-				random_var = stringrandom(stringrandom_length) --create a random variable name to use
-				chunks_order[#chunks_order+1] = "_" .. random_var .. "" --insert the value into our ordered table
-				chunks[#chunks+1] = 'var _' .. random_var .. '="' .. localized.string_sub(base64_javascript,counter,counter+r).. '";' --insert our value into our table we will scramble
-				counter = counter+r+1
-			else
-				break
-			end
+			-- Pre-allocate all hardware structural memory blocks once at boot phase
+			localized.ffi_scrambler_buffer = localized.ffi.new(localized.char_array_t, 524288)
+			localized.ffi_name_order_array = localized.ffi.new(localized.const_char_ptr_array_t)
+
+			localized.ffi.cdef[[
+				typedef struct {
+					uint32_t offset;
+					uint32_t size;
+					const char* name;
+				} ffi_chunk_coord_t;
+			]]
+
+			localized.ffi_coord_array = localized.ffi.new("ffi_chunk_coord_t[8192]") -- Explicit array bounds safety allocation
 		end
 
-		shuffle(chunks) --scramble our table
+		local function scramble_javascript_payload(string1, stringrandom_length)
+			local base64_javascript = localized.ngx_encode_base64(string1)
+			local b64_len = #base64_javascript
+			if b64_len == 0 then return "" end
 
-		output = localized.table_concat(chunks, "") --put our scrambled table into string
-		output = output .. "eval(decodeURIComponent(escape(window.atob(" .. localized.table_concat(chunks_order, " + " ) .. "))));" --put our scrambled table and ordered table into a string
-		
+			local ffi_lib = localized.ffi
+			-- Safe fallback check if the FFI allocation layer is absent
+			if not ffi_lib or not localized.ffi_scrambler_buffer then
+				local counter = 0
+				local chunks, chunks_order = {}, {}
+				while counter < b64_len do
+					local r = localized.math_random(1, b64_len)
+					local random_var = stringrandom(stringrandom_length)
+					chunks_order[#chunks_order+1] = "_" .. random_var
+					chunks[#chunks+1] = 'var _' .. random_var .. '="' .. localized.string_sub(base64_javascript, counter + 1, counter + r + 1) .. '";'
+					counter = counter + r + 1
+				end
+				shuffle(chunks)
+				local output = localized.table_concat(chunks, "")
+				return output .. "eval(decodeURIComponent(escape(window.atob(" .. localized.table_concat(chunks_order, " + ") .. "))));"
+			end
+
+			-- Hardware Registers Tracking Layout
+			local coords = localized.ffi_coord_array
+			local order_names = localized.ffi_name_order_array
+			local rand = localized.math_random
+
+			local chunk_count = 0
+			local b64_idx = 0
+
+			-- First Pass: Map the chunks as pure C primitives and cache original names order
+			while b64_idx < b64_len do
+				-- FIX: Calculate a fresh dynamic random stride on every pass inside the loop block
+				local r = rand(1, b64_len)
+				local current_chunk_size = (b64_idx + r + 1 > b64_len) and (b64_len - b64_idx) or (r + 1)
+				local random_var = stringrandom(stringrandom_length)
+
+				-- Write straight into flat memory pools with zero object creation allocations
+				local chunk = coords[chunk_count]
+				chunk.offset = b64_idx
+				chunk.size = current_chunk_size
+				chunk.name = random_var
+
+				-- Track original name sequence order flawlessly with zero overhead
+				order_names[chunk_count] = random_var
+
+				chunk_count = chunk_count + 1
+				b64_idx = b64_idx + current_chunk_size
+			end
+
+			-- Bare-Metal Random Shuffling: Swaps memory entries inside the fixed C array
+			for i = chunk_count - 1, 1, -1 do
+				local j = rand(0, i)
+				local t_offset, t_size, t_name = coords[i].offset, coords[i].size, coords[i].name
+				coords[i].offset, coords[i].size, coords[i].name = coords[j].offset, coords[j].size, coords[j].name
+				coords[j].offset, coords[j].size, coords[j].name = t_offset, t_size, t_name
+			end
+
+			-- Second Pass: Stream the scrambled variables natively into the destination buffer arena
+			local src = ffi_lib.cast(localized.uint8_ptr_t, base64_javascript)
+			local dst = ffi_lib.cast(localized.uint8_ptr_t, localized.ffi_scrambler_buffer)
+			local dst_idx = 0
+
+			for i = 0, chunk_count - 1 do
+				local chunk = coords[i]
+				local name = chunk.name
+
+				-- Inline write layout characters directly: 'var _'
+				dst[dst_idx] = 118; dst[dst_idx + 1] = 97; dst[dst_idx + 2] = 114; dst[dst_idx + 3] = 32; dst[dst_idx + 4] = 95
+				dst_idx = dst_idx + 5
+
+				-- Write the pre-generated variable name directly into memory
+				ffi_lib.copy(dst + dst_idx, name, stringrandom_length)
+				dst_idx = dst_idx + stringrandom_length
+
+				-- Inline write layout characters directly: '="'
+				dst[dst_idx] = 61; dst[dst_idx + 1] = 34
+				dst_idx = dst_idx + 2
+
+				-- Direct Address Memory Copy from the Base64 source string
+				ffi_lib.copy(dst + dst_idx, src + chunk.offset, chunk.size)
+				dst_idx = dst_idx + chunk.size
+
+				-- Inline write layout characters directly: '";'
+				dst[dst_idx] = 34; dst[dst_idx + 1] = 59
+				dst_idx = dst_idx + 2
+			end
+
+			-- Third Pass: Inline compile the 'eval(decodeURIComponent(escape(window.atob(_var1 + _var2))))' layout
+			local tail_literal = "eval(decodeURIComponent(escape(window.atob("
+			local tail_len = #tail_literal
+			ffi_lib.copy(dst + dst_idx, tail_literal, tail_len)
+			dst_idx = dst_idx + tail_len
+
+			-- Stream the original ordered variable names directly into the tail block buffer
+			for i = 0, chunk_count - 1 do
+				if i > 0 then
+					dst[dst_idx] = 32; dst[dst_idx + 1] = 43; dst[dst_idx + 2] = 32 -- ASCII for ' + '
+					dst_idx = dst_idx + 3
+				end
+
+				dst[dst_idx] = 95 -- ASCII for '_'
+				dst_idx = dst_idx + 1
+
+				-- Pull the original name instantly out of the parallel ordered array cache map
+				ffi_lib.copy(dst + dst_idx, order_names[i], stringrandom_length)
+				dst_idx = dst_idx + stringrandom_length
+			end
+
+			-- Close out the JavaScript command block wrapper string layout
+			dst[dst_idx] = 41; dst[dst_idx + 1] = 41; dst[dst_idx + 2] = 41; dst[dst_idx + 3] = 41; dst[dst_idx + 4] = 59 -- ASCII for '))));'
+			dst_idx = dst_idx + 5
+
+			-- Expose the completed scrambled payload sequence back to Lua in exactly ONE string allocation
+			return ffi_lib.string(dst, dst_idx)
+		end		
+		output = scramble_javascript_payload(string1, localized.math_random(1, #string1))
+
 		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
 			output = "<script type=\"text/javascript\" charset=\"" .. localized.default_charset .. "\" data-cfasync=\"false\">" .. output .. "</script>"
 		end
@@ -7853,6 +8329,39 @@ if localized.credits == 2 then
 localized.ddos_credits = "" --make empty string
 end
 
+localized.HTML_ENTITIES = {
+	["&"] = "&amp;",
+	["<"] = "&lt;",
+	[">"] = "&gt;",
+	['"'] = "&quot;",
+	["'"] = "&#39;",
+	["/"] = "&#x2F;"
+}
+local function escape_html(input)
+	if not input then return "" end
+
+	-- PRE-FLIGHT CHECK: Fast plain search for ANY dangerous characters.
+	if not localized.string_find(input, "&", 1, true) and
+	   not localized.string_find(input, "<", 1, true) and
+	   not localized.string_find(input, ">", 1, true) and
+	   not localized.string_find(input, '"', 1, true) and
+	   not localized.string_find(input, "'", 1, true) and
+	   not localized.string_find(input, "/", 1, true) then
+		return input
+	end
+
+	-- FALLBACK: Single-pass, byte-by-byte lookups via gmatch.
+	local fragments = {}
+	local count = 0
+
+	for char in localized.string_gmatch(input, ".") do
+		count = count + 1
+		fragments[count] = localized.HTML_ENTITIES[char] or char
+	end
+
+	return localized.table_concat(fragments)
+end
+
 localized.request_details = [[
 <br>
 <div id="status" style="color:#bd2426;font-size:200%;">
@@ -7864,11 +8373,11 @@ Please allow up to <span id="countdowntimer">]] .. localized.refresh_auth .. [[<
 <br>
 <br>
 <h3 style="color:#bd2426;">Request Details :</h3>
-IP address : ]] .. localized.remote_addr() .. [[
+IP address : ]] .. escape_html(localized.remote_addr()) .. [[
 <br>
-Request URL : ]] .. localized.URL() .. [[
+Request URL : ]] .. escape_html(localized.URL()) .. [[
 <br>
-User-Agent : ]] .. localized.ngx_var_http_user_agent() .. [[
+User-Agent : ]] .. escape_html(localized.ngx_var_http_user_agent()) .. [[
 <br>
 ]]
 
@@ -7970,55 +8479,43 @@ if localized.content_cache() ~= nil and #localized.content_cache() > 0 then
 
 local function minification(content_type_list)
 
-	local function grab_cookies(cookie_name, cookie_value, guest_value)
+	local COOKIE_PAIR_PATTERN = "([^=;%s]+)%s*=%s*([^;%s]+)"
+	local function grab_cookies(cookie_name_pattern, cookie_value_pattern, guest_value)
 		local cookie_match = 0
 		local guest_or_logged_in = 0
-		local req_headers = localized.ngx_req_get_headers() --get all request headers
-		local cookies = req_headers["cookie"] or "" --for dynamic pages
-		-- strip all Set-Cookie attributes, e.g. "Name=value; Path=/; Max-Age=2592000" => "Name=value"
-		local function strip_attributes(cookie)
-			return localized.string_match(cookie, "[^;]+")
+
+		local req_headers = localized.ngx_req_get_headers()
+		local cookies = req_headers["cookie"]
+		if not cookies then
+			return cookie_match, guest_or_logged_in
 		end
-		--iterator for use in "for in" loop, works both with strings and tables
-		local function iterate_cookies(cookies)
-			local i = 0
-			return function()
-				i = i+1
-				if localized.type(cookies) == "string" then
-					if i == 1 then return strip_attributes(cookies) end
-					elseif localized.type(cookies) == "table" then
-					if cookies[i] then return strip_attributes(cookies[i]) end
+
+		-- Check if search targets contain pattern characters. If not, use plain byte-matching.
+		local plain_name = not localized.string_find(cookie_name_pattern, "[%.%*%-%+%?%^%$%%%[%]]")
+		local plain_value = not localized.string_find(cookie_value_pattern, "[%.%*%-%+%?%^%$%%%[%]]")
+
+		if localized.type(cookies) == "table" then
+			for i = 1, #cookies do
+				for c_name, c_val in localized.string_gmatch(cookies[i], COOKIE_PAIR_PATTERN) do
+					if localized.string_find(c_name, cookie_name_pattern, 1, plain_name) and 
+						localized.string_find(c_val, cookie_value_pattern, 1, plain_value) then
+						cookie_match = 1
+						if guest_value == 1 then
+							guest_or_logged_in = 1
+						end
+						return cookie_match, guest_or_logged_in
+					end
 				end
 			end
-		end
-		--at the first loop iteration separator should be an empty string if client browser send no cookies or "; " otherwise
-		local separator = cookies and "; " or ""
-		for cookie in iterate_cookies(cookies) do
-			cookies = cookies .. separator .. cookie
-			--next separator definitely should be a "; "
-			separator = "; "
-		end
-		local regex_1 = "[^;]+"
-		local regex_2 = "%s*(.*)%s*=%s*(.*)%s*"
-		local _ = localized.string_gsub(cookies, ";"," ; ") --fix semicolons
-		local _ = localized.string_gsub(_, "%s+", "") --remove white space
-		if not localized.string_find(_, ";$") then --if does not end in semicolon
-			_ = _ .. ";" --insert semicolon
-		end
-		for each_cookie in localized.string_gmatch(_, regex_1) do
-			if each_cookie ~= nil then
-				for cookiename, cookievalue in localized.string_gmatch(each_cookie, regex_2) do
-					if cookiename ~= nil and cookievalue ~= nil then
-						if localized.string_find(cookiename, cookie_name ) and localized.string_find(cookievalue, cookie_value ) then
-							--localized.ngx_log(localized.ngx_LOG_TYPE,"name is "..cookiename)
-							--localized.ngx_log(localized.ngx_LOG_TYPE,"value is "..cookievalue)
-							cookie_match = 1
-							if guest_value == 1 then
-								guest_or_logged_in = 1
-							end
-							break --break out since found match
-						end
+		else
+			for c_name, c_val in localized.string_gmatch(cookies, COOKIE_PAIR_PATTERN) do
+				if localized.string_find(c_name, cookie_name_pattern, 1, plain_name) and 
+					localized.string_find(c_val, cookie_value_pattern, 1, plain_value) then
+					cookie_match = 1
+					if guest_value == 1 then
+						guest_or_logged_in = 1
 					end
+					return cookie_match, guest_or_logged_in
 				end
 			end
 		end
@@ -8229,6 +8726,9 @@ local function minification(content_type_list)
 					end
 					return output
 				end
+
+				-- Extract the query string arguments directly to pass them into the subrequest
+				local query_args = localized.ngx_var_args()
 
 				local map = {
 					GET = localized.ngx_HTTP_GET,
@@ -8448,7 +8948,7 @@ local function minification(content_type_list)
 								local res = localized.ngx.location.capture(content_type_list[i][12], {
 								method = map[localized.ngx.req.get_method()],
 								body = request_body, --localized.ngx.var.request_body,
-								args = "",
+								args = query_args,
 								headers = headers_forward(),
 								})
 								if res then
@@ -8714,7 +9214,7 @@ local function minification(content_type_list)
 							local res = localized.ngx.location.capture(content_type_list[i][12], {
 							method = map[localized.ngx.req.get_method()],
 							body = request_body, --localized.ngx.var.request_body,
-							args = "",
+							args = query_args,
 							headers = headers_forward(),
 							})
 							if res then
