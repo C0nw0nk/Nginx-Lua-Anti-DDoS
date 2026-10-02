@@ -145,6 +145,8 @@ localized.ngx_LOG_TYPE = localized.ngx.STDERR
 localized.scheme = function() if localized.scheme_run ~= nil then return localized.scheme_run end localized.scheme_run = localized.ngx.var.scheme return localized.scheme_run end
 localized.host = function() if localized.host_run ~= nil then return localized.host_run end localized.host_run = localized.ngx.var.host return localized.host_run end
 localized.request_uri = function() if localized.request_uri_run ~= nil then return localized.request_uri_run end localized.request_uri_run = localized.ngx.var.request_uri or "/" return localized.request_uri_run end
+localized.uri = function() if localized.uri_run ~= nil then return localized.uri_run end localized.uri_run = localized.ngx.var.uri return localized.uri_run end
+localized.ngx_var_args = function() if localized.ngx_var_args_run ~= nil then return localized.ngx_var_args_run end localized.ngx_var_args_run = localized.ngx.var.args return localized.ngx_var_args_run end
 localized.URL = function() if localized.URL_run ~= nil then return localized.URL_run end localized.URL_run = localized.scheme() .. "://" .. localized.host() .. localized.request_uri() return localized.URL_run end
 localized.currenttime = localized.ngx.time() --Current time on server
 localized.os_time_saved = localized.currenttime - 86400
@@ -488,7 +490,7 @@ localized.content_cache = function() return {
 		{"/login.html","/administrator","/admin*.$",}, --bypass cache urls use nil or empty string "" to not bypass on urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
 		2, --0 do not remove set-cookie header 1 remove set-cookie header on both HIT/UPDATING 2 remove from HIT ONLY 3 remove from UPDATING ONLY if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
-		localized.request_uri(), --url to use you can do "/index.html", as an example localized.request_uri() is best.
+		localized.uri(), --url to use you can do "/index.html", as an example localized.uri() is best.
 		false, --true to use lua resty.http library if exist if you set this to true you can change localized.request_uri() above to "https://www.google.com/", as an example.
 		{ --Content Modifier Modification/Minification / Minify HTML output
 			--Usage :
@@ -544,7 +546,7 @@ localized.content_cache = function() return {
 		"", --nil or empty string "" to not bypass on urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
 		2, --0 do not remove set-cookie header 1 remove set-cookie header on both HIT/UPDATING 2 remove from HIT ONLY 3 remove from UPDATING ONLY if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
-		localized.request_uri(), --url to use you can do "/index.html", as an example localized.request_uri() is best.
+		localized.uri(), --url to use you can do "/index.html", as an example localized.uri() is best.
 		false, --true to use lua resty.http library if exist if you set this to true you can change localized.request_uri() above to "https://www.google.com/", as an example.
 		"", --content modified not needed for this format
 		4e+7, --Maximum content size to cache in bytes 1e+6 = 1MB, 1e+7 = 10MB, 1e+8 = 100MB, 1e+9 = 1GB content larger than this wont be cached empty string "" to skip
@@ -582,7 +584,7 @@ localized.content_cache = function() return {
 		nil, --nil or empty string "" to not bypass on urls
 		1, --Send cache status header X-Cache-Status: HIT, X-Cache-Status: MISS
 		2, --0 do not remove set-cookie header 1 remove set-cookie header on both HIT/UPDATING 2 remove from HIT ONLY 3 remove from UPDATING ONLY if serving from cache or updating cache page remove cookie headers (for dynamic sites you should do this to stay as guest only cookie headers will be sent on bypass pages)
-		localized.request_uri(), --url to use you can do "/index.html", as an example localized.request_uri() is best.
+		localized.uri(), --url to use you can do "/index.html", as an example localized.uri() is best.
 		false, --true to use lua resty.http library if exist if you set this to true you can change localized.request_uri() above to "https://www.google.com/", as an example.
 		"", --content modified not needed for this format
 		"", --Maximum content size to cache in bytes 1e+6 = 1MB, 1e+7 = 10MB, 1e+8 = 100MB, 1e+9 = 1GB content larger than this wont be cached empty string "" to skip
@@ -3570,10 +3572,10 @@ local function get_resp_content_type(forced) --incase content-type header not ye
 		TRACE = localized.ngx_HTTP_TRACE,
 		CONNECT = localized.ngx_HTTP_CONNECT, --does not exist but put here never know in the future
 	}
-	local res = localized.ngx.location.capture(localized.request_uri(), {
-	--method = map[localized.ngx.req.get_method()],
-	method = map[HEAD],
-	--headers = req_headers,
+	local res = localized.ngx.location.capture(localized.uri(), {
+		method = map["HEAD"],
+		args = localized.ngx_var_args(),
+		--headers = req_headers,
 	})
 	if res then
 		if res.header ~= nil and localized.type(res.header) == "table" then
@@ -3589,7 +3591,6 @@ local function get_resp_content_type(forced) --incase content-type header not ye
 	localized.ngx.header["content-type"] = resp_content_type --set header as content-type be either nil or the content-type
 	localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
 	return resp_content_type
-
 end
 --localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Content-Type header is. " .. get_resp_content_type() )
 --get_resp_content_type()
@@ -8328,6 +8329,39 @@ if localized.credits == 2 then
 localized.ddos_credits = "" --make empty string
 end
 
+localized.HTML_ENTITIES = {
+	["&"] = "&amp;",
+	["<"] = "&lt;",
+	[">"] = "&gt;",
+	['"'] = "&quot;",
+	["'"] = "&#39;",
+	["/"] = "&#x2F;"
+}
+local function escape_html(input)
+	if not input then return "" end
+
+	-- PRE-FLIGHT CHECK: Fast plain search for ANY dangerous characters.
+	if not localized.string_find(input, "&", 1, true) and
+	   not localized.string_find(input, "<", 1, true) and
+	   not localized.string_find(input, ">", 1, true) and
+	   not localized.string_find(input, '"', 1, true) and
+	   not localized.string_find(input, "'", 1, true) and
+	   not localized.string_find(input, "/", 1, true) then
+		return input
+	end
+
+	-- FALLBACK: Single-pass, byte-by-byte lookups via gmatch.
+	local fragments = {}
+	local count = 0
+
+	for char in localized.string_gmatch(input, ".") do
+		count = count + 1
+		fragments[count] = localized.HTML_ENTITIES[char] or char
+	end
+
+	return localized.table_concat(fragments)
+end
+
 localized.request_details = [[
 <br>
 <div id="status" style="color:#bd2426;font-size:200%;">
@@ -8339,11 +8373,11 @@ Please allow up to <span id="countdowntimer">]] .. localized.refresh_auth .. [[<
 <br>
 <br>
 <h3 style="color:#bd2426;">Request Details :</h3>
-IP address : ]] .. localized.remote_addr() .. [[
+IP address : ]] .. escape_html(localized.remote_addr()) .. [[
 <br>
-Request URL : ]] .. localized.URL() .. [[
+Request URL : ]] .. escape_html(localized.URL()) .. [[
 <br>
-User-Agent : ]] .. localized.ngx_var_http_user_agent() .. [[
+User-Agent : ]] .. escape_html(localized.ngx_var_http_user_agent()) .. [[
 <br>
 ]]
 
@@ -8693,6 +8727,9 @@ local function minification(content_type_list)
 					return output
 				end
 
+				-- Extract the query string arguments directly to pass them into the subrequest
+				local query_args = localized.ngx_var_args()
+
 				local map = {
 					GET = localized.ngx_HTTP_GET,
 					HEAD = localized.ngx_HTTP_HEAD,
@@ -8911,7 +8948,7 @@ local function minification(content_type_list)
 								local res = localized.ngx.location.capture(content_type_list[i][12], {
 								method = map[localized.ngx.req.get_method()],
 								body = request_body, --localized.ngx.var.request_body,
-								args = "",
+								args = query_args,
 								headers = headers_forward(),
 								})
 								if res then
@@ -9177,7 +9214,7 @@ local function minification(content_type_list)
 							local res = localized.ngx.location.capture(content_type_list[i][12], {
 							method = map[localized.ngx.req.get_method()],
 							body = request_body, --localized.ngx.var.request_body,
-							args = "",
+							args = query_args,
 							headers = headers_forward(),
 							})
 							if res then
