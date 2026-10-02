@@ -1,3 +1,9 @@
+Version: 6.1
+Date: 2026-10-02
+- FFI is faster than most functions so we use FFI in place with C code to improve performance
+- Do not use math.pow anywhere any more so removed and speed up other functions
+- Improve cookie matching on content-cache
+
 Version: 6.0
 Date: 2026-09-30
 - Performance Improvements on IPv4/IPv6 matching
