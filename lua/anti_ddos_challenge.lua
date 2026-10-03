@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 6.1
+Script Version: 6.2
 
 Copyright Conor McKnight
 
@@ -65,7 +65,7 @@ localized.string_gsub = string.gsub
 localized.string_format = string.format
 localized.string_byte = string.byte
 localized.ngx_hmac_sha1 = localized.ngx.hmac_sha1
-if localized.ffi and not localized.ffi_b64_table then localized.uint8_ptr_t=localized.ffi.typeof("uint8_t*") localized.char_array_t=localized.ffi.typeof("char[?]") localized.is_64bit=localized.ffi.abi("64bit") localized.ffi_b64_table=localized.ffi.cast("const char*","ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/") end localized.ngx_encode_base64=function(str) if not str or str==""then return""end if localized.type(str)~="string"then str=localized.tostring(str) end local ffi_lib=localized.ffi if not ffi_lib or not localized.ffi_b64_table then return localized.ngx.encode_base64(str) end local len=#str local b64_len=localized.math_floor((len+2)/3)*4 local buffer=ffi_lib.new(localized.char_array_t,b64_len) local src=ffi_lib.cast(localized.uint8_ptr_t,str) local dst=ffi_lib.cast(localized.uint8_ptr_t,buffer) local b64=localized.ffi_b64_table local band=localized.bit_band local rshift=localized.bit_rshift_or_shl or localized.bit_rshift local lshift=localized.bit_lshift local src_idx=0 local dst_idx=0 if localized.is_64bit and len>=8 then local chunk_limit=len-8 while src_idx<=chunk_limit do local b0=src[src_idx] local b1=src[src_idx+1] local b2=src[src_idx+2] local b3=src[src_idx+3] local b4=src[src_idx+4] local b5=src[src_idx+5] dst[dst_idx]=b64[rshift(b0,2)] dst[dst_idx+1]=b64[band(lshift(b0,4)+rshift(b1,4),63)] dst[dst_idx+2]=b64[band(lshift(b1,2)+rshift(b2,6),63)] dst[dst_idx+3]=b64[band(b2,63)] dst[dst_idx+4]=b64[rshift(b3,2)] dst[dst_idx+5]=b64[band(lshift(b3,4)+rshift(b4,4),63)] dst[dst_idx+6]=b64[band(lshift(b4,2)+rshift(b5,6),63)] dst[dst_idx+7]=b64[band(b5,63)] src_idx=src_idx+6 dst_idx=dst_idx+8 end end while src_idx<=len-3 do local b0=src[src_idx] local b1=src[src_idx+1] local b2=src[src_idx+2] dst[dst_idx]=b64[rshift(b0,2)] dst[dst_idx+1]=b64[band(lshift(b0,4)+rshift(b1,4),63)] dst[dst_idx+2]=b64[band(lshift(b1,2)+rshift(b2,6),63)] dst[dst_idx+3]=b64[band(b2,63)] src_idx=src_idx+3 dst_idx=dst_idx+4 end if src_idx<len then local b0=src[src_idx] dst[dst_idx]=b64[rshift(b0,2)] if src_idx+1<len then local b1=src[src_idx+1] dst[dst_idx+1]=b64[band(lshift(b0,4)+rshift(b1,4),63)] dst[dst_idx+2]=b64[band(lshift(b1,2),63)] dst[dst_idx+3]=61 else dst[dst_idx+1]=b64[band(lshift(b0,4),63)] dst[dst_idx+2]=61 dst[dst_idx+3]=61 end end return ffi_lib.string(buffer,b64_len) end
+localized.ngx_encode_base64 = localized.ngx.encode_base64 --if localized.ffi and not localized.ffi_b64_table then localized.uint8_ptr_t=localized.ffi.typeof("uint8_t*") localized.char_array_t=localized.ffi.typeof("char[?]") localized.is_64bit=localized.ffi.abi("64bit") localized.ffi_b64_table=localized.ffi.cast("const char*","ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/") end localized.ngx_encode_base64=function(str) if not str or str==""then return""end if localized.type(str)~="string"then str=localized.tostring(str) end local ffi_lib=localized.ffi if not ffi_lib or not localized.ffi_b64_table then return localized.ngx.encode_base64(str) end local len=#str local b64_len=localized.math_floor((len+2)/3)*4 local buffer=ffi_lib.new(localized.char_array_t,b64_len) local src=ffi_lib.cast(localized.uint8_ptr_t,str) local dst=ffi_lib.cast(localized.uint8_ptr_t,buffer) local b64=localized.ffi_b64_table local band=localized.bit_band local rshift=localized.bit_rshift_or_shl or localized.bit_rshift local lshift=localized.bit_lshift local src_idx=0 local dst_idx=0 if localized.is_64bit and len>=8 then local chunk_limit=len-8 while src_idx<=chunk_limit do local b0=src[src_idx] local b1=src[src_idx+1] local b2=src[src_idx+2] local b3=src[src_idx+3] local b4=src[src_idx+4] local b5=src[src_idx+5] dst[dst_idx]=b64[rshift(b0,2)] dst[dst_idx+1]=b64[band(lshift(b0,4)+rshift(b1,4),63)] dst[dst_idx+2]=b64[band(lshift(b1,2)+rshift(b2,6),63)] dst[dst_idx+3]=b64[band(b2,63)] dst[dst_idx+4]=b64[rshift(b3,2)] dst[dst_idx+5]=b64[band(lshift(b3,4)+rshift(b4,4),63)] dst[dst_idx+6]=b64[band(lshift(b4,2)+rshift(b5,6),63)] dst[dst_idx+7]=b64[band(b5,63)] src_idx=src_idx+6 dst_idx=dst_idx+8 end end while src_idx<=len-3 do local b0=src[src_idx] local b1=src[src_idx+1] local b2=src[src_idx+2] dst[dst_idx]=b64[rshift(b0,2)] dst[dst_idx+1]=b64[band(lshift(b0,4)+rshift(b1,4),63)] dst[dst_idx+2]=b64[band(lshift(b1,2)+rshift(b2,6),63)] dst[dst_idx+3]=b64[band(b2,63)] src_idx=src_idx+3 dst_idx=dst_idx+4 end if src_idx<len then local b0=src[src_idx] dst[dst_idx]=b64[rshift(b0,2)] if src_idx+1<len then local b1=src[src_idx+1] dst[dst_idx+1]=b64[band(lshift(b0,4)+rshift(b1,4),63)] dst[dst_idx+2]=b64[band(lshift(b1,2),63)] dst[dst_idx+3]=61 else dst[dst_idx+1]=b64[band(lshift(b0,4),63)] dst[dst_idx+2]=61 dst[dst_idx+3]=61 end end return ffi_lib.string(buffer,b64_len) end --nginx should be faster than ffi C base64
 localized.ngx_req_get_uri_args = function() if localized.ngx_req_get_uri_args_run ~= nil then return localized.ngx_req_get_uri_args_run end localized.ngx_req_get_uri_args_run = localized.ngx.req.get_uri_args() return localized.ngx_req_get_uri_args_run end
 localized.ngx_req_set_header = localized.ngx.req.set_header
 localized.ngx_req_get_headers = function() if localized.ngx_req_get_headers_run ~= nil then return localized.ngx_req_get_headers_run end localized.ngx_req_get_headers_run = localized.ngx.req.get_headers() return localized.ngx_req_get_headers_run end
@@ -7572,21 +7572,25 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 		if localized.ffi and not localized.ffi_scrambler_buffer then
 			localized.char_array_t = localized.ffi.typeof("char[?]")
 			localized.uint8_ptr_t = localized.ffi.typeof("uint8_t*")
-			localized.const_char_ptr_array_t = localized.ffi.typeof("const char*[8192]") -- Explicit array bounds safety allocation
-
-			-- Pre-allocate all hardware structural memory blocks once at boot phase
-			localized.ffi_scrambler_buffer = localized.ffi.new(localized.char_array_t, 524288)
-			localized.ffi_name_order_array = localized.ffi.new(localized.const_char_ptr_array_t)
+			localized.FAST_PATH_LIMIT = 524288
+			localized.ffi_scrambler_buffer = localized.ffi.new(localized.char_array_t, localized.FAST_PATH_LIMIT)
+			
+			-- FIXED: Changed to allocate an explicit bounds-safe array container
+			localized.ffi_name_order_array = localized.ffi.new("uint32_t[8192]") 
 
 			localized.ffi.cdef[[
 				typedef struct {
 					uint32_t offset;
 					uint32_t size;
-					const char* name;
+					uint32_t name_id;
 				} ffi_chunk_coord_t;
 			]]
 
-			localized.ffi_coord_array = localized.ffi.new("ffi_chunk_coord_t[8192]") -- Explicit array bounds safety allocation
+			-- FIXED: Appended [8192] bounds parameter to prevent indexing errors
+			localized.ffi_coord_array = localized.ffi.new("ffi_chunk_coord_t[8192]")
+			localized.var_pool = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+			localized.var_pool_len = #localized.var_pool
+			localized.ffi_name_pool = localized.ffi.new("char[8192 * 16]") 
 		end
 
 		local function scramble_javascript_payload(string1, stringrandom_length)
@@ -7595,7 +7599,6 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 			if b64_len == 0 then return "" end
 
 			local ffi_lib = localized.ffi
-			-- Safe fallback check if the FFI allocation layer is absent
 			if not ffi_lib or not localized.ffi_scrambler_buffer then
 				local counter = 0
 				local chunks, chunks_order = {}, {}
@@ -7611,100 +7614,102 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 				return output .. "eval(decodeURIComponent(escape(window.atob(" .. localized.table_concat(chunks_order, " + ") .. "))));"
 			end
 
-			-- Hardware Registers Tracking Layout
 			local coords = localized.ffi_coord_array
 			local order_names = localized.ffi_name_order_array
 			local rand = localized.math_random
+			local name_pool = localized.ffi_name_pool
+			local pool_str = localized.var_pool
+			local pool_len = localized.var_pool_len
 
 			local chunk_count = 0
 			local b64_idx = 0
+			local pool_idx = 0
 
-			-- First Pass: Map the chunks as pure C primitives and cache original names order
 			while b64_idx < b64_len do
-				-- FIX: Calculate a fresh dynamic random stride on every pass inside the loop block
+				if chunk_count >= 8192 then break end
+
 				local r = rand(1, b64_len)
 				local current_chunk_size = (b64_idx + r + 1 > b64_len) and (b64_len - b64_idx) or (r + 1)
-				local random_var = stringrandom(stringrandom_length)
 
-				-- Write straight into flat memory pools with zero object creation allocations
+				for k = 0, stringrandom_length - 1 do
+					name_pool[pool_idx + k] = pool_str:byte(rand(1, pool_len))
+				end
+
 				local chunk = coords[chunk_count]
 				chunk.offset = b64_idx
 				chunk.size = current_chunk_size
-				chunk.name = random_var
+				chunk.name_id = pool_idx 
 
-				-- Track original name sequence order flawlessly with zero overhead
-				order_names[chunk_count] = random_var
+				order_names[chunk_count] = pool_idx 
 
 				chunk_count = chunk_count + 1
 				b64_idx = b64_idx + current_chunk_size
+				pool_idx = pool_idx + stringrandom_length
 			end
 
-			-- Bare-Metal Random Shuffling: Swaps memory entries inside the fixed C array
 			for i = chunk_count - 1, 1, -1 do
 				local j = rand(0, i)
-				local t_offset, t_size, t_name = coords[i].offset, coords[i].size, coords[i].name
-				coords[i].offset, coords[i].size, coords[i].name = coords[j].offset, coords[j].size, coords[j].name
-				coords[j].offset, coords[j].size, coords[j].name = t_offset, t_size, t_name
+				local t_offset, t_size, t_nid = coords[i].offset, coords[i].size, coords[i].name_id
+				coords[i].offset, coords[i].size, coords[i].name_id = coords[j].offset, coords[j].size, coords[j].name_id
+				coords[j].offset, coords[j].size, coords[j].name_id = t_offset, t_size, t_nid
 			end
 
-			-- Second Pass: Stream the scrambled variables natively into the destination buffer arena
+			local estimated_size = chunk_count * (5 + stringrandom_length + 2 + 2 + 1) + b64_len
+			estimated_size = estimated_size + 44 + (chunk_count * (3 + 1 + stringrandom_length)) + 5 + 64
+
+			local active_buffer
+			if estimated_size <= localized.FAST_PATH_LIMIT then
+				active_buffer = localized.ffi_scrambler_buffer
+			else
+				active_buffer = ffi_lib.new(localized.char_array_t, estimated_size)
+			end
+
 			local src = ffi_lib.cast(localized.uint8_ptr_t, base64_javascript)
-			local dst = ffi_lib.cast(localized.uint8_ptr_t, localized.ffi_scrambler_buffer)
+			local dst = ffi_lib.cast(localized.uint8_ptr_t, active_buffer)
 			local dst_idx = 0
 
 			for i = 0, chunk_count - 1 do
 				local chunk = coords[i]
-				local name = chunk.name
 
-				-- Inline write layout characters directly: 'var _'
 				dst[dst_idx] = 118; dst[dst_idx + 1] = 97; dst[dst_idx + 2] = 114; dst[dst_idx + 3] = 32; dst[dst_idx + 4] = 95
 				dst_idx = dst_idx + 5
 
-				-- Write the pre-generated variable name directly into memory
-				ffi_lib.copy(dst + dst_idx, name, stringrandom_length)
+				ffi_lib.copy(dst + dst_idx, name_pool + chunk.name_id, stringrandom_length)
 				dst_idx = dst_idx + stringrandom_length
 
-				-- Inline write layout characters directly: '="'
 				dst[dst_idx] = 61; dst[dst_idx + 1] = 34
 				dst_idx = dst_idx + 2
 
-				-- Direct Address Memory Copy from the Base64 source string
 				ffi_lib.copy(dst + dst_idx, src + chunk.offset, chunk.size)
 				dst_idx = dst_idx + chunk.size
 
-				-- Inline write layout characters directly: '";'
 				dst[dst_idx] = 34; dst[dst_idx + 1] = 59
 				dst_idx = dst_idx + 2
 			end
 
-			-- Third Pass: Inline compile the 'eval(decodeURIComponent(escape(window.atob(_var1 + _var2))))' layout
 			local tail_literal = "eval(decodeURIComponent(escape(window.atob("
 			local tail_len = #tail_literal
 			ffi_lib.copy(dst + dst_idx, tail_literal, tail_len)
 			dst_idx = dst_idx + tail_len
 
-			-- Stream the original ordered variable names directly into the tail block buffer
 			for i = 0, chunk_count - 1 do
 				if i > 0 then
-					dst[dst_idx] = 32; dst[dst_idx + 1] = 43; dst[dst_idx + 2] = 32 -- ASCII for ' + '
+					dst[dst_idx] = 32; dst[dst_idx + 1] = 43; dst[dst_idx + 2] = 32 
 					dst_idx = dst_idx + 3
 				end
 
-				dst[dst_idx] = 95 -- ASCII for '_'
+				dst[dst_idx] = 95
 				dst_idx = dst_idx + 1
 
-				-- Pull the original name instantly out of the parallel ordered array cache map
-				ffi_lib.copy(dst + dst_idx, order_names[i], stringrandom_length)
+				ffi_lib.copy(dst + dst_idx, name_pool + order_names[i], stringrandom_length)
 				dst_idx = dst_idx + stringrandom_length
 			end
 
-			-- Close out the JavaScript command block wrapper string layout
-			dst[dst_idx] = 41; dst[dst_idx + 1] = 41; dst[dst_idx + 2] = 41; dst[dst_idx + 3] = 41; dst[dst_idx + 4] = 59 -- ASCII for '))));'
+			dst[dst_idx] = 41; dst[dst_idx + 1] = 41; dst[dst_idx + 2] = 41; dst[dst_idx + 3] = 41; dst[dst_idx + 4] = 59
 			dst_idx = dst_idx + 5
 
-			-- Expose the completed scrambled payload sequence back to Lua in exactly ONE string allocation
 			return ffi_lib.string(dst, dst_idx)
-		end		
+		end
 		output = scramble_javascript_payload(string1, localized.math_random(1, #string1))
 
 		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
