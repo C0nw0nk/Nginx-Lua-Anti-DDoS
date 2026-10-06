@@ -1,3 +1,8 @@
+nginx-lua-anti-ddos-challenge (6.3-1) stable; urgency=medium
+  - Various speed and performance improvements re-order functions use caching and memory more efficiently.
+
+ -- C0nw0nk <C0nw0nk@github>  Tue, 06 Oct 2026 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (6.2-1) stable; urgency=medium
   - Use Lua built in base64 and improve JS scrambler speed
 

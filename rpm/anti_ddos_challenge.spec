@@ -66,6 +66,8 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Tue Oct 06 2026 C0nw0nk <C0nw0nk@github> - 6.3-1
+- Various speed and performance improvements re-order functions use caching and memory more efficiently.
 * Sat Oct 03 2026 C0nw0nk <C0nw0nk@github> - 6.2-1
 - Use Lua built in base64 and improve JS scrambler speed
 * Sat Oct 03 2026 C0nw0nk <C0nw0nk@github> - 6.2-1
