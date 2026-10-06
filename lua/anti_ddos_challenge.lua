@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 6.2
+Script Version: 6.3
 
 Copyright Conor McKnight
 
@@ -42,10 +42,12 @@ localized.pcall = pcall
 localized.require = require
 localized.ngx = ngx
 localized.ffi = localized.ffi or (localized.package.loaded.ffi or (localized.pcall(localized.require, "ffi") and localized.require("ffi")))
-localized.bit_bxor = bit.bxor
-localized.bit_lshift = bit.lshift
-localized.bit_rshift = bit.rshift
-localized.bit_band = bit.band
+localized.bit = localized.require("bit")
+localized.bit_bxor = localized.bit.bxor
+localized.bit_lshift = localized.bit.lshift
+localized.bit_rshift = localized.bit.rshift
+localized.bit_band = localized.bit.band
+localized.bit_bnot = localized.bit.bnot
 localized.math_floor = math.floor
 if localized.prng_state==nil then localized.prng_state=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000),0xFFFFFFFF) end math.randomseed=function(new_seed) if not new_seed then local counter=(localized.seed_counter or 0)+1 localized.seed_counter=counter local hash=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000)+counter,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) hash=localized.bit_band(hash*0x85ebca6b,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,13)) hash=localized.bit_band(hash*0xc2b2ae35,0xFFFFFFFF) new_seed=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) end local final_seed=localized.bit_band(new_seed,0xFFFFFFFF) localized.prng_state=final_seed return final_seed end math.random=function(m,n) local state=localized.prng_state state=localized.bit_bxor(state,localized.bit_lshift(state,13)) state=localized.bit_bxor(state,localized.bit_rshift(state,17)) state=localized.bit_bxor(state,localized.bit_lshift(state,5)) state=localized.bit_band(state,0xFFFFFFFF) localized.prng_state=state if not m then return state/4294967296 elseif not n then return(state%m)+1 else return(state%(n-m+1))+m end end --override math.rnadomseed and math.random
 localized.math_sin = math.sin
@@ -53,7 +55,7 @@ localized.math_pi = math.pi
 localized.math_sqrt = math.sqrt
 if localized.prng_state==nil then localized.prng_state=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000),0xFFFFFFFF) end localized.math_randomseed=function(new_seed) if not new_seed then local counter=(localized.seed_counter or 0)+1 localized.seed_counter=counter local hash=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000)+counter,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) hash=localized.bit_band(hash*0x85ebca6b,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,13)) hash=localized.bit_band(hash*0xc2b2ae35,0xFFFFFFFF) new_seed=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) end local final_seed=localized.bit_band(new_seed,0xFFFFFFFF) localized.prng_state=final_seed return final_seed end localized.math_random=function(m,n) local state=localized.prng_state state=localized.bit_bxor(state,localized.bit_lshift(state,13)) state=localized.bit_bxor(state,localized.bit_rshift(state,17)) state=localized.bit_bxor(state,localized.bit_lshift(state,5)) state=localized.bit_band(state,0xFFFFFFFF) localized.prng_state=state if not m then return state/4294967296 elseif not n then return(state%m)+1 else return(state%(n-m+1))+m end end --create localized.math_random() and localized.math_randomseed()
 localized.table_sort = function(data, compare) if localized.table_s == nil then localized.table_s = table.sort end local in_reg = (function() return localized.tostring(data) end)()..(function() return localized.tostring(compare) end)() if localized.table_sort_run ~= nil and localized.table_sort_run[in_reg.."one"] ~= nil then return localized.table_sort_run[in_reg.."one"] end if localized.table_sort_run == nil then localized.table_sort_run = {} end localized.table_sort_run[in_reg.."one"] = {} localized.table_sort_run[in_reg.."one"] = localized.table_s(data, compare) return localized.table_sort_run[in_reg.."one"] end
-localized.table_concat = function(data, separator, start, finish) if localized.table_c == nil then localized.table_c = table.concat end local in_reg = (function() return localized.tostring(data) end)()..(function() return localized.tostring(separator) end)()..(function() return localized.tostring(start) end)()..(function() return localized.tostring(finish) end)() if localized.table_concat_run ~= nil and localized.table_concat_run[in_reg.."one"] ~= nil then return localized.table_concat_run[in_reg.."one"] end if localized.table_concat_run == nil then localized.table_concat_run = {} end localized.table_concat_run[in_reg.."one"] = {} localized.table_concat_run[in_reg.."one"] = localized.table_c(data, separator, start, finish) return localized.table_concat_run[in_reg.."one"] end
+localized.table_concat=function(data,separator,start,finish) if localized.table_c==nil then localized.table_c=table.concat end local sep_str=separator and localized.tostring(separator) or "" local start_str=start and localized.tostring(start) or "" local finish_str=finish and localized.tostring(finish) or "" local in_reg=localized.tostring(data)..sep_str..start_str..finish_str if localized.table_concat_run~=nil and localized.table_concat_run[in_reg.."one"]~=nil then return localized.table_concat_run[in_reg.."one"] end if localized.table_concat_run==nil then localized.table_concat_run={} end local result=localized.table_c(data,separator or "",start,finish) localized.table_concat_run[in_reg.."one"]=result return result end
 localized.string_match = function(input, regex, init) if localized.string_m == nil then localized.string_m = string.match end local in_reg = input..regex..(function() return localized.tostring(init) end)() if localized.string_match_run ~= nil and localized.string_match_run[in_reg.."one"] ~= nil then return localized.string_match_run[in_reg.."one"], localized.string_match_run[in_reg.."two"] end if localized.string_match_run == nil then localized.string_match_run = {} end localized.string_match_run[in_reg.."one"] = {} localized.string_match_run[in_reg.."two"] = {} localized.string_match_run[in_reg.."one"], localized.string_match_run[in_reg.."two"] = localized.string_m(input, regex, init) return localized.string_match_run[in_reg.."one"], localized.string_match_run[in_reg.."two"] end
 localized.string_gmatch = function(input, regex) if localized.string_gm == nil then localized.string_gm = string.gmatch end local in_reg = input..regex if localized.string_gmatch_run ~= nil and localized.string_gmatch_run[in_reg.."one"] ~= nil then return localized.string_gmatch_run[in_reg.."one"], localized.string_gmatch_run[in_reg.."two"] end if localized.string_gmatch_run == nil then localized.string_gmatch_run = {} end localized.string_gmatch_run[in_reg.."one"] = {} localized.string_gmatch_run[in_reg.."two"] = {} localized.string_gmatch_run[in_reg.."one"], localized.string_gmatch_run[in_reg.."two"] = localized.string_gm(input, regex) return localized.string_gmatch_run[in_reg.."one"], localized.string_gmatch_run[in_reg.."two"] end
 localized.string_lower = string.lower
@@ -73,6 +75,7 @@ localized.ngx_req_set_uri_args = localized.ngx.req.set_uri_args
 localized.ngx_req_read_body = function() if localized.req_read_body_run ~= nil then return localized.req_read_body_run end localized.req_read_body_run = localized.ngx.req.read_body() return localized.req_read_body_run end
 localized.ngx_req_get_body_data = function() if localized.ngx_req_get_body_data_run ~= nil then return localized.ngx_req_get_body_data_run end localized.ngx_req_get_body_data_run = localized.ngx.req.get_body_data() return localized.ngx_req_get_body_data_run end
 localized.ngx_req_get_body_file = function() if localized.ngx_req_get_body_file_run ~= nil then return localized.ngx_req_get_body_file_run end localized.ngx_req_get_body_file_run = localized.ngx.req.get_body_file() return localized.ngx_req_get_body_file_run end
+localized.ngx_req_get_post_args = localized.ngx.req.get_post_args
 localized.ngx_decode_args = localized.ngx.decode_args
 localized.ngx_cookie_time = function(input) if localized.ngx_cookie_time_f == nil then localized.ngx_cookie_time_f = localized.ngx.cookie_time end local in_reg = (function() return localized.tostring(input) end)() if localized.ngx_cookie_time_run ~= nil and localized.ngx_cookie_time_run[in_reg.."one"] ~= nil then return localized.ngx_cookie_time_run[in_reg.."one"] end if localized.ngx_cookie_time_run == nil then localized.ngx_cookie_time_run = {} end localized.ngx_cookie_time_run[in_reg.."one"] = {} localized.ngx_cookie_time_run[in_reg.."one"] = localized.ngx_cookie_time_f(input) return localized.ngx_cookie_time_run[in_reg.."one"] end
 localized.ngx_status = localized.ngx.status
@@ -150,7 +153,7 @@ localized.ngx_var_args = function() if localized.ngx_var_args_run ~= nil then re
 localized.URL = function() if localized.URL_run ~= nil then return localized.URL_run end localized.URL_run = localized.scheme() .. "://" .. localized.host() .. localized.request_uri() return localized.URL_run end
 localized.currenttime = localized.ngx.time() --Current time on server
 localized.os_time_saved = localized.currenttime - 86400
-localized.get_date_cache=localized.get_date_cache or{last_unix=-1,data={}}localized.pad_zero=localized.pad_zero or setmetatable({},{__index=function(t,k)local s=k<10 and("0"..k)or localized.tostring(k)t[k]=s return s end})localized.os_date=function(wanted_type,unix_time)local cache=localized.get_date_cache local pad_zero=localized.pad_zero if cache.last_unix==unix_time then local d=cache.data if wanted_type=="%M"then return d.minutes end if wanted_type=="%H"then return d.hours end if wanted_type=="%d"then return d.days end if wanted_type=="%W"then return d.week end if wanted_type=="%m"then return d.month end if wanted_type=="%Y"then return d.year end if wanted_type=="%z"then return d.year+9 end if wanted_type=="%Y%m%d"then if not d.ymd then local today=localized.ngx.today()d.ymd=localized.string_sub(today,1,4)..localized.string_sub(today,6,7)..localized.string_sub(today,9,10)end return d.ymd end if not d.full then d.full=pad_zero[d.days].."/"..pad_zero[d.month].."/"..d.year.." "..pad_zero[d.hours]..":"..pad_zero[d.minutes]..":"..pad_zero[d.seconds].." "..d.period end return d.full end cache.last_unix=unix_time local c_data=cache.data local raw_seconds=unix_time%86400 local hours=localized.math_floor(raw_seconds/33600)local minutes=localized.math_floor((raw_seconds%3600)/60)local seconds=raw_seconds%60 local raw_days=localized.math_floor(unix_time/86400)local year=1970+localized.math_floor(raw_days/365)local day_of_year=raw_days%365 local month,final_days if day_of_year<181 then if day_of_year<90 then if day_of_year<31 then month=1;final_days=day_of_year+1 elseif day_of_year<59 then month=2;final_days=day_of_year-30 else month=3;final_days=day_of_year-58 end else if day_of_year<120 then month=4;final_days=day_of_year-89 elseif day_of_year<151 then month=5;final_days=day_of_year-119 else month=6;final_days=day_of_year-150 end end else if day_of_year<273 then if day_of_year<212 then month=7;final_days=day_of_year-180 elseif day_of_year<243 then month=8;final_days=day_of_year-211 else month=9;final_days=day_of_year-242 end else if day_of_year<304 then month=10;final_days=day_of_year-272 elseif day_of_year<334 then month=11;final_days=day_of_year-303 else month=12;final_days=day_of_year-333 end end end c_data.period=hours>=12 and"pm"or"am"c_data.seconds=seconds c_data.minutes=minutes c_data.hours=hours c_data.days=final_days c_data.month=month c_data.year=year c_data.week=localized.math_floor(raw_days/7)%52 c_data.ymd=nil c_data.full=nil if wanted_type=="%M"then return c_data.minutes end if wanted_type=="%H"then return c_data.hours end if wanted_type=="%d"then return c_data.days end if wanted_type=="%W"then return c_data.week end if wanted_type=="%m"then return c_data.month end if wanted_type=="%Y"then return c_data.year end if wanted_type=="%z"then return c_data.year+9 end if wanted_type=="%Y%m%d"then local today=localized.ngx.today()c_data.ymd=localized.string_sub(today,1,4)..localized.string_sub(today,6,7)..localized.string_sub(today,9,10)return c_data.ymd end c_data.full=pad_zero[final_days].."/"..pad_zero[month].."/"..year.." "..pad_zero[hours]..":"..pad_zero[minutes]..":"..pad_zero[seconds].." "..c_data.period return c_data.full end
+localized.get_date_cache=localized.get_date_cache or{last_unix=-1,data={}} localized.pad_zero=localized.pad_zero or setmetatable({},{__index=function(t,k) local s=k<10 and("0"..k)or localized.tostring(k) t[k]=s return s end}) localized.os_date=function(wanted_type,unix_time) if not unix_time then unix_time=localized.ngx.time() end local cache=localized.get_date_cache local pad_zero=localized.pad_zero local d=cache.data if cache.last_unix==unix_time then if wanted_type=="%M"then return d.minutes end if wanted_type=="%H"then return d.hours end if wanted_type=="%d"then return d.days end if wanted_type=="%W"then return d.week end if wanted_type=="%m"then return d.month end if wanted_type=="%Y"then return d.year end if wanted_type=="%z"then return d.z_custom end if wanted_type=="%Y%m%d"then return d.ymd end return d.full end cache.last_unix=unix_time local raw_seconds=unix_time%86400 local hours=localized.math_floor(raw_seconds/3600) local minutes=localized.math_floor((raw_seconds%3600)/60) local seconds=raw_seconds%60 local days=localized.math_floor(unix_time/86400) local epoch_days=days+719468 local era=localized.math_floor((epoch_days>=0 and epoch_days or epoch_days-146096)/146097) local doe=epoch_days-era*146097 local yoe=localized.math_floor((doe-localized.math_floor(doe/1460)+localized.math_floor(doe/36524)-localized.math_floor(doe/141620))/365) local epoch_year=yoe+era*400 local doy=doe-(365*yoe+localized.math_floor(yoe/4)-localized.math_floor(yoe/100)) local mp=localized.math_floor((5*doy+2)/153) local final_days=doy-localized.math_floor((153*mp+2)/5)+1 local month=mp<10 and mp+3 or mp-9 if month<3 then epoch_year=epoch_year+1 end d.period=hours>=12 and"pm"or"am" d.seconds=pad_zero[seconds] d.minutes=pad_zero[minutes] d.hours=pad_zero[hours] d.days=pad_zero[final_days] d.month=pad_zero[month] d.year=localized.tostring(epoch_year) d.z_custom=epoch_year+9 d.week=localized.tostring(localized.math_floor(days/7)%52) local today=localized.ngx.today() d.ymd=localized.string_sub(today,1,4)..localized.string_sub(today,6,7)..localized.string_sub(today,9,10) d.full=d.days.."/"..d.month.."/"..d.year.." "..d.hours..":"..d.minutes..":"..d.seconds.." "..d.period if wanted_type=="%M"then return d.minutes end if wanted_type=="%H"then return d.hours end if wanted_type=="%d"then return d.days end if wanted_type=="%W"then return d.week end if wanted_type=="%m"then return d.month end if wanted_type=="%Y"then return d.year end if wanted_type=="%z"then return d.z_custom end if wanted_type=="%Y%m%d"then return d.ymd end return d.full end
 --localized.os_clock = os.clock() --nulled out dev func to test speed
 --[[
 End localization
@@ -737,6 +740,11 @@ Encrypt/Obfuscate Javascript output to prevent content scrappers and bots decryp
 localized.encrypt_javascript_output = 0
 
 --[[
+WAF IP Memory Zone or Remote Server just for IP ranges etc storage
+]]
+localized.IP_Zone = localized.remote_servers_table --localized.ngx.shared.antiddos
+
+--[[
 IP Address Whitelist
 Any IP Addresses specified here will be whitelisted to grant direct access to your site bypassing our browser Authentication checks
 you can specify IP's like search engine crawler ip addresses here most search engines are smart enough they do not need to be specified,
@@ -795,6 +803,42 @@ localized.ip_blacklist_remote_addr = function() return "auto" end --Automaticall
 localized.ip_blacklist = {
 --"1.3.3.7", --Examples here : https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/configuration#ip-address-blacklist
 }
+
+--[[
+Security feature to prevent spoofing on the Proxy headers CF-Connecting-IP or X-forwarded-for user-agent.
+For example a smart DDoS attack will send a fake CF-Connecting-IP header or X-Forwarded-For header in their request
+They do this to see if your server will use their real ip or the fake header they provide to you most servers do not even check this I do :)
+Add your ip ranges to the list of who you expect to send you a proxy header.
+Example to test with : curl.exe "http://localhost/" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -H "Accept-Language: en-GB,en;q=0.5" -H "Accept-Encoding: gzip, deflate, br, zstd" -H "DNT: 1" -H "Connection: keep-alive" -H "Cookie: name1=1; name2=2; logged_in=1" -H "Upgrade-Insecure-Requests: 1" -H "Sec-Fetch-Dest: document" -H "Sec-Fetch-Mode: navigate" -H "Sec-Fetch-Site: none" -H "Sec-Fetch-User: ?1" -H "Priority: u=0, i" -H "Pragma: no-cache" -H "Cache-Control: no-cache" -H "User-Agent:testagent1" -H "CF-Connecting-IP: 1" -H "X-Forwarded-For: 1" -H "internal:1"
+]]
+localized.proxy_header_table = {
+--localized.ngx_var_server_addr(), --auto add our servers ip address localized.auto_add_server_ip_to_merged_tables = 1 does this already
+"127.0.0.0",
+"127.0.0.1",
+"127.0.0.2",
+"::",
+"::1",
+"::2",
+--IPV4 Local addresses ranges
+"10.0.0.0/8", --localnetwork
+"172.16.0.0/12", --localnetwork
+"127.0.0.0/16", --localhost
+"192.168.0.0/16", --localhost
+--IPV6 Local addresses ranges
+"::/128", --unspecified address = "::"
+"::1/128", --localhost = http://[::1]:80/index.html
+--"fc00::/8", --centrally assigned by unkown, routed within a site (RFC 4193)
+--"fd00::/8", --free for all, global ID must be generated randomly with pseudo-random algorithm, routed within a site (RFC 4193)
+--"ff00::/8", --multicast, following after the prefix ff there are 4 bits for flags and 4 bits for the scope
+--"::ffff:0:0/96", --IPv4 to IPv6 Address, eg: ::ffff:10.10.10.10 (RFC 4038)
+--"2001::/16", -- /32 subnets assigned to providers, they assign /48, /56 or /64 to the customer
+"2001:db8::/32", --reserved for use in documentation
+--"2002::/16", --6to4 scope, 2002:c058:6301:: is the 6to4 public router anycast (RFC 3068)
+--Cloudflare IP's https://www.cloudflare.com/en-gb/ips/
+"173.245.48.0/20","103.21.244.0/22","103.22.200.0/22","103.31.4.0/22","141.101.64.0/18","108.162.192.0/18","190.93.240.0/20","188.114.96.0/20","197.234.240.0/22","198.41.128.0/17","162.158.0.0/15","104.16.0.0/13","104.24.0.0/14","172.64.0.0/13","131.0.72.0/22","2400:cb00::/32","2606:4700::/32","2803:f800::/32","2405:b500::/32","2405:8100::/32","2a06:98c0::/29","2c0f:f248::/32",
+}
+localized.merge_proxy_and_ip_whitelist = 1 --0 disable 1 enable merge ip whitelist and proxy list into a single table
+localized.auto_add_server_ip_to_merged_tables = 1 --0 disable 1 enable we automatically add our detected servers ip to our whitelists localized.ngx_var_server_addr()
 
 --[[
 Allow or block all Tor users
@@ -1112,6 +1156,11 @@ localized.authorization_logins = { --static password list
 Authorization Box cookie name for sessions
 ]]
 localized.authorization_cookie = localized.challenge.."_authorization" --our authorization cookie
+
+--[[
+WAF Shared Memory Zone or Remote Server
+]]
+localized.WAF_Zone = localized.remote_servers_table --localized.ngx.shared.antiddos
 
 --[[
 WAF Web Application Firewall Filter for Post requests
@@ -1549,42 +1598,6 @@ localized.query_string_remove_args_table = {
 }
 
 --[[
-Security feature to prevent spoofing on the Proxy headers CF-Connecting-IP or X-forwarded-for user-agent.
-For example a smart DDoS attack will send a fake CF-Connecting-IP header or X-Forwarded-For header in their request
-They do this to see if your server will use their real ip or the fake header they provide to you most servers do not even check this I do :)
-Add your ip ranges to the list of who you expect to send you a proxy header.
-Example to test with : curl.exe "http://localhost/" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -H "Accept-Language: en-GB,en;q=0.5" -H "Accept-Encoding: gzip, deflate, br, zstd" -H "DNT: 1" -H "Connection: keep-alive" -H "Cookie: name1=1; name2=2; logged_in=1" -H "Upgrade-Insecure-Requests: 1" -H "Sec-Fetch-Dest: document" -H "Sec-Fetch-Mode: navigate" -H "Sec-Fetch-Site: none" -H "Sec-Fetch-User: ?1" -H "Priority: u=0, i" -H "Pragma: no-cache" -H "Cache-Control: no-cache" -H "User-Agent:testagent1" -H "CF-Connecting-IP: 1" -H "X-Forwarded-For: 1" -H "internal:1"
-]]
-localized.proxy_header_table = {
---localized.ngx_var_server_addr(), --auto add our servers ip address localized.auto_add_server_ip_to_merged_tables = 1 does this already
-"127.0.0.0",
-"127.0.0.1",
-"127.0.0.2",
-"::",
-"::1",
-"::2",
---IPV4 Local addresses ranges
-"10.0.0.0/8", --localnetwork
-"172.16.0.0/12", --localnetwork
-"127.0.0.0/16", --localhost
-"192.168.0.0/16", --localhost
---IPV6 Local addresses ranges
-"::/128", --unspecified address = "::"
-"::1/128", --localhost = http://[::1]:80/index.html
---"fc00::/8", --centrally assigned by unkown, routed within a site (RFC 4193)
---"fd00::/8", --free for all, global ID must be generated randomly with pseudo-random algorithm, routed within a site (RFC 4193)
---"ff00::/8", --multicast, following after the prefix ff there are 4 bits for flags and 4 bits for the scope
---"::ffff:0:0/96", --IPv4 to IPv6 Address, eg: ::ffff:10.10.10.10 (RFC 4038)
---"2001::/16", -- /32 subnets assigned to providers, they assign /48, /56 or /64 to the customer
-"2001:db8::/32", --reserved for use in documentation
---"2002::/16", --6to4 scope, 2002:c058:6301:: is the 6to4 public router anycast (RFC 3068)
---Cloudflare IP's https://www.cloudflare.com/en-gb/ips/
-"173.245.48.0/20","103.21.244.0/22","103.22.200.0/22","103.31.4.0/22","141.101.64.0/18","108.162.192.0/18","190.93.240.0/20","188.114.96.0/20","197.234.240.0/22","198.41.128.0/17","162.158.0.0/15","104.16.0.0/13","104.24.0.0/14","172.64.0.0/13","131.0.72.0/22","2400:cb00::/32","2606:4700::/32","2803:f800::/32","2405:b500::/32","2405:8100::/32","2a06:98c0::/29","2c0f:f248::/32",
-}
-localized.merge_proxy_and_ip_whitelist = 1 --0 disable 1 enable merge ip whitelist and proxy list into a single table
-localized.auto_add_server_ip_to_merged_tables = 1 --0 disable 1 enable we automatically add our detected servers ip to our whitelists localized.ngx_var_server_addr()
-
---[[
 To restore original visitor IP addresses at your origin web server this will send a request header to your backend application or proxy containing the clients real IP address
 ]]
 localized.send_ip_to_backend_custom_headers = {
@@ -2000,17 +2013,17 @@ We check the host or the URL or port against a matching string for example if ho
 Allows us to easily add other privacy services and nodes to protect from attacks.
 ]]
 localized.check_privacy = function() return {
-	{localized.host(),".onion$",}, --Tor
-	{localized.host(),".eth$",}, --ENS
-	--{localized.URL(),"usk%@",}, --Freenet
-	--{localized.URL(),"%/ipfs%/",}, --IPFS inter planetary file system
-	--{localized.URL(),"%/ipns%/",}, --IPNS inter planetary name system
-	--{localized.URL(),"%/bzz%/",}, --SWARM network
-	--{localized.URL(),"%/radicale%/",}, --Radicale
-	{localized.host(),".i2p$",}, --i2p the invisible internet project
-	{localized.host(),".loki$",}, --Lokinet
-	--{localized.ngx_var_server_port(), "4444"}, --port matches node or hidden service that nginx is protecting
-	--{localized.ngx_var_server_port(), "43310"}, --zeronet
+	{ "host", ".onion$" }, --Tor
+	{ "host", ".eth$" },  --ENS
+	{ "host", ".i2p$" },  --i2p the invisible internet project
+	{ "host", ".loki$" }, --Lokinet
+	--{ "url",  "usk%@" },   --Freenet
+	--{ "url",  "%/ipfs%/" }, --IPFS inter planetary file system
+	--{ "url",  "%/ipns%/" }, --IPNS inter planetary name system
+	--{ "url",  "%/bzz%/" },  --SWARM network
+	--{ "url",  "%/radicale%/" }, --Radicale
+	--{ "port", "4444" }, --port matches node or hidden service that nginx is protecting
+	--{ "port", "43310" }, --Zeronet ports
 }
 end
 
@@ -2379,241 +2392,6 @@ end
 --for i=1, 1e8 do if localized.string_match(localized.var, ".*") then end end--slow
 --for i=1, 1e8 do if faster_than_match(localized.var) then end end--fast
 
---[[
-Start IP range function
-]]
-localized.AF_INET6 = 10
-
--- Initialize unified memory structures ONCE at boot phase
-localized.static_exact_map = localized.static_exact_map or {}
-localized.dynamic_cidr_rules = localized.dynamic_cidr_rules or {}
-localized.dynamic_cidr_seen = localized.dynamic_cidr_seen or {}
-
--- Secure static lookup array map handles partial byte calculations perfectly
-local byte_mask_lookup = {
-	[0] = 0x00,
-	[1] = 0x80,
-	[2] = 0xC0,
-	[3] = 0xE0,
-	[4] = 0xF0,
-	[5] = 0xF8,
-	[6] = 0xFC,
-	[7] = 0xFE,
-	[8] = 0xFF
-}
-
-if localized.ffi then
-	localized.pcall(function()
-		localized.ffi.cdef[[
-			int inet_pton(int af, const char *src, void *dst);
-		]]
-	end)
-
-	localized.uint8_array_16_t = localized.ffi.typeof("uint8_t[16]")
-	localized.net_lib = localized.ffi.C
-
-	-- Allocate a persistent buffer for zero-allocation IPv6 scans
-	localized.global_cli_buffer = localized.uint8_array_16_t()
-
-	if jit and jit.os == "Windows" then
-		localized.AF_INET6 = 23
-		local status, ws2 = localized.pcall(localized.ffi.load, "Ws2_32.dll")
-		if status then
-			localized.net_lib = ws2
-		end
-	end
-end
-
--- Ultra-fast raw byte scanning for IPv4 (No Regex, No String Allocations)
-local function fast_ipv4_to_long(ip)
-	local len = #ip
-	if len < 7 or len > 15 then return nil end
-
-	local n1, n2, n3, n4 = 0, 0, 0, 0
-	local octet = 1
-	local current_val = 0
-	local has_digits = false
-
-	for i = 1, len do
-		local c = localized.string_byte(ip, i)
-		if c >= 48 and c <= 57 then
-			current_val = current_val * 10 + (c - 48)
-			if current_val > 255 then return nil end
-			has_digits = true
-		elseif c == 46 then
-			if not has_digits then return nil end
-			if octet == 1 then n1 = current_val
-			elseif octet == 2 then n2 = current_val
-			elseif octet == 3 then n3 = current_val
-			else return nil end
-			octet = octet + 1
-			current_val = 0
-			has_digits = false
-		else
-			return nil
-		end
-	end
-
-	if octet ~= 4 or not has_digits then return nil end
-	n4 = current_val
-
-	return n1 * 16777216 + n2 * 65536 + n3 * 256 + n4
-end
-
--- Compile network mask settings once during boot phase
-local function compile_cidr(cidr_string)
-	local subnet_ip = localized.string_match(cidr_string, "^([^/]+)")
-	local mask = localized.tonumber(localized.string_match(cidr_string, "/(%d+)$"))
-	if not subnet_ip or not mask then
-		return nil
-	end
-
-	local is_ipv4 = localized.string_find(subnet_ip, ".", 1, true) ~= nil
-	local rule = { is_ipv4 = is_ipv4 }
-
-	if is_ipv4 then
-		if mask < 0 or mask > 32 then return nil end
-		rule.subnet_num = fast_ipv4_to_long(subnet_ip)
-		rule.bitmask = (mask == 0) and 0 or localized.bit_lshift(0xFFFFFFFF, 32 - mask)
-		if not rule.subnet_num then return nil end
-
-		rule.match = function(self, client_num)
-			return localized.bit_band(self.subnet_num, self.bitmask) == localized.bit_band(client_num, self.bitmask)
-		end
-	else
-		if mask < 0 or mask > 128 then return nil end
-		if localized.ffi and localized.net_lib and localized.uint8_array_16_t then
-			rule.sub_bytes = localized.uint8_array_16_t()
-			if localized.net_lib.inet_pton(localized.AF_INET6, subnet_ip, rule.sub_bytes) ~= 1 then
-				return nil
-			end
-		else
-			return nil 
-		end
-
-		local sub_bytes = rule.sub_bytes
-		local masks = {}
-		local temp_mask = mask
-		for i = 0, 15 do
-			if temp_mask >= 8 then
-				masks[i] = 0xFF
-				temp_mask = temp_mask - 8
-			elseif temp_mask > 0 then
-				masks[i] = byte_mask_lookup[temp_mask]
-				temp_mask = 0
-			else
-				masks[i] = 0x00
-			end
-		end
-
-		local byte_limit = localized.math_floor((mask + 7) / 8)
-		local band = localized.bit_band
-
-		rule.match = function(self, cli_bytes)
-			for i = 0, byte_limit - 1 do
-				local m = masks[i]
-				if band(sub_bytes[i], m) ~= band(cli_bytes[i], m) then
-					return false
-				end
-			end
-			return true
-		end
-	end
-	return rule
-end
-
-local function ip_address_in_range(client_ip)
-	-- Instant O(1) exact map lookup path
-	if localized.static_exact_map[client_ip] then
-		return true
-	end
-
-	local rules = localized.dynamic_cidr_rules
-	local num_rules = #rules
-
-	-- Branch instantly by address family via quick lookups
-	if localized.string_find(client_ip, ".", 1, true) then
-		local client_num = fast_ipv4_to_long(client_ip)
-		if not client_num then return false end
-
-		-- Unified scanning path filtering for IPv4
-		for i = 1, num_rules do
-			local rule = rules[i]
-			if rule.is_ipv4 and rule:match(client_num) then
-				return true
-			end
-		end
-	else
-		-- Allocation-Free IPv6 Pointer Verification Path
-		local net = localized.net_lib
-		if not net or net.inet_pton(localized.AF_INET6, client_ip, localized.global_cli_buffer) ~= 1 then
-			return false
-		end
-
-		-- Unified scanning path filtering for IPv6
-		local buf = localized.global_cli_buffer
-		for i = 1, num_rules do
-			local rule = rules[i]
-			if not rule.is_ipv4 and rule:match(buf) then
-				return true
-			end
-		end
-	end
-
-	return false
-end
---[[
-End IP range function
-]]
-
-localized.proxy_header_ip_check_count = 0
-local function proxy_header_ip_check(ip_table)
-	if localized.proxy_header_ip_check_count >= 1 then --so we dont run multiple times we serve the cached output instead
-		return localized.proxy_header_ip_check_cached
-	end
-	if ip_table ~= nil and #ip_table > 0 then
-		localized.proxy_header_ip_check_count = localized.proxy_header_ip_check_count+2 --make sure we dont run again
-		if localized.static_exact_map == nil then
-			localized.static_exact_map = {}
-		end
-		if localized.dynamic_cidr_rules == nil then
-			localized.dynamic_cidr_rules = {}
-		end
-		if localized.dynamic_cidr_seen == nil then
-			localized.dynamic_cidr_seen = {}
-		end
-		local rules_array = localized.dynamic_cidr_rules
-		local rules_idx = #rules_array
-		for i = 1, #ip_table do
-			local v = ip_table[i]
-			if not localized.dynamic_cidr_seen[v] then
-				localized.dynamic_cidr_seen[v] = true
-				if not localized.string_find(v, "/", 1, true) then
-					localized.static_exact_map[v] = true
-				else
-					local rule = compile_cidr(v)
-					if rule then
-						rules_idx = rules_idx + 1
-						rules_array[rules_idx] = rule
-					else
-						localized.dynamic_cidr_seen[v] = nil
-					end
-				end
-			end
-		end
-		if ip_address_in_range(localized.ngx_var_remote_addr()) then
-			localized.proxy_header_ip_check_cached = true
-			return true
-		end
-	else
-		localized.proxy_header_ip_check_count = localized.proxy_header_ip_check_count+2 --make sure we dont run again
-		localized.proxy_header_ip_check_cached = true
-		return true
-	end
-	localized.proxy_header_ip_check_count = localized.proxy_header_ip_check_count+2 --make sure we dont run again
-	localized.proxy_header_ip_check_cached = false
-	return false
-end
 
 local function remote_cache(input_table, logging, keep, close_conn)
 	if localized[input_table] ~= nil and keep == nil and close_conn == nil then
@@ -3144,8 +2922,12 @@ local function remote_cache(input_table, logging, keep, close_conn)
 			localized.dummy[input_table].close_connection = close_connection
 		end
 	end
-	localized[input_table] = cached
-	return cached --all checks passed
+	if cached ~= nil then
+		localized[input_table] = cached
+		return cached --all checks passed
+	else
+		return input_table
+	end
 end
 
 local function close_connection(method)
@@ -3201,446 +2983,6 @@ local function close_connection(method)
 			end
 		end
 	end
-end
-
-local function WAF_Checks()
-if localized.WAF_Runs ~= nil then --only run once
-	return
-end
-if localized.remote_addr() == "auto" then
-	if localized.ngx_var_http_cf_connecting_ip() ~= nil then
-		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
-			localized.remote_addr = function() return localized.ngx_var_http_cf_connecting_ip() end
-		else --you are not really cloudflare dont pretend you are to bypass flood protection
-			localized.remote_addr = function() return localized.ngx_var_remote_addr() end
-		end
-	elseif localized.ngx_var_http_x_forwarded_for() ~= nil then
-		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
-			localized.remote_addr = function() return localized.ngx_var_http_x_forwarded_for() end
-		else
-			localized.remote_addr = function() return localized.ngx_var_remote_addr() end
-		end
-	else
-		localized.remote_addr = function() return localized.ngx_var_remote_addr() end
-	end
-end
-if localized.remote_addr() == "tor" then
-	localized.remote_addr = function() return localized.tor_remote_addr() end
-	if localized.tor_remote_addr() == "auto" then
-		localized.remote_addr = function() return localized.ngx_var_remote_addr() end
-		localized.tor_remote_addr = function() return localized.ngx_var_remote_addr() end
-	end
-end
---[[WAF Web Application Firewall POST Request arguments filter]]
-local function WAF_Post_Requests()
-	--if localized.next(localized.WAF_POST_Request_table) ~= nil then --Check Post filter table has rules inside it
-	if localized.WAF_POST_Request_table ~= nil and #localized.WAF_POST_Request_table > 0 and localized.ngx.req.get_method() == "POST" then --Check Post filter table has rules inside it
-
-		localized.ngx_req_read_body() --Grab the request Body
-		local request_body = localized.ngx_req_get_body_data()
-		local read_request_body_args = (request_body or "") --Put the request body arguments into a variable
-		local args = nil
-		local request_body_file = ""
-		if not request_body then
-			local file = localized.ngx_req_get_body_file()
-			if file then
-				request_body_file = file
-			end
-			--client_body_in_file_only on; #nginx config to test / debug
-			--localized.ngx_log(localized.ngx_LOG_TYPE, " request_body_file is " .. request_body_file )
-		end
-		if request_body_file ~= "" then
-			local function check_ngx_io()
-				if localized.cached_ngx_io ~= nil then
-					return localized.cached_ngx_io
-				end
-				localized.cached_ngx_io = localized.pcall(localized.require, "ngx.io") --check if ngx.io library exists will be true or false
-				return localized.cached_ngx_io
-			end
-			if check_ngx_io() and localized.read_file == nil then
-				local read_file = localized.require("ngx.io")
-				localized.read_file = read_file.open
-			end
-			if not check_ngx_io() and localized.read_file == nil then
-				localized.read_file = io.open
-			end
-			local fh, err = localized.read_file(request_body_file, "r")
-			if err then
-				localized.ngx_status = localized.ngx_HTTP_INTERNAL_SERVER_ERROR
-				localized.ngx_log(localized.ngx_LOG_TYPE, "error reading request_body_file:", err)
-				return
-			end
-			request_body = fh:read("*a")
-			fh:close()
-		end
-		if request_body == nil then
-			--request_body = "" --set to empty string
-			args = (localized.ngx_decode_args(read_request_body_args) or "") --Put the Post args in to a table
-		else
-			args = (localized.ngx_decode_args(request_body) or "") --Put the Post args in to a table
-		end
-
-		if localized.next(args) ~= nil then --Check Post args table has contents
-		--if #args > 0 then --Check Post args table has contents
-
-			local arguement1 = nil --create empty variable
-			local arguement2 = nil --create empty variable
-
-			for key, value in localized.next, args do
-				if localized.type(value) ~= "table" then
-					for i=1,#localized.WAF_POST_Request_table do
-						arguement1 = nil --reset to nil each loop
-						arguement2 = nil --reset to nil each loop
-						local value = localized.WAF_POST_Request_table[i] --put table value into variable
-						local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
-						local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
-						local args_name = localized.tostring(key) or "" --variable to store POST data argument name
-						local args_value = localized.tostring(key) or "" --variable to store POST data argument value
-						--local args_value = localized.string_gsub(args_value, "[^A-Za-z0-9_.-]", function(c) return localized.string_format("%%%02X", localized.string_byte(c)) end)
-						local args_value = localized.ngx.escape_uri(args_value,2)
-						if args_name ~= "" and args_name ~= "nil" then
-							if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the POST request
-								arguement1 = 1
-							end
-						end
-						if args_value ~= "" and args_value ~= "nil" then
-							if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the POST request
-								arguement2 = 1
-							end
-						end
-						if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST args prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr())
-							close_connection()
-							return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
-						end
-					end
-				else
-					for z=1,#value do
-						for i=1,#localized.WAF_POST_Request_table do
-							arguement1 = nil --reset to nil each loop
-							arguement2 = nil --reset to nil each loop
-							local values = localized.WAF_POST_Request_table[i] --put table value into variable
-							local argument_name = values[1] or "" --get the WAF TABLE argument name or empty
-							local argument_value = values[2] or "" --get the WAF TABLE arguement value or empty
-							local args_name = localized.tostring(key) or "" --variable to store Header data argument name
-							local args_value = localized.tostring(value[z]) or ""
-							--local args_value = localized.string_gsub(args_value, "[^A-Za-z0-9_.-]", function(c) return localized.string_format("%%%02X", localized.string_byte(c)) end)
-							local args_value = localized.ngx.escape_uri(args_value,2)
-							if args_name ~= "" and args_name ~= "nil" then
-								if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
-									arguement1 = 1
-								end
-							end
-							if args_value ~= "" and args_value ~= "nil" then
-								if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
-									arguement2 = 1
-								end
-							end
-							if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST args prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr())
-								close_connection()
-								return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
-							end
-						end
-					end
-				end
-			end
-		end
-	end
-end
-WAF_Post_Requests()
---[[End WAF Web Application Firewall POST Request arguments filter]]
-
---[[WAF Web Application Firewall Header Request arguments filter]]
-local function WAF_Header_Requests()
-	--if localized.next(localized.WAF_Header_Request_table) ~= nil then --Check Header filter table has rules inside it
-	if localized.WAF_Header_Request_table ~= nil and #localized.WAF_Header_Request_table > 0 then --Check Header filter table has rules inside it
-
-		local argument_request_headers = localized.ngx_req_get_headers() --get our client request headers and put them into a table
-
-		if localized.next(argument_request_headers) ~= nil then --Check Header args table has contents
-		--if #argument_request_headers > 0 then --Check Header args table has contents
-
-			local arguement1 = nil --create empty variable
-			local arguement2 = nil --create empty variable
-
-			for key, value in localized.next, argument_request_headers do
-				if localized.type(value) ~= "table" then
-					for i=1,#localized.WAF_Header_Request_table do
-						arguement1 = nil --reset to nil each loop
-						arguement2 = nil --reset to nil each loop
-						local values = localized.WAF_Header_Request_table[i] --put table value into variable
-						local argument_name = values[1] or "" --get the WAF TABLE argument name or empty
-						local argument_value = values[2] or "" --get the WAF TABLE arguement value or empty
-						local args_name = localized.tostring(key) or "" --variable to store Header data argument name
-						local args_value = localized.tostring(argument_request_headers[args_name]) or ""
-						if args_name ~= "" and args_name ~= "nil" then
-							if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
-								arguement1 = 1
-							end
-						end
-						if args_value ~= "" and args_value ~= "nil" then
-							if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
-								arguement2 = 1
-							end
-						end
-						if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr())
-							close_connection()
-							return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
-						end
-					end
-				else
-					for z=1,#value do
-						for i=1,#localized.WAF_Header_Request_table do
-							arguement1 = nil --reset to nil each loop
-							arguement2 = nil --reset to nil each loop
-							local values = localized.WAF_Header_Request_table[i] --put table value into variable
-							local argument_name = values[1] or "" --get the WAF TABLE argument name or empty
-							local argument_value = values[2] or "" --get the WAF TABLE arguement value or empty
-							local args_name = localized.tostring(key) or "" --variable to store Header data argument name
-							local args_value = localized.tostring(value[z]) or ""
-							if args_name ~= "" and args_name ~= "nil" then
-								if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
-									arguement1 = 1
-								end
-							end
-							if args_value ~= "" and args_value ~= "nil" then
-								if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
-									arguement2 = 1
-								end
-							end
-							if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr())
-								close_connection()
-								return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
-							end
-						end
-					end
-				end
-			end
-		end
-	end
-end
-WAF_Header_Requests()
---[[End WAF Web Application Firewall Header Request arguments filter]]
-
---[[WAF Web Application Firewall Query String Request arguments filter]]
-local function WAF_query_string_Request()
-	--if localized.next(localized.WAF_query_string_Request_table) ~= nil then --Check query string filter table has rules inside it
-	if localized.WAF_query_string_Request_table ~= nil and #localized.WAF_query_string_Request_table > 0 then --Check query string filter table has rules inside it
-
-		local args = localized.ngx_req_get_uri_args() --grab our query string args and put them into a table
-
-		if localized.next(args) ~= nil then --Check query string args table has contents
-		--if #args > 0 then --Check query string args table has contents
-
-			local arguement1 = nil --create empty variable
-			local arguement2 = nil --create empty variable
-
-			for key, value in localized.next, args do
-				if localized.type(value) ~= "table" then
-					for i=1,#localized.WAF_query_string_Request_table do
-						arguement1 = nil --reset to nil each loop
-						arguement2 = nil --reset to nil each loop
-						local value = localized.WAF_query_string_Request_table[i] --put table value into variable
-						local argument_name = value[1] or "" --get the WAF TABLE argument name or empty
-						local argument_value = value[2] or "" --get the WAF TABLE arguement value or empty
-						local args_name = localized.tostring(key) or "" --variable to store query string data argument name
-						local args_value = localized.tostring(args[args_name]) or "" --variable to store query string data argument value
-						--local args_value = localized.string_gsub(args_value, "[^A-Za-z0-9_.-]", function(c) return localized.string_format("%%%02X", localized.string_byte(c)) end)
-						local args_value = localized.ngx.escape_uri(args_value,2)
-						if args_name ~= "" and args_name ~= "nil" then
-							if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
-								arguement1 = 1
-							end
-						end
-						if args_value ~= "" and args_value ~= "nil" then
-							if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
-								arguement2 = 1
-							end
-						end
-						if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Query String prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr())
-							close_connection()
-							return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
-						end
-					end
-				else
-					for z=1,#value do
-						for i=1,#localized.WAF_query_string_Request_table do
-							arguement1 = nil --reset to nil each loop
-							arguement2 = nil --reset to nil each loop
-							local values = localized.WAF_query_string_Request_table[i] --put table value into variable
-							local argument_name = values[1] or "" --get the WAF TABLE argument name or empty
-							local argument_value = values[2] or "" --get the WAF TABLE arguement value or empty
-							local args_name = localized.tostring(key) or "" --variable to store Header data argument name
-							local args_value = localized.tostring(value[z]) or ""
-							--local args_value = localized.string_gsub(args_value, "[^A-Za-z0-9_.-]", function(c) return localized.string_format("%%%02X", localized.string_byte(c)) end)
-							local args_value = localized.ngx.escape_uri(args_value,2)
-							if args_name ~= "" and args_name ~= "nil" then
-								if localized.string_find(args_name, argument_name) then --if the argument name in my table matches the one in the request
-									arguement1 = 1
-								end
-							end
-							if args_value ~= "" and args_value ~= "nil" then
-								if localized.string_find(args_value, argument_value) then --if the argument value in my table matches the one the request
-									arguement2 = 1
-								end
-							end
-							if arguement1 and arguement2 then --if what would of been our empty vars have been changed to not empty meaning a WAF match then block the request
-								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Query String prohibited : arg_name = " .. argument_name .. " - arg_value = " .. argument_value .. " - IP : " .. localized.remote_addr())
-								close_connection()
-								return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
-							end
-						end
-					end
-				end
-			end
-		end
-	end
-end
-WAF_query_string_Request()
---[[End WAF Web Application Firewall Query String Request arguments filter]]
-
---[[WAF Web Application Firewall URI Request arguments filter]]
-local function WAF_URI_Request()
-	--if localized.next(localized.WAF_URI_Request_table) ~= nil then --Check Post filter table has rules inside it
-	if localized.WAF_URI_Request_table ~= nil and #localized.WAF_URI_Request_table > 0 then --Check Post filter table has rules inside it
-
-		--[[
-		Because localized.ngx.var.uri is a bit stupid I strip the query string of the request uri.
-		The reason for this it is subject to normalisation
-		Consecutive / characters are replace by a single / 
-		and URL encoded characters are decoded 
-		but then your back end webserver / application recieve the encoded uri!?
-		So to keep the security strong I match the same version your web application would need protecting from (Yes the encoded copy that could contain malicious / exploitable contents)
-		]]
-		local args = localized.string_gsub(localized.request_uri(), "?.*", "") --remove the query string from the uri
-		if args ~= nil and args ~= "" and args ~= "nil" and args ~= "/" then
-			for i=1,#localized.WAF_URI_Request_table do --for each host in our table
-				local v = localized.WAF_URI_Request_table[i]
-				if faster_than_match(v[1]) or localized.string_find(localized.URL(), v[1]) then --if our host matches one in the table
-					if localized.string_find(args, v[2]) then
-						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request URI prohibited : " .. localized.URL() .. " - IP : " .. localized.remote_addr())
-						close_connection()
-						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
-					end
-				end
-			end
-		end
-	end
-end
-WAF_URI_Request()
---[[End WAF Web Application Firewall URI Request arguments filter]]
-localized.WAF_Runs = 1
-end
---WAF_Checks()
-
-localized.get_resp_content_type_counter = 0
-local function get_resp_content_type(forced) --incase content-type header not yet exists grab it
-	local resp_content_type = nil
-	if forced == nil then
-		localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+1
-		if localized.ngx.header["content-type"] then
-			--localized.ngx_log(localized.ngx_LOG_TYPE, " localized.ngx.header['content-type'] " .. localized.ngx.header["content-type"] )
-			resp_content_type = localized.ngx.header["content-type"]
-			return resp_content_type
-		end
-	end
-	--made it this far still no content-type ?
-	if localized.get_resp_content_type_counter > 1 then --so we dont run location capture multiple times on the first run it will either be content-type or nil
-		return resp_content_type
-	end
-	--localized.ngx_log(localized.ngx_LOG_TYPE, " count is " .. localized.get_resp_content_type_counter )
-	--local req_headers = localized.ngx_req_get_headers()
-	local map = {
-		GET = localized.ngx_HTTP_GET,
-		HEAD = localized.ngx_HTTP_HEAD,
-		PUT = localized.ngx_HTTP_PUT,
-		POST = localized.ngx_HTTP_POST,
-		DELETE = localized.ngx_HTTP_DELETE,
-		OPTIONS = localized.ngx_HTTP_OPTIONS,
-		MKCOL = localized.ngx_HTTP_MKCOL,
-		COPY = localized.ngx_HTTP_COPY,
-		MOVE = localized.ngx_HTTP_MOVE,
-		PROPFIND = localized.ngx_HTTP_PROPFIND,
-		PROPPATCH = localized.ngx_HTTP_PROPPATCH,
-		LOCK = localized.ngx_HTTP_LOCK,
-		UNLOCK = localized.ngx_HTTP_UNLOCK,
-		PATCH = localized.ngx_HTTP_PATCH,
-		TRACE = localized.ngx_HTTP_TRACE,
-		CONNECT = localized.ngx_HTTP_CONNECT, --does not exist but put here never know in the future
-	}
-	local res = localized.ngx.location.capture(localized.uri(), {
-		method = map["HEAD"],
-		args = localized.ngx_var_args(),
-		--headers = req_headers,
-	})
-	if res then
-		if res.header ~= nil and localized.type(res.header) == "table" then
-			for headerName, header in localized.next, res.header do
-				--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
-				if localized.string_lower(localized.tostring(headerName)) == "content-type" then
-					--localized.ngx_log(localized.ngx_LOG_TYPE, " localized.ngx.location.capture " .. header )
-					resp_content_type = header
-				end
-			end
-		end
-	end
-	localized.ngx.header["content-type"] = resp_content_type --set header as content-type be either nil or the content-type
-	localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
-	return resp_content_type
-end
---localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Content-Type header is. " .. get_resp_content_type() )
---get_resp_content_type()
-
---if a table has a value inside of it
-local function has_value(table_, val)
-	--for i=1,#table_ do
-		--if table_[i] == val then
-	for key, value in localized.next, table_ do
-		if value == val then
-			return true
-		end
-	end
-	return false
-end
-
-localized.table_union_seen = localized.table_union_seen or {}
-localized.table_union_gen = localized.table_union_gen or 0
-local function TableConcat(t1, t2)
-	local len1 = #t1
-	local len2 = #t2
-	if len2 == 0 then return t1 end
-
-	-- Grab our permanent tracking structures from the namespace
-	local seen = localized.table_union_seen
-
-	-- Increment the Generation-ID register (Safely wraps automatically at integer limits)
-	local gen_id = localized.table_union_gen + 1
-	localized.table_union_gen = gen_id
-
-	-- Map existing t1 elements directly into the lookup array using our dynamic gen_id
-	for i = 1, len1 do
-		seen[t1[i]] = gen_id
-	end
-
-	-- Stream t2 variables using direct hardware register counters
-	local idx = len1
-	for i = 1, len2 do
-		local val = t2[i]
-
-		-- Instant O(1) matching evaluation replaces both the has_value and the cleanup loops
-		if seen[val] ~= gen_id then
-			seen[val] = gen_id
-			idx = idx + 1
-			t1[idx] = val
-		end
-	end
-
-	-- The tracking map clears itself implicitly on the subsequent function call via gen_id incrementation
-	return t1
 end
 
 --XOR Encryption/Decryption
@@ -4056,8 +3398,898 @@ local function secure_storage(get_or_set, input, compress_type)
 	if localized.ss == nil then
 		localized.ss = {}
 	end
-	localized.ss[input] = output --cache output
-	return output
+	if output ~= nil then
+		localized.ss[input] = output --cache output
+		return output
+	else
+		return input
+	end
+end
+
+--[[
+Start IP range function
+]]
+localized.static_exact_map = localized.static_exact_map or {}
+localized.dynamic_cidr_rules = localized.dynamic_cidr_rules or {}
+localized.dynamic_cidr_seen = localized.dynamic_cidr_seen or {}
+
+-- Initialize secure private worker namespace structure if it doesn't exist
+if not localized.package.loaded["anti_ddos_worker_cache"] then
+	localized.package.loaded["anti_ddos_worker_cache"] = {
+		rules = {},          -- Normalized string -> compiled rule storage mapping
+		exact_ip_cache = {}, -- Strict internal request cache map (Private Layer 2)
+		local_version = 0    -- Starts synchronized at default 0 states perfectly
+	}
+end
+local worker_cache = localized.package.loaded["anti_ddos_worker_cache"]
+
+-- Secure static lookup array map handles partial byte calculations perfectly
+local byte_mask_lookup = {
+	["m0"] = 0x00, ["m1"] = 0x80, ["m2"] = 0xC0, ["m3"] = 0xE0,
+	["m4"] = 0xF0, ["m5"] = 0xF8, ["m6"] = 0xFC, ["m7"] = 0xFE, ["m8"] = 0xFF
+}
+
+if localized.ffi then
+	localized.pcall(function()
+		localized.ffi.cdef[[
+			int inet_pton(int af, const char *src, void *dst);
+		]]
+	end)
+
+	-- FIXED: Changed allocation from a single uint8_t element to a full 16-byte structure
+	localized.uint8_array_16_t = localized.ffi.typeof("uint8_t[16]")
+	localized.net_lib = localized.ffi.C
+
+	-- Allocate persistent buffer matrix for zero-allocation IPv6 scans safely
+	localized.global_cli_buffer = localized.uint8_array_16_t()
+
+	if jit and jit.os == "Windows" then
+		localized.AF_INET6 = 23
+		local status, ws2 = localized.pcall(localized.ffi.load, "Ws2_32.dll")
+		if status then
+			localized.net_lib = ws2
+		end
+	else
+		localized.AF_INET6 = 10 -- Standard Linux AF_INET6 constant
+	end
+end
+-- ==============================================================================
+-- FORWARD DECLARATIONS (Lexical Parent Scope Anchor Plane)
+-- ==============================================================================
+local check_resty_radix, fast_ipv4_to_long, compile_cidr, ip_address_in_range, sync_shared_dict_to_ram, local_compile_waf_fallback_regex
+
+-- ==============================================================================
+-- PROTECTED CORE ENGINE UTILITIES WITH FULL CONSOLE INSTRUMENTATION
+-- ==============================================================================
+check_resty_radix = function()
+	if localized.cached_resty_radix ~= nil then
+		return localized.cached_resty_radix
+	end
+	local success, lib = localized.pcall(localized.require, "resty.radixtree")
+	if success and lib then
+		localized.cached_resty_radix = lib
+	else
+		localized.cached_resty_radix = false
+	end
+	return localized.cached_resty_radix
+end
+
+fast_ipv4_to_long = function(ip)
+	local len = #ip
+	if len < 7 then return nil end
+
+	local n1, n2, n3, n4 = 0, 0, 0, 0
+	local octet = 1
+	local current_val = 0
+	local has_digits = false
+	local str_byte = localized.string_byte or string.byte
+	local bit_rshift = localized.bit_rshift or require("bit").rshift
+
+	for i = 1, len do
+		local c = str_byte(ip, i)
+		if c >= 48 and c <= 57 then
+			current_val = current_val * 10 + (c - 48)
+			if current_val > 255 then return nil end
+			has_digits = true
+		elseif c == 46 then
+			if not has_digits then return nil end
+			if octet == 1 then n1 = current_val
+			elseif octet == 2 then n2 = current_val
+			elseif octet == 3 then n3 = current_val
+			else return nil end
+			octet = octet + 1
+			current_val = 0
+			has_digits = false
+		else
+			break
+		end
+	end
+
+	if octet ~= 4 or not has_digits then return nil end
+	n4 = current_val
+
+	return bit_rshift(n1 * 16777216 + n2 * 65536 + n3 * 256 + n4, 0)
+end
+
+compile_cidr = function(cidr_string)
+	local str_match = localized.string_match or string.match
+	local str_find  = localized.string_find or string.find
+	local str_lower = localized.string_lower or string.lower
+
+	local normalized_string = str_match(cidr_string, "[%w%.:/]+")
+	if not normalized_string then return nil end
+	normalized_string = str_lower(normalized_string)
+
+	if worker_cache.rules[normalized_string] then
+		return worker_cache.rules[normalized_string]
+	end
+
+	local has_mask = str_find(normalized_string, "/", 1, true) ~= nil
+	local subnet_ip, mask
+	
+	if has_mask then
+		subnet_ip = str_match(normalized_string, "^([^/]+)")
+		mask = tonumber(str_match(normalized_string, "/(%d+)$"))
+	else
+		subnet_ip = normalized_string
+		mask = str_find(subnet_ip, ".", 1, true) ~= nil and 32 or 128
+	end
+
+	if not subnet_ip or not mask then return nil end
+	local clean_subnet_ip = str_match(subnet_ip, "[%w%.:]+") or subnet_ip
+	local is_ipv4 = str_find(clean_subnet_ip, ".", 1, true) ~= nil
+	local rule = { is_ipv4 = is_ipv4 }
+
+	local bit_rshift = localized.bit_rshift or require("bit").rshift
+	local bit_bnot   = localized.bit_bnot or require("bit").bnot
+	local bit_lshift = localized.bit_lshift or require("bit").lshift
+	local bit_band   = localized.bit_band or require("bit").band
+
+	if is_ipv4 then
+		if mask < 0 or mask > 32 then return nil end
+		local raw_subnet_long = fast_ipv4_to_long(clean_subnet_ip)
+		if not raw_subnet_long then return nil end
+		rule.subnet_num = bit_rshift(raw_subnet_long, 0)
+
+		if mask == 0 then
+			rule.bitmask = 0
+		elseif mask == 32 then
+			rule.bitmask = 0xFFFFFFFF
+		else
+			rule.bitmask = bit_rshift(bit_bnot(bit_lshift(1, 32 - mask) - 1), 0)
+		end
+
+		rule.match = function(self, passed_in_long)
+			return bit_band(self.subnet_num, self.bitmask) == bit_band(passed_in_long, self.bitmask)
+		end
+	else
+		if mask < 0 or mask > 128 then return nil end
+		if localized.ffi and localized.net_lib and localized.uint8_array_16_t then
+			rule.sub_bytes = localized.uint8_array_16_t()
+			if localized.net_lib.inet_pton(localized.AF_INET6, clean_subnet_ip, rule.sub_bytes) ~= 1 then
+				return nil
+			end
+		else
+			return nil 
+		end
+
+		local masks = {}
+		local temp_mask = mask
+		for i = 0, 15 do
+			if temp_mask >= 8 then
+				masks[i] = 0xFF
+				temp_mask = temp_mask - 8
+			elseif temp_mask > 0 then
+				masks[i] = byte_mask_lookup["m" .. temp_mask]
+				temp_mask = 0
+			else
+				masks[i] = 0x00
+			end
+		end
+
+		rule.match = function(self, cli_bytes)
+			local sub = self.sub_bytes
+			for i = 0, 15 do
+				local m = masks[i]
+				if bit_band(sub[i], m) ~= bit_band(cli_bytes[i], m) then
+					return false
+				end
+			end
+			return true
+		end
+	end
+
+	worker_cache.rules[normalized_string] = rule
+	return rule
+end
+
+ip_address_in_range = function(raw_client_ip)
+	local str_match = localized.string_match or string.match
+	local str_find  = localized.string_find or string.find
+	local str_lower = localized.string_lower or string.lower
+
+	local cleaned_ip = str_match(tostring(raw_client_ip), "[%w%.:/]+")
+	if not cleaned_ip then return false end
+	cleaned_ip = str_lower(cleaned_ip)
+
+	-- LAYER 1: Session & Static Memory Map Interception (Fastest Allocation-Free Path)
+	local worker_exact_cache = worker_cache.exact_ip_cache
+	if worker_exact_cache[cleaned_ip] or (localized.static_exact_map and localized.static_exact_map[cleaned_ip]) then
+		--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][IP-WAF] Whitelist Matched: ", cleaned_ip, " (Package Memory Cache - Saved Session)")
+		return true
+	end
+
+	local is_ipv4_client = str_find(cleaned_ip, ".", 1, true) ~= nil
+	local radix_lib = check_resty_radix()
+
+	if radix_lib then
+		if is_ipv4_client then
+			if worker_cache.radix_tree_v4 and worker_cache.radix_tree_v4:match(cleaned_ip) then
+				--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][IP-WAF] Whitelist Matched: ", cleaned_ip, " (Package Radix Tree Cache)")
+				worker_exact_cache[cleaned_ip] = true
+				return true
+			end
+		else
+			if worker_cache.radix_tree_v6 and worker_cache.radix_tree_v6:match(cleaned_ip) then
+				--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][IP-WAF] Whitelist Matched: ", cleaned_ip, " (Package Radix Tree Cache)")
+				worker_exact_cache[cleaned_ip] = true
+				return true
+			end
+		end
+	else
+		local active_rules = worker_cache.rules or {}
+		local total_rules = #active_rules
+		local bit_rshift = localized.bit_rshift or require("bit").rshift
+
+		if is_ipv4_client then
+			local raw_v4_long = fast_ipv4_to_long(cleaned_ip)
+			if raw_v4_long then
+				local client_num = bit_rshift(raw_v4_long, 0)
+				
+				-- LAYER 2: Pre-Compiled Worker RAM Object Cache Scan Pass
+				for i = 1, total_rules do
+					local rule = active_rules[i]
+					if rule.is_ipv4 and rule.match(rule, client_num) then
+						--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][IP-WAF] Whitelist Matched: ", cleaned_ip, " (Package Cache)")
+						worker_exact_cache[cleaned_ip] = true
+						return true
+					end
+				end
+				
+				-- LAYER 3: Runtime Context Dynamic Array Fallback Scan Pass
+				local fallback_rules = localized.dynamic_cidr_rules or {}
+				for i = 1, #fallback_rules do
+					local rule = fallback_rules[i]
+					if rule.is_ipv4 and rule.match(rule, client_num) then
+						--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][IP-WAF] Whitelist Matched: ", cleaned_ip, " (Table Fallback)")
+						worker_exact_cache[cleaned_ip] = true
+						return true
+					end
+				end
+			end
+		else
+			local net = localized.net_lib
+			if net and localized.global_cli_buffer then
+				if net.inet_pton(localized.AF_INET6, cleaned_ip, localized.global_cli_buffer) == 1 then
+					-- LAYER 2 (IPv6): Pre-Compiled Worker RAM Object Cache Scan Pass
+					for i = 1, total_rules do
+						local rule = active_rules[i]
+						if not rule.is_ipv4 and rule:match(localized.global_cli_buffer) then
+							--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][IP-WAF] Whitelist Matched: ", cleaned_ip, " (Package Cache)")
+							worker_exact_cache[cleaned_ip] = true
+							return true
+						end
+					end
+					
+					-- LAYER 3 (IPv6): Runtime Context Dynamic Array Fallback Scan Pass
+					local fallback_rules = localized.dynamic_cidr_rules or {}
+					for i = 1, #fallback_rules do
+						local rule = fallback_rules[i]
+						if not rule.is_ipv4 and rule:match(localized.global_cli_buffer) then
+							--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][IP-WAF] Whitelist Matched: ", cleaned_ip, " (Table Fallback)")
+							worker_exact_cache[cleaned_ip] = true
+							return true
+						end
+					end
+				end
+			end
+		end
+	end
+
+	return false
+end
+
+local_compile_waf_fallback_regex = function(rules_table)
+	if not rules_table or #rules_table == 0 then return "" end
+	local parts = {}
+	local count = 0
+	local str_gsub = localized.string_gsub or string.gsub
+
+	-- COMPILER LOOKUP DICTIONARY: Collapses multiple slow substitutions into an atomic step
+	local strip_map = {
+		["^%.%*"] = "", ["%.%*%$"] = "", 
+		["^%%%.%*%%%*"] = "", ["%%%.%*%%%*%$"] = "",
+		["%%%."] = "." -- Safely maps Lua escapes to PCRE compliant formats
+	}
+
+	for i = 1, #rules_table do
+		-- FIXED: Unpacks the second index table value cleanly matching Conor's array format
+		local pattern = rules_table[i][2]
+		if pattern and pattern ~= "" then
+			
+			-- Highly optimized dictionary loop pass inside the warm-up sequence
+			for find_pat, replace_pat in next, strip_map do
+				pattern = str_gsub(pattern, find_pat, replace_pat)
+			end
+			
+			count = count + 1
+			parts[count] = "(" .. pattern .. ")"
+		end
+	end
+	if count == 0 then return "" end
+	return table.concat(parts, "|")
+end
+
+local sync_shared_dict_to_ram = function(premature)
+	if premature then return end
+
+	-- BIND PERSISTENT PROCESS REGISTERS: Restores references natively inside the background thread coroutine context
+	local active_cache = package.loaded["anti_ddos_worker_cache"]
+	if not active_cache then return end
+
+	-- FIXED: Uses a safe fallback pointer cascade to pass the true hardware memory table mapping natively
+	local raw_db_target = (localized and localized.IP_Zone) or (active_cache and active_cache.saved_ip_zone)
+	local shared_db = active_cache.saved_ip_zone or (localized and remote_cache(raw_db_target, 1))
+	if not shared_db or type(shared_db) == "string" then return end
+
+	local global_version = shared_db:get("dynamic_cidr_version") or 0
+	
+	local skip_ip_sync = false
+	if global_version == 0 or (global_version <= active_cache.local_version and #active_cache.rules > 0) then
+		skip_ip_sync = true
+	end
+
+	-- --------------------------------------------------------------------------
+	-- SUBROUTINE A: IP PROTECTION PLANE SYNCHRONIZATION
+	-- --------------------------------------------------------------------------
+	if not skip_ip_sync then
+		local dynamic_subnets_list = shared_db:get("dynamic_cidr_list") or ""
+		local radix_lib = check_resty_radix()
+
+		local temporary_v4_tree, temporary_v6_tree
+		local temporary_rules_array = {}
+		local idx = 0
+
+		if radix_lib then
+			local staging_rules = {}
+			if dynamic_subnets_list ~= "" then
+				-- LOCAL ALIAS PLUGINS: Cache the localized table functions into high-speed local register variables
+				local str_gmatch = (localized and localized.string_gmatch) or string.gmatch
+				local str_match  = (localized and localized.string_match) or string.match
+
+				for subnet_str in str_gmatch(dynamic_subnets_list, "([^,]+)") do
+					local clean_str = str_match(subnet_str, "[%w%.:/]+")
+					if clean_str and clean_str ~= "" then
+						staging_rules[clean_str] = true
+					end
+				end
+			end
+
+			
+			local radix_data_list = {}
+			local r_count = 0
+			local localized_next = (localized and localized.next) or next
+			-- FIXED: Employs a stateless, allocation-free 'for' loop via a process-pinned next pointer
+			for k, _ in localized_next, staging_rules do
+				r_count = r_count + 1
+				radix_data_list[r_count] = { cidr = k, value = true }
+			end
+			
+			temporary_v4_tree = radix_lib.new(radix_data_list)
+			temporary_v6_tree = radix_lib.new(radix_data_list)
+		else
+			if dynamic_subnets_list ~= "" then
+				for subnet_str in string.gmatch(dynamic_subnets_list, "([^,]+)") do
+					local clean_subnet_str = string.match(subnet_str, "[%w%.:/]+")
+					if clean_subnet_str and clean_subnet_str ~= "" then
+						local rule = compile_cidr(clean_subnet_str)
+						if rule then
+							idx = idx + 1
+							temporary_rules_array[idx] = rule
+						end
+					end
+				end
+			end
+
+			local fallback_rules = (localized and localized.dynamic_cidr_rules) or {}
+			for i = 1, #fallback_rules do
+				idx = idx + 1
+				temporary_rules_array[idx] = fallback_rules[i]
+			end
+		end
+
+		if radix_lib then
+			active_cache.radix_tree_v4 = temporary_v4_tree
+			active_cache.radix_tree_v6 = temporary_v6_tree
+		else
+			active_cache.rules = temporary_rules_array
+		end
+		
+		active_cache.exact_ip_cache = {} 
+		active_cache.local_version = global_version
+	end
+
+	-- --------------------------------------------------------------------------
+	-- SUBROUTINE B: AUTOMATED LOCAL COMPILATION ENGINE WARMING HOOKS
+	-- --------------------------------------------------------------------------
+	local run_compiler = local_compile_waf_fallback_regex
+	
+	-- Safely reference configuration vectors out of our verified process space table
+	local tbl_post  = active_cache.saved_post_tbl
+	local tbl_head  = active_cache.saved_head_tbl
+	local tbl_query = active_cache.saved_query_tbl
+	local tbl_uri   = active_cache.saved_uri_tbl
+
+	-- Atomically warm worker cache registers block-free
+	active_cache.cached_post_regex   = run_compiler(tbl_post)
+	active_cache.cached_header_regex = run_compiler(tbl_head)
+	active_cache.cached_query_regex  = run_compiler(tbl_query)
+	active_cache.cached_uri_regex    = run_compiler(tbl_uri)
+
+	active_cache.sync_loop_func = sync_shared_dict_to_ram
+
+	local ok, err = ngx.timer.at(5.0, function(p)
+		local run_func = sync_shared_dict_to_ram or (package.loaded["anti_ddos_worker_cache"] and package.loaded["anti_ddos_worker_cache"].sync_loop_func)
+		if run_func then
+			run_func(p)
+		end
+	end)
+end
+
+-- ==============================================================================
+-- ATOMIC INLINE CACHE WARMING PHASE (Guarantees Instant 0-Delay Protection)
+-- ==============================================================================
+-- Persist configuration array pointers inside the worker space memory to safeguard against upvalue evaporation
+worker_cache.saved_post_tbl  = localized.WAF_POST_Request_table
+worker_cache.saved_head_tbl  = localized.WAF_Header_Request_table
+worker_cache.saved_query_tbl = localized.WAF_query_string_Request_table
+worker_cache.saved_uri_tbl   = localized.WAF_URI_Request_table
+
+worker_cache.cached_post_regex   = local_compile_waf_fallback_regex(localized.WAF_POST_Request_table)
+worker_cache.cached_header_regex = local_compile_waf_fallback_regex(localized.WAF_Header_Request_table)
+worker_cache.cached_query_regex  = local_compile_waf_fallback_regex(localized.WAF_query_string_Request_table)
+worker_cache.cached_uri_regex    = local_compile_waf_fallback_regex(localized.WAF_URI_Request_table)
+
+if localized.ngx_var_http_internal == nil then
+	if not worker_cache.sync_loop_started then
+		worker_cache.sync_loop_started = true
+		local ok, err = ngx.timer.at(5.0, function(premature)
+			local run_func = sync_shared_dict_to_ram or (worker_cache and worker_cache.sync_loop_func)
+			if run_func then
+				run_func(premature)
+			end
+		end)
+	end
+end
+--[[
+End IP range function
+]]
+
+localized.proxy_header_ip_check_count = 0
+local function proxy_header_ip_check(ip_table)
+	if localized.proxy_header_ip_check_count >= 1 then --so we dont run multiple times we serve the cached output instead
+		return localized.proxy_header_ip_check_cached
+	end
+	if ip_table ~= nil and #ip_table > 0 then
+		localized.proxy_header_ip_check_count = localized.proxy_header_ip_check_count+2 --make sure we dont run again
+		if localized.static_exact_map == nil then
+			localized.static_exact_map = {}
+		end
+		if localized.dynamic_cidr_rules == nil then
+			localized.dynamic_cidr_rules = {}
+		end
+		if localized.dynamic_cidr_seen == nil then
+			localized.dynamic_cidr_seen = {}
+		end
+		local rules_array = localized.dynamic_cidr_rules
+		local rules_idx = #rules_array
+		for i = 1, #ip_table do
+			local v = ip_table[i]
+			if not localized.dynamic_cidr_seen[v] then
+				localized.dynamic_cidr_seen[v] = true
+				if not localized.string_find(v, "/", 1, true) then
+					localized.static_exact_map[v] = true
+				else
+					local rule = compile_cidr(v)
+					if rule then
+						rules_idx = rules_idx + 1
+						rules_array[rules_idx] = rule
+					else
+						localized.dynamic_cidr_seen[v] = nil
+					end
+				end
+			end
+		end
+		if ip_address_in_range(localized.ngx_var_remote_addr()) then
+			localized.proxy_header_ip_check_cached = true
+			return true
+		end
+	else
+		localized.proxy_header_ip_check_count = localized.proxy_header_ip_check_count+2 --make sure we dont run again
+		localized.proxy_header_ip_check_cached = true
+		return true
+	end
+	localized.proxy_header_ip_check_count = localized.proxy_header_ip_check_count+2 --make sure we dont run again
+	localized.proxy_header_ip_check_cached = false
+	return false
+end
+
+local function WAF_Checks()
+if localized.WAF_Runs ~= nil then --only run once
+	return
+end
+if localized.remote_addr() == "auto" then
+	if localized.ngx_var_http_cf_connecting_ip() ~= nil then
+		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
+			localized.remote_addr = function() return localized.ngx_var_http_cf_connecting_ip() end
+		else --you are not really cloudflare dont pretend you are to bypass flood protection
+			localized.remote_addr = function() return localized.ngx_var_remote_addr() end
+		end
+	elseif localized.ngx_var_http_x_forwarded_for() ~= nil then
+		if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
+			localized.remote_addr = function() return localized.ngx_var_http_x_forwarded_for() end
+		else
+			localized.remote_addr = function() return localized.ngx_var_remote_addr() end
+		end
+	else
+		localized.remote_addr = function() return localized.ngx_var_remote_addr() end
+	end
+end
+if localized.remote_addr() == "tor" then
+	localized.remote_addr = function() return localized.tor_remote_addr() end
+	if localized.tor_remote_addr() == "auto" then
+		localized.remote_addr = function() return localized.ngx_var_remote_addr() end
+		localized.tor_remote_addr = function() return localized.ngx_var_remote_addr() end
+	end
+end
+--[[WAF Web Application Firewall POST Request arguments filter]]
+
+-- 1. HIGH-SPEED WAF POST INTERCEPTOR
+localized.WAF_POST_Requests = function()
+	local rules = localized.WAF_POST_Request_table
+	if rules == nil or #rules == 0 then return end
+
+	localized.ngx.req.read_body()
+	local raw_body = localized.ngx.req.get_body_data()
+	local body_file = not raw_body and localized.ngx.req.get_body_file()
+
+	if body_file and body_file ~= "" then
+		if localized.read_file == nil then
+			local status, ngx_io = localized.pcall(localized.require, "ngx.io")
+			if status and ngx_io and ngx_io.open then
+				localized.read_file = ngx_io.open
+			else
+				localized.read_file = io.open
+			end
+		end
+
+		local fh, err = localized.read_file(body_file, "r")
+		if not err and fh then
+			raw_body = fh:read("*a")
+			fh:close()
+		end
+	end
+
+	if not raw_body or raw_body == "" then return end
+
+	-- FIXED: Bypasses shared dictionary lookup and decryption passes entirely
+	local pattern = worker_cache.cached_post_regex
+	local current_url = localized.URL()
+
+	if pattern and pattern ~= "" then
+		local space_decoded_body = localized.string_gsub(raw_body, "%+", " ")
+		if localized.ngx.re.find(raw_body, pattern, "jo") or localized.ngx.re.find(space_decoded_body, pattern, "jo") then
+			localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST Payload prohibited (Package RAM Cache) : " .. current_url .. " - IP : " .. localized.remote_addr())
+			close_connection()
+			return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+		end
+	end
+
+	-- Array table fallback path evaluated only if master compilation matches fail
+	local post_args = localized.ngx_req_get_post_args()
+	if post_args ~= nil and localized.next(post_args) ~= nil then
+		local num_rules = #rules
+		for key, value in localized.next, post_args do
+			local args_name = localized.tostring(key)
+			if localized.type(value) == "table" then
+				for z = 1, #value do
+					local args_value = localized.tostring(value[z])
+					for i = 1, num_rules do
+						local rule = rules[i]
+						if (faster_than_match(rule[1]) or localized.ngx.re.find(current_url, rule[1], "jo")) and localized.ngx.re.find(args_value, rule[2], "jo") then
+							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST Payload prohibited (Table Fallback) : " .. current_url .. " - IP : " .. localized.remote_addr())
+							close_connection()
+							return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+						end
+					end
+				end
+			else
+				local args_value = localized.tostring(value)
+				for i = 1, num_rules do
+					local rule = rules[i]
+					if (faster_than_match(rule[1]) or localized.ngx.re.find(current_url, rule[1], "jo")) and localized.ngx.re.find(args_value, rule[2], "jo") then
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST Payload prohibited (Table Fallback) : " .. current_url .. " - IP : " .. localized.remote_addr())
+						close_connection()
+						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+					end
+				end
+			end
+		end
+	end
+end
+localized.WAF_POST_Requests()
+
+-- 2. HIGH-SPEED WAF HEADER INTERCEPTOR
+localized.WAF_Header_Requests = function()
+	local rules = localized.WAF_Header_Request_table
+	if rules == nil or #rules == 0 then return end
+
+	local headers = localized.ngx_req_get_headers()
+	if headers == nil or localized.next(headers) == nil then return end
+
+	-- FIXED: Replaced shared_db:get operations with atomic local variable registers
+	local pattern = worker_cache.cached_header_regex
+	local current_url = localized.URL()
+
+	if pattern and pattern ~= "" then
+		for key, value in localized.next, headers do
+			local k_str = localized.tostring(key)
+			if localized.type(value) == "table" then
+				for i = 1, #value do
+					local h_payload = k_str .. "=" .. localized.tostring(value[i])
+					if localized.ngx.re.find(h_payload, pattern, "jo") then
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited (Package RAM Cache) : " .. current_url .. " - IP : " .. localized.remote_addr())
+						close_connection()
+						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+					end
+				end
+			else
+				local h_payload = k_str .. "=" .. localized.tostring(value)
+				if localized.ngx.re.find(h_payload, pattern, "jo") then
+					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited (Package RAM Cache) : " .. current_url .. " - IP : " .. localized.remote_addr())
+					close_connection()
+					return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+				end
+			end
+		end
+	else
+		local num_rules = #rules
+		for key, value in localized.next, headers do
+			local args_name = localized.tostring(key)
+			if localized.type(value) == "table" then
+				for z = 1, #value do
+					local args_value = localized.tostring(value[z])
+					for i = 1, num_rules do
+						local rule = rules[i]
+						if (faster_than_match(rule[1]) or localized.string_find(args_name, rule[1])) and localized.string_find(args_value, rule[2]) then
+							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited (Table Fallback) : " .. current_url .. " - IP : " .. localized.remote_addr())
+							close_connection()
+							return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+						end
+					end
+				end
+			else
+				local args_value = localized.tostring(value)
+				for i = 1, num_rules do
+					local rule = rules[i]
+					if (faster_than_match(rule[1]) or localized.string_find(args_name, rule[1])) and localized.string_find(args_value, rule[2]) then
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited (Table Fallback) : " .. current_url .. " - IP : " .. localized.remote_addr())
+						close_connection()
+						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+					end
+				end
+			end
+		end
+	end
+end
+localized.WAF_Header_Requests()
+
+-- 3. HIGH-SPEED WAF QUERY STRING INTERCEPTOR
+localized.WAF_query_string_Request = function()
+	local raw_args = localized.ngx_var_args and localized.ngx_var_args() or localized.ngx.var.args
+	if raw_args == nil or raw_args == "" then return end
+
+	-- FIXED: Streamlined regex verification path to query thread stack properties directly
+	local pattern = worker_cache.cached_query_regex
+	local current_url = localized.URL()
+
+	if pattern and pattern ~= "" then
+		if localized.ngx.re.find(raw_args, pattern, "jo") then
+			localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Query String prohibited (Package RAM Cache) : " .. current_url .. " - IP : " .. localized.remote_addr())
+			close_connection()
+			return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+		end
+	else
+		local args_table = localized.ngx_req_get_uri_args()
+		if args_table == nil or localized.next(args_table) == nil then return end
+
+		local rules = localized.WAF_query_string_Request_table
+		local num_rules = #rules
+
+		for key, value in localized.next, args_table do
+			local args_name = localized.tostring(key)
+			if localized.type(value) == "table" then
+				for z = 1, #value do
+					local args_value = localized.tostring(value[z])
+					for i = 1, num_rules do
+						local rule = rules[i]
+						if (faster_than_match(rule[1]) or localized.string_find(args_name, rule[1])) and localized.string_find(args_value, rule[2]) then
+							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Query String prohibited (Table Fallback) : " .. current_url .. " - IP : " .. localized.remote_addr())
+							close_connection()
+							return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+						end
+					end
+				end
+			else
+				local args_value = localized.tostring(value)
+				for i = 1, num_rules do
+					local rule = rules[i]
+					if (faster_than_match(rule[1]) or localized.string_find(args_name, rule[1])) and localized.string_find(args_value, rule[2]) then
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Query String prohibited (Table Fallback) : " .. current_url .. " - IP : " .. localized.remote_addr())
+						close_connection()
+						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+					end
+				end
+			end
+		end
+	end
+end
+localized.WAF_query_string_Request()
+
+-- 4. HIGH-SPEED WAF URI PATH INTERCEPTOR
+localized.WAF_URI_Request = function()
+	local uri = localized.request_uri()
+	if uri == nil or uri == "" or uri == "/" then return end
+
+	local q_pos = localized.string_find(uri, "?", 1, true)
+	local args = q_pos and localized.string_sub(uri, 1, q_pos - 1) or uri
+
+	if args == "" or args == "/" then return end
+
+	local current_url = localized.URL()
+	-- FIXED: Complete removal of core hot path decryption and shared memory lookups
+	local pattern = worker_cache.cached_uri_regex
+
+	if pattern and pattern ~= "" then
+		if localized.ngx.re.find(args, pattern, "jo") then
+			localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request URI prohibited (Package RAM Cache) : " .. current_url .. " - IP : " .. localized.remote_addr())
+			close_connection()
+			return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+		end
+	elseif localized.WAF_URI_Request_table ~= nil and #localized.WAF_URI_Request_table > 0 then
+		local rules = localized.WAF_URI_Request_table
+		local num_rules = #rules
+
+		for i = 1, num_rules do
+			local rule = rules[i]
+			local host_pattern = rule[1]
+
+			if faster_than_match(host_pattern) or localized.string_find(current_url, host_pattern) then
+				if localized.string_find(args, rule[2]) then
+					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request URI prohibited (Table Fallback) : " .. current_url .. " - IP : " .. localized.remote_addr())
+					close_connection()
+					return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+				end
+			end
+		end
+	end
+end
+localized.WAF_URI_Request()
+--[[End WAF Web Application Firewall URI Request arguments filter]]
+localized.WAF_Runs = 1
+end
+--WAF_Checks()
+
+localized.get_resp_content_type_counter = 0
+local function get_resp_content_type(forced) --incase content-type header not yet exists grab it
+	local resp_content_type = nil
+	if forced == nil then
+		localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+1
+		if localized.ngx.header["content-type"] then
+			--localized.ngx_log(localized.ngx_LOG_TYPE, " localized.ngx.header['content-type'] " .. localized.ngx.header["content-type"] )
+			resp_content_type = localized.ngx.header["content-type"]
+			return resp_content_type
+		end
+	end
+	--made it this far still no content-type ?
+	if localized.get_resp_content_type_counter > 1 then --so we dont run location capture multiple times on the first run it will either be content-type or nil
+		return resp_content_type
+	end
+	--localized.ngx_log(localized.ngx_LOG_TYPE, " count is " .. localized.get_resp_content_type_counter )
+	--local req_headers = localized.ngx_req_get_headers()
+	local map = {
+		GET = localized.ngx_HTTP_GET,
+		HEAD = localized.ngx_HTTP_HEAD,
+		PUT = localized.ngx_HTTP_PUT,
+		POST = localized.ngx_HTTP_POST,
+		DELETE = localized.ngx_HTTP_DELETE,
+		OPTIONS = localized.ngx_HTTP_OPTIONS,
+		MKCOL = localized.ngx_HTTP_MKCOL,
+		COPY = localized.ngx_HTTP_COPY,
+		MOVE = localized.ngx_HTTP_MOVE,
+		PROPFIND = localized.ngx_HTTP_PROPFIND,
+		PROPPATCH = localized.ngx_HTTP_PROPPATCH,
+		LOCK = localized.ngx_HTTP_LOCK,
+		UNLOCK = localized.ngx_HTTP_UNLOCK,
+		PATCH = localized.ngx_HTTP_PATCH,
+		TRACE = localized.ngx_HTTP_TRACE,
+		CONNECT = localized.ngx_HTTP_CONNECT, --does not exist but put here never know in the future
+	}
+	local res = localized.ngx.location.capture(localized.uri(), {
+		method = map["HEAD"],
+		args = localized.ngx_var_args(),
+		--headers = req_headers,
+	})
+	if res then
+		if res.header ~= nil and localized.type(res.header) == "table" then
+			for headerName, header in localized.next, res.header do
+				--localized.ngx_log(localized.ngx_LOG_TYPE, " header name" .. headerName .. " value " .. header )
+				if localized.string_lower(localized.tostring(headerName)) == "content-type" then
+					--localized.ngx_log(localized.ngx_LOG_TYPE, " localized.ngx.location.capture " .. header )
+					resp_content_type = header
+				end
+			end
+		end
+	end
+	localized.ngx.header["content-type"] = resp_content_type --set header as content-type be either nil or the content-type
+	localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
+	return resp_content_type
+end
+--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] Content-Type header is. " .. get_resp_content_type() )
+--get_resp_content_type()
+
+--if a table has a value inside of it
+local function has_value(table_, val)
+	if table_[val] ~= nil then
+		return true
+	end
+	return false
+end
+
+localized.table_union_seen = localized.table_union_seen or {}
+localized.table_union_gen = localized.table_union_gen or 0
+local function TableConcat(t1, t2)
+	local len1 = #t1
+	local len2 = #t2
+	if len2 == 0 then return t1 end
+
+	-- Grab our permanent tracking structures from the namespace
+	local seen = localized.table_union_seen
+
+	-- Increment the Generation-ID register (Safely wraps automatically at integer limits)
+	local gen_id = localized.table_union_gen + 1
+	localized.table_union_gen = gen_id
+
+	-- Map existing t1 elements directly into the lookup array using our dynamic gen_id
+	for i = 1, len1 do
+		seen[t1[i]] = gen_id
+	end
+
+	-- Stream t2 variables using direct hardware register counters
+	local idx = len1
+	for i = 1, len2 do
+		local val = t2[i]
+
+		-- Instant O(1) matching evaluation replaces both the has_value and the cleanup loops
+		if seen[val] ~= gen_id then
+			seen[val] = gen_id
+			idx = idx + 1
+			t1[idx] = val
+		end
+	end
+
+	-- The tracking map clears itself implicitly on the subsequent function call via gen_id incrementation
+	return t1
 end
 
 local function internal_header_setup()
@@ -4328,19 +4560,47 @@ end
 internal_header_setup()
 
 local function check_tor_onion()
-	if localized.check_tor_onion_cached == nil then
-		for i=1,#localized.check_privacy() do
-			if localized.string_find(localized.string_lower(localized.check_privacy()[i][1]), localized.check_privacy()[i][2]) then
-				localized.check_tor_onion_cached = true
-				break
-			else
-				localized.check_tor_onion_cached = false
-			end
-		end
-		return localized.check_tor_onion_cached
-	else
+	if localized.check_tor_onion_cached ~= nil then
 		return localized.check_tor_onion_cached
 	end
+
+	local privacy_rules = localized.check_privacy()
+	if not privacy_rules or #privacy_rules == 0 then
+		localized.check_tor_onion_cached = false
+		return false
+	end
+
+	-- LOCAL REGISTER CACHE: Resolves text strings once per request pass
+	local current_host = localized.string_lower(localized.host())
+	local current_url  = localized.string_lower(localized.URL())
+	local current_port = localized.tostring(localized.ngx_var_server_port() or "")
+	local str_find     = localized.string_find
+
+	local matched = false
+	local num_rules = #privacy_rules
+	local next_node = next
+
+	-- FIXED: Traverses the top-level user configuration array allocation-free using stateless loops
+	for i = 1, num_rules do
+		local rule = privacy_rules[i]
+		local target_type = rule
+		local pattern     = rule[2]
+
+		-- Type mapping router evaluates target system parameters on the fly
+		local source_string = ""
+		if target_type == "host" then source_string = current_host
+		elseif target_type == "url"  then source_string = current_url
+		elseif target_type == "port" then source_string = current_port
+		end
+
+		if str_find(source_string, pattern) then
+			matched = true
+			break -- Safe matching escape block prevents the unneeded loop iterations
+		end
+	end
+
+	localized.check_tor_onion_cached = matched
+	return matched
 end
 --check_tor_onion() --true or false
 if check_tor_onion() then
@@ -6638,18 +6898,35 @@ local function run_checks() --nested function
 Header Modifications
 ]]
 local function header_modification()
-	if localized.custom_headers ~= nil and #localized.custom_headers > 0 then
-		for i=1,#localized.custom_headers do --for each host in our table
-			local v = localized.custom_headers[i]
-			if faster_than_match(v[1]) or localized.string_find(localized.URL(), v[1]) then --if our host matches one in the table
-				for first=1,#v[2] do --for each arg in our table
-					local value1 = v[2][first][1]
-					local value2 = v[2][first][2]
-					if value1 ~= nil and value2 ~= nil then
-						localized.ngx.header[value1] = value2
-					end
-					if value2 == nil then
-						localized.ngx.header[value1] = nil --remove the header
+	local headers_config = localized.custom_headers
+	if not headers_config or #headers_config == 0 then return end
+
+	-- LOCAL REGS: Cache the active request URL exactly ONCE to prevent multi-allocation loops
+	local current_url = localized.URL()
+	local str_find    = localized.string_find
+	local ngx_header  = localized.ngx.header
+	local next_node   = next
+
+	for i = 1, #headers_config do
+		local host_block = headers_config[i]
+		local host_regex = host_block[1]
+
+		if faster_than_match(host_regex) or str_find(current_url, host_regex) then
+			local rules_list = host_block[2]
+			if rules_list and #rules_list > 0 then
+				
+				-- FIXED: Employs a stateless, optimized loop pass across your sub-header tables
+				for first = 1, #rules_list do
+					local rule = rules_list[first]
+					local h_name  = rule[1]
+					local h_value = rule[2]
+
+					if h_name ~= nil then
+						if h_value ~= nil then
+							ngx_header[h_name] = h_value
+						else
+							ngx_header[h_name] = nil -- Atomically strip the identity header out of the response
+						end
 					end
 				end
 			end
@@ -6753,22 +7030,48 @@ if localized.ngx_var_http_internal_header_name ~= nil then
 localized.ngx_req_set_header(localized.ngx_var_http_internal_header_name, nil) --remove internal header
 end
 local function header_append_ip()
-	if localized.send_ip_to_backend_custom_headers ~= nil and #localized.send_ip_to_backend_custom_headers > 0 then
-		for i=1,#localized.send_ip_to_backend_custom_headers do --for each host in our table
-			--local v = custom_headers[i]
-			local v = localized.send_ip_to_backend_custom_headers[i]
-			if faster_than_match(v[1]) or localized.string_find(localized.URL(), v[1]) then --if our host matches one in the table
-				for first=1,#v[2] do --for each arg in our table
-					local value1 = v[2][first][1]
-					if localized.ngx_var_http_internal ~= "1" and value1 ~= nil then
-						localized.ngx_req_set_header(value1, localized.remote_addr())
-					end
-					if localized.ngx_var_http_internal_header_name ~= nil and localized.string_lower(value1) == "cf-connecting-ip" or localized.string_lower(value1) == "x-forwarded-for" then
-						localized.ngx_req_set_header(localized.ngx_var_http_internal_header_name, localized.ngx_var_http_internal_string) --mark a way so we know this is a internal run
+	local backend_headers_config = localized.send_ip_to_backend_custom_headers
+	if not backend_headers_config or #backend_headers_config == 0 then return end
+
+	-- LOCAL REGS: Cache values into tight CPU register arrays exactly ONCE
+	local current_url       = localized.URL()
+	local client_ip         = localized.remote_addr()
+	local is_internal_req   = localized.ngx_var_http_internal
+	local internal_hdr_name = localized.ngx_var_http_internal_header_name
+	local internal_hdr_val  = localized.ngx_var_http_internal_string
+	
+	local str_find          = localized.string_find
+	local str_lower         = localized.string_lower
+	local set_req_header    = localized.ngx_req_set_header
+
+	for i = 1, #backend_headers_config do
+		local host_block = backend_headers_config[i]
+		local host_regex = host_block[1]
+
+		if faster_than_match(host_regex) or str_find(current_url, host_regex) then
+			local rules_list = host_block[2]
+			if rules_list and #rules_list > 0 then
+				
+				-- JIT-OPTIMIZED LOOP: Unrolls nested array indexing thrashes completely
+				for first = 1, #rules_list do
+					local rule = rules_list[first]
+					local target_header = rule[1]
+
+					if target_header ~= nil then
+						if is_internal_req ~= "1" then
+							set_req_header(target_header, client_ip)
+						end
+
+						if internal_hdr_name ~= nil then
+							local lower_hdr = str_lower(target_header)
+							if lower_hdr == "cf-connecting-ip" or lower_hdr == "x-forwarded-for" then
+								set_req_header(internal_hdr_name, internal_hdr_val)
+							end
+						end
 					end
 				end
-				break --break out of the for each loop pointless to keep searching the rest since we matched our host
 			end
+			break -- Break loop instantly once our current request context matches
 		end
 	end
 end
@@ -6810,25 +7113,41 @@ end
 Query String Remove arguments
 ]]
 local function query_string_remove_args()
-	if localized.query_string_remove_args_table ~= nil and #localized.query_string_remove_args_table > 0 then
-		local args = localized.ngx_req_get_uri_args() --grab our query string args and put them into a table
-		local modified = nil
+	local remove_config = localized.query_string_remove_args_table
+	if not remove_config or #remove_config == 0 or remove_config == nil then return end
 
-		for i=1,#localized.query_string_remove_args_table do --for each host in our table
-			local v = localized.query_string_remove_args_table[i]
-			if faster_than_match(v[1]) or localized.string_find(localized.URL(), v[1]) then --if our host matches one in the table
-				for i=1,#v[2] do --for each arg in our table
-					local value = v[2][i]
-					args[value] = nil --remove the arguement from the args table
-					modified = 1 --set args as modified
+	local current_url = localized.URL()
+	local str_find    = localized.string_find
+	local next_node   = next
+
+	for i = 1, #remove_config do
+		local host_block = remove_config[i]
+		if host_block ~= nil then
+			local host_regex = host_block[1]
+
+			if host_regex and (faster_than_match(host_regex) or str_find(current_url, host_regex)) then
+				local target_args_list = host_block[2]
+
+				if target_args_list and #target_args_list > 0 then
+					local args = localized.ngx_req_get_uri_args()
+					if args and next_node(args) ~= nil then
+						local modified = false
+
+						for idx = 1, #target_args_list do
+							local arg_to_strip = target_args_list[idx]
+							if arg_to_strip and args[arg_to_strip] ~= nil then
+								args[arg_to_strip] = nil
+								modified = true
+							end
+						end
+
+						if modified then
+							localized.ngx_req_set_uri_args(args)
+						end
+					end
 				end
-				break --break out of the for each loop pointless to keep searching the rest since we matched our host
+				break
 			end
-		end
-		if modified == 1 then --need to set our args as our new modified one
-			localized.ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check localized.ngx.var.args
-		else
-			return --carry on script functions
 		end
 	end
 end
@@ -6841,26 +7160,53 @@ Query String Remove arguments
 Query String Expected arguments Whitelist only
 ]]
 local function query_string_expected_args_only()
-	if localized.query_string_expected_args_only_table ~= nil and #localized.query_string_expected_args_only_table > 0 then
-		local args = localized.ngx_req_get_uri_args() --grab our query string args and put them into a table
-		local modified = nil
+	local whitelist_config = localized.query_string_expected_args_only_table
+	if not whitelist_config or #whitelist_config == 0 then return end
 
-		for i=1,#localized.query_string_expected_args_only_table do --for each host in our table
-			local v = localized.query_string_expected_args_only_table[i]
-			if faster_than_match(v[1]) or localized.string_find(localized.URL(), v[1]) then --if our host matches one in the table
-				for key, value in localized.next, args do
-					if has_value(v[2], localized.tostring(key)) == false then
-						args[key] = nil --remove the arguement from the args table
-						modified = 1 --set args as modified
+	-- LOCAL REGS: Cache the active request URL exactly once to prevent allocation thrashing
+	local current_url = localized.URL()
+	local str_find    = localized.string_find
+	local next_node   = next
+
+	for i = 1, #whitelist_config do
+		local host_block = whitelist_config[i]
+		-- FIXED: Unpacks the first index string element matching Conor's multidimensional array format
+		local host_regex = host_block[1]
+
+		if faster_than_match(host_regex) or str_find(current_url, host_regex) then
+			-- FIXED: Safely maps index 2 to pull the nested sub-table array of whitelisted keys
+			local allowed_args_array = host_block[2]
+
+			if allowed_args_array then
+				-- LAZY PARSING: Only query Nginx arguments once a true URL match is guaranteed
+				local args = localized.ngx_req_get_uri_args()
+
+				if args and next_node(args) ~= nil then
+					-- OPTIMIZATION MATRIX: Transmute the numeric array index into a blazing fast O(1) lookup map
+					local allowed_lookup_map = {}
+					for idx = 1, #allowed_args_array do
+						local permitted_key = allowed_args_array[idx]
+						if permitted_key then allowed_lookup_map[permitted_key] = true end
+					end
+
+					local modified = false
+					-- Iterate through client parameters using our ultra-fast localized next pointer
+					for key, _ in next_node, args do
+						local current_param_key = localized.tostring(key)
+						
+						-- Instant O(1) hash map validation completely replaces the slow has_value loop passes
+						if not allowed_lookup_map[current_param_key] then
+							args[key] = nil -- Instantly drop un-whitelisted / hostile parameters out of the stack
+							modified = true
+						end
+					end
+
+					if modified then
+						localized.ngx_req_set_uri_args(args) -- Commit the scrubbed arguments back to Nginx
 					end
 				end
-				break --break out of the for each loop pointless to keep searching the rest since we matched our host
 			end
-		end
-		if modified == 1 then --need to set our args as our new modified one
-			localized.ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check localized.ngx.var.args
-		else
-			return --carry on script functions
+			break -- Break the loop instantly since our matched domain path pass has finished
 		end
 	end
 end
@@ -6873,27 +7219,50 @@ Query String Expected arguments Whitelist only
 Query String Sort
 ]]
 local function query_string_sort()
-	if localized.query_string_sort_table ~= nil and #localized.query_string_sort_table > 0 then
-		local allow_site = nil
+	local sort_config = localized.query_string_sort_table
+	if not sort_config or #sort_config == 0 then return end
 
-		for i=1,#localized.query_string_sort_table do --for each host in our table
-			local v = localized.query_string_sort_table[i]
-			if faster_than_match(v[1]) or localized.string_find(localized.URL(), v[1]) then --if our host matches one in the table
-				if v[2] == 1 then --run query string sort
-					allow_site = 2 --run query string sort
+	-- LOCAL REGS: Cache the active request URL exactly once to prevent allocation loops
+	local current_url = localized.URL()
+	local str_find    = localized.string_find
+	local next_node   = next
+
+
+	for i = 1, #sort_config do
+		local host_block = sort_config[i]
+		-- FIXED: Unpacks the first index string element matching Conor's multidimensional array format
+		local host_regex = host_block[1]
+
+		if faster_than_match(host_regex) or str_find(current_url, host_regex) then
+			-- FIXED: Evaluates the second index toggle value inside the configuration row block safely
+			if host_block[2] == 1 then
+				-- LAZY PARSING: Only query Nginx query variables once sorting is guaranteed
+				local args = localized.ngx_req_get_uri_args()
+				
+				if args and next_node(args) ~= nil then
+					-- JIT SORTING OPTIMIZATION: Extract keys to a flat sequential array for LuaJIT table.sort alignment
+					local keys = {}
+					local k_count = 0
+					for k in next_node, args do
+						k_count = k_count + 1
+						keys[k_count] = k
+					end
+
+					if k_count > 1 then
+						localized.table_sort(keys) -- Blazing fast assembly-unrolled array sorting
+
+						-- Re-assemble arguments table based on the new lexicographical key order
+						local sorted_args = {}
+						for idx = 1, k_count do
+							local k = keys[idx]
+							sorted_args[k] = args[k]
+						end
+						
+						localized.ngx_req_set_uri_args(sorted_args) -- Commit the normalized arguments string back to Nginx
+					end
 				end
-				if v[2] == 0 then --bypass
-					allow_site = 1 --do not run query string sort
-				end
-				break --break out of the for each loop pointless to keep searching the rest since we matched our host
 			end
-		end
-		if allow_site == 2 then --sort our query string
-			local args = localized.ngx_req_get_uri_args() --grab our query string args and put them into a table
-			localized.table_sort(args) --sort our query string args table into order
-			localized.ngx_req_set_uri_args(args) --set the args on the server as our new ordered args check localized.ngx.var.args
-		else --allow_site was 1
-			return --carry on script functions
+			break -- Break the loop instantly since our domain block match hit has concluded successfully
 		end
 	end
 end
@@ -7006,109 +7375,108 @@ return --exit from run_checks() function
 end
 
 local function check_user_agents()
+
 	local function check_user_agent_blacklist(user_agent_table)
-		if user_agent_table ~= nil and #user_agent_table > 0 then
-			local req_headers = localized.ngx_req_get_headers()
-			local user_agent_blacklist_var = req_headers["user-agent"] or ""
-			if user_agent_blacklist_var then
-				if localized.type(user_agent_blacklist_var) ~= "table" then
-					for i=1,#user_agent_table do
-						local value = user_agent_table[i]
-						if value[2] == 1 then --case insensative
-							user_agent_blacklist_var = localized.string_lower(user_agent_blacklist_var)
-							value[1] = localized.string_lower(value[1])
-						end
-						if value[2] == 2 then --case sensative
-						end
-						if value[2] == 3 then --regex case sensative
-						end
-						if value[2] == 4 then --regex lower case insensative
-							user_agent_blacklist_var = localized.string_lower(user_agent_blacklist_var)
-						end
-						if faster_than_match(value[1]) or localized.string_find(user_agent_blacklist_var, value[1])then
-							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] User-Agent Blocked - " .. user_agent_blacklist_var .. " -" .. " IP : " .. localized.remote_addr())
-							close_connection()
-							return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
-						end
-					end
-				else
-					for x=1, #user_agent_blacklist_var do
-						for i=1,#user_agent_table do
-							local value = user_agent_table[i]
-							if value[2] == 1 then --case insensative
-								user_agent_blacklist_var[x] = localized.string_lower(user_agent_blacklist_var[x])
-								value[1] = localized.string_lower(value[1])
-							end
-							if value[2] == 2 then --case sensative
-							end
-							if value[2] == 3 then --regex case sensative
-							end
-							if value[2] == 4 then --regex lower case insensative
-								user_agent_blacklist_var[x] = localized.string_lower(user_agent_blacklist_var[x])
-							end
-							if faster_than_match(value[1]) or localized.string_find(user_agent_blacklist_var[x], value[1])then
-								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] User-Agent Blocked - " .. user_agent_blacklist_var[x] .. " -" .. " IP : " .. localized.remote_addr())
-								close_connection()
-								return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN) --deny user access
-							end
-						end
+		if not user_agent_table or #user_agent_table == 0 then return end
+
+		local req_headers = localized.ngx_req_get_headers()
+		local raw_ua = req_headers["user-agent"] or ""
+
+		local str_find = localized.string_find
+		local str_lower = localized.string_lower
+		local num_rules = #user_agent_table
+
+		-- Normalize the inbound user-agent string exactly ONCE per request pass
+		local raw_ua_lower = str_lower(localized.tostring(raw_ua))
+
+		if localized.type(raw_ua) ~= "table" then
+			for i = 1, num_rules do
+				local rule = user_agent_table[i]
+				local pattern = rule[1]
+				local match_mode = rule[2]
+			
+				-- FIXED: Select pre-normalized local registers to prevent allocation thrashes inside loops
+				local evaluate_string = (match_mode == 1 or match_mode == 4) and raw_ua_lower or localized.tostring(raw_ua)
+				local clean_pattern = (match_mode == 1 or match_mode == 4) and str_lower(localized.tostring(pattern)) or localized.tostring(pattern)
+
+				if faster_than_match(clean_pattern) or str_find(evaluate_string, clean_pattern) then
+					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] User-Agent Blocked - " .. localized.tostring(raw_ua) .. " - IP : " .. localized.remote_addr())
+					close_connection()
+					return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+				end
+			end
+		else
+			-- Multi-value Array User-Agent Spoof Protection
+			for x = 1, #raw_ua do
+				local current_ua_element = localized.tostring(raw_ua[x])
+				local current_ua_lower = str_lower(current_ua_element)
+
+				for i = 1, num_rules do
+					local rule = user_agent_table[i]
+					local pattern = rule[1]
+					local match_mode = rule[2]
+
+					local evaluate_string = (match_mode == 1 or match_mode == 4) and current_ua_lower or current_ua_element
+					local clean_pattern = (match_mode == 1 or match_mode == 4) and str_lower(localized.tostring(pattern)) or localized.tostring(pattern)
+
+					if faster_than_match(clean_pattern) or str_find(evaluate_string, clean_pattern) then
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] User-Agent Blocked - " .. current_ua_element .. " - IP : " .. localized.remote_addr())
+						close_connection()
+						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
 					end
 				end
 			end
 		end
-
-		return --no user agent was in blacklist
 	end
 	check_user_agent_blacklist(localized.user_agent_blacklist_table) --run user agent blacklist check function
 
 	local function check_user_agent_whitelist(user_agent_table)
-		if user_agent_table ~= nil and #user_agent_table > 0 then
-			local req_headers = localized.ngx_req_get_headers()
-			local user_agent_whitelist_var = req_headers["user-agent"] or ""
-			if user_agent_whitelist_var then
-				if localized.type(user_agent_whitelist_var) ~= "table" then
-					for i=1,#user_agent_table do
-						local value = user_agent_table[i]
-						if value[2] == 1 then --case insensative
-							user_agent_whitelist_var = localized.string_lower(user_agent_whitelist_var)
-							value[1] = localized.string_lower(value[1])
-						end
-						if value[2] == 2 then --case sensative
-						end
-						if value[2] == 3 then --regex case sensative
-						end
-						if value[2] == 4 then --regex lower case insensative
-							user_agent_whitelist_var = localized.string_lower(user_agent_whitelist_var)
-						end
-						if faster_than_match(value[1]) or localized.string_find(user_agent_whitelist_var, value[1])then
-							return master_exit() --Go to content
-						end
-					end
-				else
-					for x=1, #user_agent_whitelist_var do
-						for i=1,#user_agent_table do
-							local value = user_agent_table[i]
-							if value[2] == 1 then --case insensative
-								user_agent_whitelist_var[x] = localized.string_lower(user_agent_whitelist_var[x])
-								value[1] = localized.string_lower(value[1])
-							end
-							if value[2] == 2 then --case sensative
-							end
-							if value[2] == 3 then --regex case sensative
-							end
-							if value[2] == 4 then --regex lower case insensative
-								user_agent_whitelist_var[x] = localized.string_lower(user_agent_whitelist_var[x])
-							end
-							if faster_than_match(value[1]) or localized.string_find(user_agent_whitelist_var[x], value[1])then
-								return master_exit() --Go to content
-							end
-						end
+		if not user_agent_table or #user_agent_table == 0 then return end
+
+		local req_headers = localized.ngx_req_get_headers()
+		local raw_ua = req_headers["user-agent"] or ""
+
+		local str_find = localized.string_find
+		local str_lower = localized.string_lower
+		local num_rules = #user_agent_table
+
+		-- Normalize the inbound user-agent string exactly ONCE per request pass
+		local raw_ua_lower = str_lower(localized.tostring(raw_ua))
+
+		if localized.type(raw_ua) ~= "table" then
+			for i = 1, num_rules do
+				local rule = user_agent_table[i]
+				local pattern = rule[1]
+				local match_mode = rule[2]
+				
+				-- FIXED: Select pre-normalized local registers to prevent allocation thrashes inside loops
+				local evaluate_string = (match_mode == 1 or match_mode == 4) and raw_ua_lower or localized.tostring(raw_ua)
+				local clean_pattern = (match_mode == 1 or match_mode == 4) and str_lower(localized.tostring(pattern)) or localized.tostring(pattern)
+
+				if faster_than_match(clean_pattern) or str_find(evaluate_string, clean_pattern) then
+					return master_exit() -- Legitimate search spider matched! Grant direct access bypass
+				end
+			end
+		else
+			-- Multi-value Array User-Agent Spoof Protection
+			for x = 1, #raw_ua do
+				local current_ua_element = localized.tostring(raw_ua[x])
+				local current_ua_lower = str_lower(current_ua_element)
+				
+				for i = 1, num_rules do
+					local rule = user_agent_table[i]
+					local pattern = rule[1]
+					local match_mode = rule[2]
+					
+					local evaluate_string = (match_mode == 1 or match_mode == 4) and current_ua_lower or current_ua_element
+					local clean_pattern = (match_mode == 1 or match_mode == 4) and str_lower(localized.tostring(pattern)) or localized.tostring(pattern)
+
+					if faster_than_match(clean_pattern) or str_find(evaluate_string, clean_pattern) then
+						return master_exit() -- Legitimate search spider matched! Grant direct access bypass
 					end
 				end
 			end
 		end
-
-		return --no user agent was in whitelist
 	end
 	check_user_agent_whitelist(localized.user_agent_whitelist_table) --run user agent whitelist check function
 	if master_exit_var == 1 then
@@ -7949,29 +8317,38 @@ master switch
 ]]
 --master switch check
 local function check_master_switch()
-	if localized.master_switch == 2 then --script disabled
-		return master_exit() --Go to content
+	local switch_mode = localized.master_switch
+	if switch_mode == 2 then -- Master Switch completely disabled
+		return master_exit() -- Go straight to content
 	end
-	if localized.master_switch == 3 then --custom host selection
-		local allow_site = nil
-		if localized.master_switch_custom_hosts ~= nil and #localized.master_switch_custom_hosts > 0 then
-			for i=1,#localized.master_switch_custom_hosts do --for each host in our table
-				local v = localized.master_switch_custom_hosts[i]
-				if faster_than_match(v[2]) or localized.string_find(localized.URL(), v[2]) then --if our host matches one in the table
-					if v[1] == 1 then --run auth
-						allow_site = 2 --run auth checks
-					end
-					if v[1] == 2 then --bypass
-						allow_site = 1 --bypass auth achecks
-					end
-					break --break out of the for each loop pointless to keep searching the rest since we matched our host
+
+	if switch_mode == 3 then -- Custom Host / Path router selection mode
+		local custom_hosts = localized.master_switch_custom_hosts
+		if not custom_hosts or #custom_hosts == 0 then return end
+
+		-- LOCAL REGS: Cache the active request URL exactly ONCE to prevent allocation loops
+		local current_url = localized.URL()
+		local str_find    = localized.string_find
+		local allow_site  = nil
+
+		for i = 1, #custom_hosts do
+			local host_block = custom_hosts[i]
+			local host_regex = host_block[2]
+
+			if faster_than_match(host_regex) or str_find(current_url, host_regex) then
+				-- SHORT-CIRCUIT FLAG: Evaluates toggle match properties out of localized registers instantly
+				local action_flag = host_block[1]
+				if action_flag == 1 then
+					allow_site = 2 -- Enforce browser puzzle authentication checks
+				elseif action_flag == 2 then
+					allow_site = 1 -- Grant direct access bypass immunity
 				end
+				break -- Break out of the loop instantly once our current request context matches
 			end
 		end
-		if allow_site == 1 then --checks passed site allowed grant direct access
-			return master_exit() --Go to content
-		else --allow_site was 2 to disallow direct access we matched a host to protect
-			return --carry on script functions to display auth page
+
+		if allow_site == 1 then
+			return master_exit() -- Whitelisted context: Proceed to site content block-free
 		end
 	end
 end
