@@ -1,3 +1,7 @@
+Version: 6.3
+Date: 2026-10-06
+- Various speed and performance improvements re-order functions use caching and memory more efficiently.
+
 Version: 6.2
 Date: 2026-10-03
 - Use Lua built in base64 and improve JS scrambler speed
