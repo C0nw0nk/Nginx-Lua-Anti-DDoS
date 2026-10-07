@@ -49,7 +49,7 @@ localized.bit_rshift = localized.bit.rshift
 localized.bit_band = localized.bit.band
 localized.bit_bnot = localized.bit.bnot
 localized.math_floor = math.floor
-if localized.prng_state==nil then localized.prng_state=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000),0xFFFFFFFF) end math.randomseed=function(new_seed) if not new_seed then local counter=(localized.seed_counter or 0)+1 localized.seed_counter=counter local hash=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000)+counter,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) hash=localized.bit_band(hash*0x85ebca6b,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,13)) hash=localized.bit_band(hash*0xc2b2ae35,0xFFFFFFFF) new_seed=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) end local final_seed=localized.bit_band(new_seed,0xFFFFFFFF) localized.prng_state=final_seed return final_seed end math.random=function(m,n) local state=localized.prng_state state=localized.bit_bxor(state,localized.bit_lshift(state,13)) state=localized.bit_bxor(state,localized.bit_rshift(state,17)) state=localized.bit_bxor(state,localized.bit_lshift(state,5)) state=localized.bit_band(state,0xFFFFFFFF) localized.prng_state=state if not m then return state/4294967296 elseif not n then return(state%m)+1 else return(state%(n-m+1))+m end end --override math.rnadomseed and math.random
+if localized.prng_state==nil then localized.prng_state=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000),0xFFFFFFFF) end math.randomseed=function(new_seed) if not new_seed then local counter=(localized.seed_counter or 0)+1 localized.seed_counter=counter local hash=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000)+counter,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) hash=localized.bit_band(hash*0x85ebca6b,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,13)) hash=localized.bit_band(hash*0xc2b2ae35,0xFFFFFFFF) new_seed=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) end local final_seed=localized.bit_band(new_seed,0xFFFFFFFF) localized.prng_state=final_seed return final_seed end math.random=function(m,n) local state=localized.prng_state state=localized.bit_bxor(state,localized.bit_lshift(state,13)) state=localized.bit_bxor(state,localized.bit_rshift(state,17)) state=localized.bit_bxor(state,localized.bit_lshift(state,5)) state=localized.bit_band(state,0xFFFFFFFF) localized.prng_state=state if not m then return state/4294967296 elseif not n then return(state%m)+1 else return(state%(n-m+1))+m end end --override math.randomseed and math.random
 localized.math_sin = math.sin
 localized.math_pi = math.pi
 localized.math_sqrt = math.sqrt
@@ -966,7 +966,7 @@ I added some examples of bad bots to block access to.
 ]]
 localized.user_agent_blacklist_table = {
 	{
-		"^%s*$",
+		"^\\s*$",
 		3,
 	}, --blocks blank / empty user-agents
 	{
@@ -3836,6 +3836,67 @@ local sync_shared_dict_to_ram = function(premature)
 	active_cache.cached_query_regex  = run_compiler(tbl_query)
 	active_cache.cached_uri_regex    = run_compiler(tbl_uri)
 
+	-- ==============================================================================
+	-- UNIFIED BACKGROUND USER-AGENT COMPILATION MODULE (JIT ENHANCED)
+	-- ==============================================================================
+	local str_lower = localized.string_lower or string.lower
+
+	-- 1. PROCESS THE BLACKLIST TABLE
+	local black_parts = {}
+	local b_count = 0
+	local ua_table = localized.user_agent_blacklist_table or {}
+	active_cache.block_empty_ua = false
+
+	for idx = 1, #ua_table do
+		local rule_row = ua_table[idx]
+		if rule_row and rule_row[1] and rule_row[1] ~= "" then
+			local target_pattern = rule_row[1]
+			local target_mode = rule_row[2] or 1
+
+			if target_pattern == "^\\s*$" or target_pattern == "^%s*$" then
+				active_cache.block_empty_ua = true
+			end
+
+			if target_mode == 1 or target_mode == 4 then
+				target_pattern = "((?i)" .. str_lower(target_pattern) .. ")"
+			else
+				target_pattern = "(" .. target_pattern .. ")"
+			end
+
+			b_count = b_count + 1
+			black_parts[b_count] = target_pattern
+		end
+	end
+	active_cache.compiled_ua_blacklist = b_count > 0 and table.concat(black_parts, "|") or ""
+
+	-- 2. PROCESS THE WHITELIST TABLE (FIXED: Structured identically to follow table rules)
+	local white_parts = {}
+	local w_count = 0
+	local ua_white_table = localized.user_agent_whitelist_table or {}
+	active_cache.allow_empty_ua = false
+
+	for idx = 1, #ua_white_table do
+		local rule_row = ua_white_table[idx]
+		if rule_row and rule_row[1] and rule_row[1] ~= "" then
+			local target_pattern = rule_row[1]
+			local target_mode = rule_row[2] or 1
+
+			if target_pattern == "^\\s*$" or target_pattern == "^%s*$" then
+				active_cache.allow_empty_ua = true
+			end
+
+			if target_mode == 1 or target_mode == 4 then
+				target_pattern = "((?i)" .. str_lower(target_pattern) .. ")"
+			else
+				target_pattern = "(" .. target_pattern .. ")"
+			end
+
+			w_count = w_count + 1
+			white_parts[w_count] = target_pattern
+		end
+	end
+	active_cache.compiled_ua_whitelist = w_count > 0 and table.concat(white_parts, "|") or ""
+
 	active_cache.sync_loop_func = sync_shared_dict_to_ram
 
 	local ok, err = ngx.timer.at(5.0, function(p)
@@ -3859,6 +3920,67 @@ worker_cache.cached_post_regex   = local_compile_waf_fallback_regex(localized.WA
 worker_cache.cached_header_regex = local_compile_waf_fallback_regex(localized.WAF_Header_Request_table)
 worker_cache.cached_query_regex  = local_compile_waf_fallback_regex(localized.WAF_query_string_Request_table)
 worker_cache.cached_uri_regex    = local_compile_waf_fallback_regex(localized.WAF_URI_Request_table)
+
+-- ==============================================================================
+-- UNIFIED BOOT INITIALIZATION PHASE (FOLLOWING DYNAMIC CONFIGURATION SCHEMAS)
+-- ==============================================================================
+local init_ua_table = localized.user_agent_blacklist_table or {}
+local init_white_table = localized.user_agent_whitelist_table or {}
+local boot_lower = localized.string_lower or string.lower
+
+-- 1. INITIALIZE BLACKLIST BUFFER MATRIX
+local init_ua_parts = {}
+local init_ua_count = 0
+worker_cache.block_empty_ua = false
+
+for idx = 1, #init_ua_table do
+	local row_entry = init_ua_table[idx]
+	if row_entry and row_entry[1] and row_entry[1] ~= "" then
+		local boot_pattern = row_entry[1]
+		local boot_mode = row_entry[2] or 1
+
+		if boot_pattern == "^\\s*$" or boot_pattern == "^%s*$" then
+			worker_cache.block_empty_ua = true
+		end
+
+		if boot_mode == 1 or boot_mode == 4 then
+			boot_pattern = "((?i)" .. boot_lower(boot_pattern) .. ")"
+		else
+			boot_pattern = "(" .. boot_pattern .. ")"
+		end
+
+		init_ua_count = init_ua_count + 1
+		init_ua_parts[init_ua_count] = boot_pattern
+	end
+end
+worker_cache.compiled_ua_blacklist = init_ua_count > 0 and table.concat(init_ua_parts, "|") or ""
+
+-- 2. INITIALIZE WHITELIST BUFFER MATRIX (FIXED: Standardized identically to mirror config rules)
+local init_white_parts = {}
+local init_white_count = 0
+worker_cache.allow_empty_ua = false
+
+for idx = 1, #init_white_table do
+	local row_entry = init_white_table[idx]
+	if row_entry and row_entry[1] and row_entry[1] ~= "" then
+		local boot_pattern = row_entry[1]
+		local boot_mode = row_entry[2] or 1
+
+		if boot_pattern == "^\\s*$" or boot_pattern == "^%s*$" then
+			worker_cache.allow_empty_ua = true
+		end
+
+		if boot_mode == 1 or boot_mode == 4 then
+			boot_pattern = "((?i)" .. boot_lower(boot_pattern) .. ")"
+		else
+			boot_pattern = "(" .. boot_pattern .. ")"
+		end
+
+		init_white_count = init_white_count + 1
+		init_white_parts[init_white_count] = boot_pattern
+	end
+end
+worker_cache.compiled_ua_whitelist = init_white_count > 0 and table.concat(init_white_parts, "|") or ""
 
 if localized.ngx_var_http_internal == nil then
 	if not worker_cache.sync_loop_started then
@@ -7376,116 +7498,69 @@ if master_exit_var == 1 then
 return --exit from run_checks() function
 end
 
-local function check_user_agents()
+	-- FIXED: Streamlined Dynamic Loop-Free JIT User-Agent Interceptor (Strict Table Compliance)
+	local function check_user_agents()
+		local raw_ua = localized.ngx_req_get_headers()["user-agent"] or ""
+		local f_find = localized.ngx.re.find
 
-	local function check_user_agent_blacklist(user_agent_table)
-		if not user_agent_table or #user_agent_table == 0 then return end
+		local is_empty_ua = (raw_ua == "" or raw_ua == nil or f_find(localized.tostring(raw_ua), "^\\s*$", "jo"))
 
-		local req_headers = localized.ngx_req_get_headers()
-		local raw_ua = req_headers["user-agent"] or ""
+		-- PHASE 1: DYNAMIC EMPTY-UA WHITELIST ROUTING PASS
+		if is_empty_ua and worker_cache.allow_empty_ua then
+			return master_exit() -- User explicitly whitelisted blank/space agents: grant bypass immunity!
+		end
 
-		local str_find = localized.string_find
-		local str_lower = localized.string_lower
-		local num_rules = #user_agent_table
+		-- PHASE 2: DYNAMIC EMPTY-UA BLACKLIST ENFORCEMENT PASS
+		if is_empty_ua and worker_cache.block_empty_ua then
+			localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Empty or Whitespace User-Agent Blocked via active rule set - IP : " .. localized.remote_addr())
+			close_connection()
+			return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+		end
 
-		-- Normalize the inbound user-agent string exactly ONCE per request pass
-		local raw_ua_lower = str_lower(localized.tostring(raw_ua))
+		-- Fallback exit guard if header evaluates to empty but no rules mandate blocking/whitelisting it
+		if raw_ua == "" then return end
 
-		if localized.type(raw_ua) ~= "table" then
-			for i = 1, num_rules do
-				local rule = user_agent_table[i]
-				local pattern = rule[1]
-				local match_mode = rule[2]
-			
-				-- FIXED: Select pre-normalized local registers to prevent allocation thrashes inside loops
-				local evaluate_string = (match_mode == 1 or match_mode == 4) and raw_ua_lower or localized.tostring(raw_ua)
-				local clean_pattern = (match_mode == 1 or match_mode == 4) and str_lower(localized.tostring(pattern)) or localized.tostring(pattern)
+		local is_table = localized.type(raw_ua) == "table"
 
-				if faster_than_match(clean_pattern) or str_find(evaluate_string, clean_pattern) then
-					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] User-Agent Blocked - " .. localized.tostring(raw_ua) .. " - IP : " .. localized.remote_addr())
-					close_connection()
-					return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+		-- PHASE 3: LOOP-FREE JIT SCALAR WHITELIST BYPASS PASS
+		local white_pat = worker_cache.compiled_ua_whitelist
+		if white_pat and white_pat ~= "" then
+			if is_table then
+				for x = 1, #raw_ua do
+					if f_find(localized.tostring(raw_ua[x]), white_pat, "jo") then 
+						return master_exit() 
+					end
+				end
+			else
+				if f_find(localized.tostring(raw_ua), white_pat, "jo") then 
+					return master_exit() 
 				end
 			end
-		else
-			-- Multi-value Array User-Agent Spoof Protection
-			for x = 1, #raw_ua do
-				local current_ua_element = localized.tostring(raw_ua[x])
-				local current_ua_lower = str_lower(current_ua_element)
+		end
 
-				for i = 1, num_rules do
-					local rule = user_agent_table[i]
-					local pattern = rule[1]
-					local match_mode = rule[2]
-
-					local evaluate_string = (match_mode == 1 or match_mode == 4) and current_ua_lower or current_ua_element
-					local clean_pattern = (match_mode == 1 or match_mode == 4) and str_lower(localized.tostring(pattern)) or localized.tostring(pattern)
-
-					if faster_than_match(clean_pattern) or str_find(evaluate_string, clean_pattern) then
-						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] User-Agent Blocked - " .. current_ua_element .. " - IP : " .. localized.remote_addr())
+		-- PHASE 4: LOOP-FREE JIT SCALAR BLACKLIST BLOCK PASS
+		local black_pat = worker_cache.compiled_ua_blacklist
+		if black_pat and black_pat ~= "" then
+			if is_table then
+				for x = 1, #raw_ua do
+					local ua_str = localized.tostring(raw_ua[x])
+					if f_find(ua_str, black_pat, "jo") then
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] User-Agent Blocked - " .. ua_str .. " - IP : " .. localized.remote_addr())
 						close_connection()
 						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
 					end
 				end
-			end
-		end
-	end
-	check_user_agent_blacklist(localized.user_agent_blacklist_table) --run user agent blacklist check function
-
-	local function check_user_agent_whitelist(user_agent_table)
-		if not user_agent_table or #user_agent_table == 0 then return end
-
-		local req_headers = localized.ngx_req_get_headers()
-		local raw_ua = req_headers["user-agent"] or ""
-
-		local str_find = localized.string_find
-		local str_lower = localized.string_lower
-		local num_rules = #user_agent_table
-
-		-- Normalize the inbound user-agent string exactly ONCE per request pass
-		local raw_ua_lower = str_lower(localized.tostring(raw_ua))
-
-		if localized.type(raw_ua) ~= "table" then
-			for i = 1, num_rules do
-				local rule = user_agent_table[i]
-				local pattern = rule[1]
-				local match_mode = rule[2]
-				
-				-- FIXED: Select pre-normalized local registers to prevent allocation thrashes inside loops
-				local evaluate_string = (match_mode == 1 or match_mode == 4) and raw_ua_lower or localized.tostring(raw_ua)
-				local clean_pattern = (match_mode == 1 or match_mode == 4) and str_lower(localized.tostring(pattern)) or localized.tostring(pattern)
-
-				if faster_than_match(clean_pattern) or str_find(evaluate_string, clean_pattern) then
-					return master_exit() -- Legitimate search spider matched! Grant direct access bypass
-				end
-			end
-		else
-			-- Multi-value Array User-Agent Spoof Protection
-			for x = 1, #raw_ua do
-				local current_ua_element = localized.tostring(raw_ua[x])
-				local current_ua_lower = str_lower(current_ua_element)
-				
-				for i = 1, num_rules do
-					local rule = user_agent_table[i]
-					local pattern = rule[1]
-					local match_mode = rule[2]
-					
-					local evaluate_string = (match_mode == 1 or match_mode == 4) and current_ua_lower or current_ua_element
-					local clean_pattern = (match_mode == 1 or match_mode == 4) and str_lower(localized.tostring(pattern)) or localized.tostring(pattern)
-
-					if faster_than_match(clean_pattern) or str_find(evaluate_string, clean_pattern) then
-						return master_exit() -- Legitimate search spider matched! Grant direct access bypass
-					end
+			else
+				local ua_str = localized.tostring(raw_ua)
+				if f_find(ua_str, black_pat, "jo") then
+					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] User-Agent Blocked - " .. ua_str .. " - IP : " .. localized.remote_addr())
+					close_connection()
+					return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
 				end
 			end
 		end
 	end
-	check_user_agent_whitelist(localized.user_agent_whitelist_table) --run user agent whitelist check function
-	if master_exit_var == 1 then
-		return --exit from check_user_agents() function
-	end
-end
-check_user_agents()
+	check_user_agents()
 if master_exit_var == 1 then
 return --exit from run_checks() function
 end
