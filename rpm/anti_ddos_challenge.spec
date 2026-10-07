@@ -66,6 +66,9 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Wed Oct 07 2026 C0nw0nk <C0nw0nk@github> - 6.4-1
+- Improvements on speed avoiding memory thrashing / leaks etc.
+- Make user-agent blacklist / whitelist matching faster.
 * Tue Oct 06 2026 C0nw0nk <C0nw0nk@github> - 6.3-1
 - Various speed and performance improvements re-order functions use caching and memory more efficiently.
 * Tue Oct 06 2026 C0nw0nk <C0nw0nk@github> - 6.3-1
