@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 6.3
+Script Version: 6.4
 
 Copyright Conor McKnight
 
@@ -49,17 +49,17 @@ localized.bit_rshift = localized.bit.rshift
 localized.bit_band = localized.bit.band
 localized.bit_bnot = localized.bit.bnot
 localized.math_floor = math.floor
-if localized.prng_state==nil then localized.prng_state=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000),0xFFFFFFFF) end math.randomseed=function(new_seed) if not new_seed then local counter=(localized.seed_counter or 0)+1 localized.seed_counter=counter local hash=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000)+counter,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) hash=localized.bit_band(hash*0x85ebca6b,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,13)) hash=localized.bit_band(hash*0xc2b2ae35,0xFFFFFFFF) new_seed=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) end local final_seed=localized.bit_band(new_seed,0xFFFFFFFF) localized.prng_state=final_seed return final_seed end math.random=function(m,n) local state=localized.prng_state state=localized.bit_bxor(state,localized.bit_lshift(state,13)) state=localized.bit_bxor(state,localized.bit_rshift(state,17)) state=localized.bit_bxor(state,localized.bit_lshift(state,5)) state=localized.bit_band(state,0xFFFFFFFF) localized.prng_state=state if not m then return state/4294967296 elseif not n then return(state%m)+1 else return(state%(n-m+1))+m end end --override math.rnadomseed and math.random
+if localized.prng_state==nil then localized.prng_state=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000),0xFFFFFFFF) end math.randomseed=function(new_seed) if not new_seed then local counter=(localized.seed_counter or 0)+1 localized.seed_counter=counter local hash=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000)+counter,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) hash=localized.bit_band(hash*0x85ebca6b,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,13)) hash=localized.bit_band(hash*0xc2b2ae35,0xFFFFFFFF) new_seed=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) end local final_seed=localized.bit_band(new_seed,0xFFFFFFFF) localized.prng_state=final_seed return final_seed end math.random=function(m,n) local state=localized.prng_state state=localized.bit_bxor(state,localized.bit_lshift(state,13)) state=localized.bit_bxor(state,localized.bit_rshift(state,17)) state=localized.bit_bxor(state,localized.bit_lshift(state,5)) state=localized.bit_band(state,0xFFFFFFFF) localized.prng_state=state if not m then return state/4294967296 elseif not n then return(state%m)+1 else return(state%(n-m+1))+m end end --override math.randomseed and math.random
 localized.math_sin = math.sin
 localized.math_pi = math.pi
 localized.math_sqrt = math.sqrt
 if localized.prng_state==nil then localized.prng_state=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000),0xFFFFFFFF) end localized.math_randomseed=function(new_seed) if not new_seed then local counter=(localized.seed_counter or 0)+1 localized.seed_counter=counter local hash=localized.bit_band(localized.math_floor((localized.ngx and localized.ngx.now() or os.time())*1000000)+counter,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) hash=localized.bit_band(hash*0x85ebca6b,0xFFFFFFFF) hash=localized.bit_bxor(hash,localized.bit_rshift(hash,13)) hash=localized.bit_band(hash*0xc2b2ae35,0xFFFFFFFF) new_seed=localized.bit_bxor(hash,localized.bit_rshift(hash,16)) end local final_seed=localized.bit_band(new_seed,0xFFFFFFFF) localized.prng_state=final_seed return final_seed end localized.math_random=function(m,n) local state=localized.prng_state state=localized.bit_bxor(state,localized.bit_lshift(state,13)) state=localized.bit_bxor(state,localized.bit_rshift(state,17)) state=localized.bit_bxor(state,localized.bit_lshift(state,5)) state=localized.bit_band(state,0xFFFFFFFF) localized.prng_state=state if not m then return state/4294967296 elseif not n then return(state%m)+1 else return(state%(n-m+1))+m end end --create localized.math_random() and localized.math_randomseed()
-localized.table_sort = function(data, compare) if localized.table_s == nil then localized.table_s = table.sort end local in_reg = (function() return localized.tostring(data) end)()..(function() return localized.tostring(compare) end)() if localized.table_sort_run ~= nil and localized.table_sort_run[in_reg.."one"] ~= nil then return localized.table_sort_run[in_reg.."one"] end if localized.table_sort_run == nil then localized.table_sort_run = {} end localized.table_sort_run[in_reg.."one"] = {} localized.table_sort_run[in_reg.."one"] = localized.table_s(data, compare) return localized.table_sort_run[in_reg.."one"] end
-localized.table_concat=function(data,separator,start,finish) if localized.table_c==nil then localized.table_c=table.concat end local sep_str=separator and localized.tostring(separator) or "" local start_str=start and localized.tostring(start) or "" local finish_str=finish and localized.tostring(finish) or "" local in_reg=localized.tostring(data)..sep_str..start_str..finish_str if localized.table_concat_run~=nil and localized.table_concat_run[in_reg.."one"]~=nil then return localized.table_concat_run[in_reg.."one"] end if localized.table_concat_run==nil then localized.table_concat_run={} end local result=localized.table_c(data,separator or "",start,finish) localized.table_concat_run[in_reg.."one"]=result return result end
-localized.string_match = function(input, regex, init) if localized.string_m == nil then localized.string_m = string.match end local in_reg = input..regex..(function() return localized.tostring(init) end)() if localized.string_match_run ~= nil and localized.string_match_run[in_reg.."one"] ~= nil then return localized.string_match_run[in_reg.."one"], localized.string_match_run[in_reg.."two"] end if localized.string_match_run == nil then localized.string_match_run = {} end localized.string_match_run[in_reg.."one"] = {} localized.string_match_run[in_reg.."two"] = {} localized.string_match_run[in_reg.."one"], localized.string_match_run[in_reg.."two"] = localized.string_m(input, regex, init) return localized.string_match_run[in_reg.."one"], localized.string_match_run[in_reg.."two"] end
-localized.string_gmatch = function(input, regex) if localized.string_gm == nil then localized.string_gm = string.gmatch end local in_reg = input..regex if localized.string_gmatch_run ~= nil and localized.string_gmatch_run[in_reg.."one"] ~= nil then return localized.string_gmatch_run[in_reg.."one"], localized.string_gmatch_run[in_reg.."two"] end if localized.string_gmatch_run == nil then localized.string_gmatch_run = {} end localized.string_gmatch_run[in_reg.."one"] = {} localized.string_gmatch_run[in_reg.."two"] = {} localized.string_gmatch_run[in_reg.."one"], localized.string_gmatch_run[in_reg.."two"] = localized.string_gm(input, regex) return localized.string_gmatch_run[in_reg.."one"], localized.string_gmatch_run[in_reg.."two"] end
+localized.table_sort = table.sort --function(data, compare) if localized.table_s == nil then localized.table_s = table.sort end local in_reg = (function() return localized.tostring(data) end)()..(function() return localized.tostring(compare) end)() if localized.table_sort_run ~= nil and localized.table_sort_run[in_reg.."one"] ~= nil then return localized.table_sort_run[in_reg.."one"] end if localized.table_sort_run == nil then localized.table_sort_run = {} end localized.table_sort_run[in_reg.."one"] = {} localized.table_sort_run[in_reg.."one"] = localized.table_s(data, compare) return localized.table_sort_run[in_reg.."one"] end
+localized.table_concat = table.concat --function(data,separator,start,finish) if localized.table_c==nil then localized.table_c=table.concat end local sep_str=separator and localized.tostring(separator) or "" local start_str=start and localized.tostring(start) or "" local finish_str=finish and localized.tostring(finish) or "" local in_reg=localized.tostring(data)..sep_str..start_str..finish_str if localized.table_concat_run~=nil and localized.table_concat_run[in_reg.."one"]~=nil then return localized.table_concat_run[in_reg.."one"] end if localized.table_concat_run==nil then localized.table_concat_run={} end local result=localized.table_c(data,separator or "",start,finish) localized.table_concat_run[in_reg.."one"]=result return result end
+localized.string_match = string.match --function(input, regex, init) if localized.string_m == nil then localized.string_m = string.match end local in_reg = input..regex..(function() return localized.tostring(init) end)() if localized.string_match_run ~= nil and localized.string_match_run[in_reg.."one"] ~= nil then return localized.string_match_run[in_reg.."one"], localized.string_match_run[in_reg.."two"] end if localized.string_match_run == nil then localized.string_match_run = {} end localized.string_match_run[in_reg.."one"] = {} localized.string_match_run[in_reg.."two"] = {} localized.string_match_run[in_reg.."one"], localized.string_match_run[in_reg.."two"] = localized.string_m(input, regex, init) return localized.string_match_run[in_reg.."one"], localized.string_match_run[in_reg.."two"] end
+localized.string_gmatch = string.gmatch --function(input, regex) if localized.string_gm == nil then localized.string_gm = string.gmatch end local in_reg = input..regex if localized.string_gmatch_run ~= nil and localized.string_gmatch_run[in_reg.."one"] ~= nil then return localized.string_gmatch_run[in_reg.."one"], localized.string_gmatch_run[in_reg.."two"] end if localized.string_gmatch_run == nil then localized.string_gmatch_run = {} end localized.string_gmatch_run[in_reg.."one"] = {} localized.string_gmatch_run[in_reg.."two"] = {} localized.string_gmatch_run[in_reg.."one"], localized.string_gmatch_run[in_reg.."two"] = localized.string_gm(input, regex) return localized.string_gmatch_run[in_reg.."one"], localized.string_gmatch_run[in_reg.."two"] end
 localized.string_lower = string.lower
-localized.string_find = function(input, regex, init, plain) if localized.string_f == nil then localized.string_f = string.find end local in_reg = input..regex..(function() return localized.tostring(init) end)()..(function() return localized.tostring(plain) end)() if localized.string_find_run ~= nil and localized.string_find_run[in_reg.."one"] ~= nil then return localized.string_find_run[in_reg.."one"], localized.string_find_run[in_reg.."two"], localized.string_find_run[in_reg.."three"], localized.string_find_run[in_reg.."four"], localized.string_find_run[in_reg.."five"], localized.string_find_run[in_reg.."six"], localized.string_find_run[in_reg.."seven"] end if localized.string_find_run == nil then localized.string_find_run = {} end localized.string_find_run[in_reg.."one"] = {} localized.string_find_run[in_reg.."two"] = {} localized.string_find_run[in_reg.."three"] = {} localized.string_find_run[in_reg.."four"] = {} localized.string_find_run[in_reg.."five"] = {} localized.string_find_run[in_reg.."six"] = {} localized.string_find_run[in_reg.."seven"] = {} localized.string_find_run[in_reg.."one"], localized.string_find_run[in_reg.."two"], localized.string_find_run[in_reg.."three"], localized.string_find_run[in_reg.."four"], localized.string_find_run[in_reg.."five"], localized.string_find_run[in_reg.."six"], localized.string_find_run[in_reg.."seven"] = localized.string_f(input, regex, init, plain) return localized.string_find_run[in_reg.."one"], localized.string_find_run[in_reg.."two"], localized.string_find_run[in_reg.."three"], localized.string_find_run[in_reg.."four"], localized.string_find_run[in_reg.."five"], localized.string_find_run[in_reg.."six"], localized.string_find_run[in_reg.."seven"] end
+localized.string_find = string.find --function(input, regex, init, plain) if localized.string_f == nil then localized.string_f = string.find end local in_reg = input..regex..(function() return localized.tostring(init) end)()..(function() return localized.tostring(plain) end)() if localized.string_find_run ~= nil and localized.string_find_run[in_reg.."one"] ~= nil then return localized.string_find_run[in_reg.."one"], localized.string_find_run[in_reg.."two"], localized.string_find_run[in_reg.."three"], localized.string_find_run[in_reg.."four"], localized.string_find_run[in_reg.."five"], localized.string_find_run[in_reg.."six"], localized.string_find_run[in_reg.."seven"] end if localized.string_find_run == nil then localized.string_find_run = {} end localized.string_find_run[in_reg.."one"] = {} localized.string_find_run[in_reg.."two"] = {} localized.string_find_run[in_reg.."three"] = {} localized.string_find_run[in_reg.."four"] = {} localized.string_find_run[in_reg.."five"] = {} localized.string_find_run[in_reg.."six"] = {} localized.string_find_run[in_reg.."seven"] = {} localized.string_find_run[in_reg.."one"], localized.string_find_run[in_reg.."two"], localized.string_find_run[in_reg.."three"], localized.string_find_run[in_reg.."four"], localized.string_find_run[in_reg.."five"], localized.string_find_run[in_reg.."six"], localized.string_find_run[in_reg.."seven"] = localized.string_f(input, regex, init, plain) return localized.string_find_run[in_reg.."one"], localized.string_find_run[in_reg.."two"], localized.string_find_run[in_reg.."three"], localized.string_find_run[in_reg.."four"], localized.string_find_run[in_reg.."five"], localized.string_find_run[in_reg.."six"], localized.string_find_run[in_reg.."seven"] end
 localized.string_sub = string.sub
 localized.string_len = string.len
 localized.string_char = string.char
@@ -966,7 +966,7 @@ I added some examples of bad bots to block access to.
 ]]
 localized.user_agent_blacklist_table = {
 	{
-		"^%s*$",
+		"^\\s*$",
 		3,
 	}, --blocks blank / empty user-agents
 	{
@@ -3836,6 +3836,67 @@ local sync_shared_dict_to_ram = function(premature)
 	active_cache.cached_query_regex  = run_compiler(tbl_query)
 	active_cache.cached_uri_regex    = run_compiler(tbl_uri)
 
+	-- ==============================================================================
+	-- UNIFIED BACKGROUND USER-AGENT COMPILATION MODULE (JIT ENHANCED)
+	-- ==============================================================================
+	local str_lower = localized.string_lower or string.lower
+
+	-- 1. PROCESS THE BLACKLIST TABLE
+	local black_parts = {}
+	local b_count = 0
+	local ua_table = localized.user_agent_blacklist_table or {}
+	active_cache.block_empty_ua = false
+
+	for idx = 1, #ua_table do
+		local rule_row = ua_table[idx]
+		if rule_row and rule_row[1] and rule_row[1] ~= "" then
+			local target_pattern = rule_row[1]
+			local target_mode = rule_row[2] or 1
+
+			if target_pattern == "^\\s*$" or target_pattern == "^%s*$" then
+				active_cache.block_empty_ua = true
+			end
+
+			if target_mode == 1 or target_mode == 4 then
+				target_pattern = "((?i)" .. str_lower(target_pattern) .. ")"
+			else
+				target_pattern = "(" .. target_pattern .. ")"
+			end
+
+			b_count = b_count + 1
+			black_parts[b_count] = target_pattern
+		end
+	end
+	active_cache.compiled_ua_blacklist = b_count > 0 and table.concat(black_parts, "|") or ""
+
+	-- 2. PROCESS THE WHITELIST TABLE (FIXED: Structured identically to follow table rules)
+	local white_parts = {}
+	local w_count = 0
+	local ua_white_table = localized.user_agent_whitelist_table or {}
+	active_cache.allow_empty_ua = false
+
+	for idx = 1, #ua_white_table do
+		local rule_row = ua_white_table[idx]
+		if rule_row and rule_row[1] and rule_row[1] ~= "" then
+			local target_pattern = rule_row[1]
+			local target_mode = rule_row[2] or 1
+
+			if target_pattern == "^\\s*$" or target_pattern == "^%s*$" then
+				active_cache.allow_empty_ua = true
+			end
+
+			if target_mode == 1 or target_mode == 4 then
+				target_pattern = "((?i)" .. str_lower(target_pattern) .. ")"
+			else
+				target_pattern = "(" .. target_pattern .. ")"
+			end
+
+			w_count = w_count + 1
+			white_parts[w_count] = target_pattern
+		end
+	end
+	active_cache.compiled_ua_whitelist = w_count > 0 and table.concat(white_parts, "|") or ""
+
 	active_cache.sync_loop_func = sync_shared_dict_to_ram
 
 	local ok, err = ngx.timer.at(5.0, function(p)
@@ -3859,6 +3920,67 @@ worker_cache.cached_post_regex   = local_compile_waf_fallback_regex(localized.WA
 worker_cache.cached_header_regex = local_compile_waf_fallback_regex(localized.WAF_Header_Request_table)
 worker_cache.cached_query_regex  = local_compile_waf_fallback_regex(localized.WAF_query_string_Request_table)
 worker_cache.cached_uri_regex    = local_compile_waf_fallback_regex(localized.WAF_URI_Request_table)
+
+-- ==============================================================================
+-- UNIFIED BOOT INITIALIZATION PHASE (FOLLOWING DYNAMIC CONFIGURATION SCHEMAS)
+-- ==============================================================================
+local init_ua_table = localized.user_agent_blacklist_table or {}
+local init_white_table = localized.user_agent_whitelist_table or {}
+local boot_lower = localized.string_lower or string.lower
+
+-- 1. INITIALIZE BLACKLIST BUFFER MATRIX
+local init_ua_parts = {}
+local init_ua_count = 0
+worker_cache.block_empty_ua = false
+
+for idx = 1, #init_ua_table do
+	local row_entry = init_ua_table[idx]
+	if row_entry and row_entry[1] and row_entry[1] ~= "" then
+		local boot_pattern = row_entry[1]
+		local boot_mode = row_entry[2] or 1
+
+		if boot_pattern == "^\\s*$" or boot_pattern == "^%s*$" then
+			worker_cache.block_empty_ua = true
+		end
+
+		if boot_mode == 1 or boot_mode == 4 then
+			boot_pattern = "((?i)" .. boot_lower(boot_pattern) .. ")"
+		else
+			boot_pattern = "(" .. boot_pattern .. ")"
+		end
+
+		init_ua_count = init_ua_count + 1
+		init_ua_parts[init_ua_count] = boot_pattern
+	end
+end
+worker_cache.compiled_ua_blacklist = init_ua_count > 0 and table.concat(init_ua_parts, "|") or ""
+
+-- 2. INITIALIZE WHITELIST BUFFER MATRIX (FIXED: Standardized identically to mirror config rules)
+local init_white_parts = {}
+local init_white_count = 0
+worker_cache.allow_empty_ua = false
+
+for idx = 1, #init_white_table do
+	local row_entry = init_white_table[idx]
+	if row_entry and row_entry[1] and row_entry[1] ~= "" then
+		local boot_pattern = row_entry[1]
+		local boot_mode = row_entry[2] or 1
+
+		if boot_pattern == "^\\s*$" or boot_pattern == "^%s*$" then
+			worker_cache.allow_empty_ua = true
+		end
+
+		if boot_mode == 1 or boot_mode == 4 then
+			boot_pattern = "((?i)" .. boot_lower(boot_pattern) .. ")"
+		else
+			boot_pattern = "(" .. boot_pattern .. ")"
+		end
+
+		init_white_count = init_white_count + 1
+		init_white_parts[init_white_count] = boot_pattern
+	end
+end
+worker_cache.compiled_ua_whitelist = init_white_count > 0 and table.concat(init_white_parts, "|") or ""
 
 if localized.ngx_var_http_internal == nil then
 	if not worker_cache.sync_loop_started then
@@ -4256,40 +4378,32 @@ local function has_value(table_, val)
 	return false
 end
 
-localized.table_union_seen = localized.table_union_seen or {}
-localized.table_union_gen = localized.table_union_gen or 0
+-- ==============================================================================
+-- HIGH-SPEED STATIC WHITELIST MERGING SUBSYSTEM (PRE-COMPILED AT STARTUP)
+-- ==============================================================================
 local function TableConcat(t1, t2)
-	local len1 = #t1
-	local len2 = #t2
+	-- If it's a runtime call, short-circuit and instantly return the already compiled master table
+	if worker_cache.whitelists_compiled then return t1 end
+
+	local len1, len2 = #t1, #t2
 	if len2 == 0 then return t1 end
 
-	-- Grab our permanent tracking structures from the namespace
-	local seen = localized.table_union_seen
+	local seen = {}
+	local master_compiled = {}
+	local idx = 0
 
-	-- Increment the Generation-ID register (Safely wraps automatically at integer limits)
-	local gen_id = localized.table_union_gen + 1
-	localized.table_union_gen = gen_id
-
-	-- Map existing t1 elements directly into the lookup array using our dynamic gen_id
+	-- Merge arrays accurately and strip out any duplicates exactly once at boot
 	for i = 1, len1 do
-		seen[t1[i]] = gen_id
+		local val = t1[i]
+		if not seen[val] then seen[val] = true; idx = idx + 1; master_compiled[idx] = val end
 	end
-
-	-- Stream t2 variables using direct hardware register counters
-	local idx = len1
 	for i = 1, len2 do
 		local val = t2[i]
-
-		-- Instant O(1) matching evaluation replaces both the has_value and the cleanup loops
-		if seen[val] ~= gen_id then
-			seen[val] = gen_id
-			idx = idx + 1
-			t1[idx] = val
-		end
+		if not seen[val] then seen[val] = true; idx = idx + 1; master_compiled[idx] = val end
 	end
 
-	-- The tracking map clears itself implicitly on the subsequent function call via gen_id incrementation
-	return t1
+	worker_cache.whitelists_compiled = true
+	return master_compiled
 end
 
 local function internal_header_setup()
@@ -4409,13 +4523,24 @@ local function internal_header_setup()
 					if localized.proxy_header_table ~= nil and #localized.proxy_header_table ~= 0 and localized.auto_add_server_ip_to_merged_tables ~= 0 and localized.merge_proxy_and_ip_whitelist == 0 then
 						localized.proxy_header_table[#localized.proxy_header_table+1] = localized.ngx_var_server_addr() --make sure our own server address is whitelisted just incase
 					end
-					if localized.ip_whitelist ~= nil and localized.proxy_header_table ~= nil and #localized.ip_whitelist ~= 0 and #localized.proxy_header_table ~= 0 and localized.merge_proxy_and_ip_whitelist ~= 0 then
-						localized.merge_table = TableConcat(localized.ip_whitelist, localized.proxy_header_table)
-						if localized.auto_add_server_ip_to_merged_tables ~= 0 then
-							localized.merge_table[#localized.merge_table+1] = localized.ngx_var_server_addr() --make sure our own server address is whitelisted just incase
+					-- PRODUCTION-SAFE PRE-BAKED WHITELIST MATRIX BRIDGE
+					if localized.merge_proxy_and_ip_whitelist ~= 0 then
+						if not worker_cache.master_whitelist_baked then
+							-- STRICT CONFIGURATION SAFETY REGISTERS:
+							-- If a table is entirely missing or un-defined via global overrides, 
+							-- we automatically supply a safe, empty structural fallback array object '{}'
+							local source_whitelist = localized.ip_whitelist or {}
+							local source_proxy_list = localized.proxy_header_table or {}
+							-- Execute our high-speed compilation merge pass exactly once
+							localized.merge_table = TableConcat(source_whitelist, source_proxy_list)
+							if localized.auto_add_server_ip_to_merged_tables ~= 0 then
+								localized.merge_table[#localized.merge_table + 1] = localized.ngx_var_server_addr()
+							end
+							worker_cache.master_whitelist_baked = localized.merge_table
 						end
-						localized.ip_whitelist = localized.merge_table
-						localized.proxy_header_table = localized.merge_table
+						-- Bind the pre-compiled, safe memory tables to our runtime paths allocation-free
+						localized.ip_whitelist = worker_cache.master_whitelist_baked
+						localized.proxy_header_table = worker_cache.master_whitelist_baked
 					end
 					local ip = v[22]
 					if ip == "auto" then
@@ -4583,7 +4708,7 @@ local function check_tor_onion()
 	-- FIXED: Traverses the top-level user configuration array allocation-free using stateless loops
 	for i = 1, num_rules do
 		local rule = privacy_rules[i]
-		local target_type = rule
+		local target_type = rule[1]
 		local pattern     = rule[2]
 
 		-- Type mapping router evaluates target system parameters on the fly
@@ -6879,21 +7004,20 @@ local function getRandomSeed()
 	return hash
 end
 
+local master_exit_var = 0
+local function master_exit()
+	master_exit_var = 1
+	--return localized.ngx_exit(localized.ngx_OK) --Go to content
+	return ""
+end
+--master_exit()
+--[[
+if master_exit_var == 1 then
+	return
+end
+]]
+
 local function run_checks() --nested function
-
-	local master_exit_var = 0
-	local function master_exit()
-		master_exit_var = 1
-		--return localized.ngx_exit(localized.ngx_OK) --Go to content
-		return ""
-	end
-	--master_exit()
-	--[[
-	if master_exit_var == 1 then
-		return
-	end
-	]]
-
 --[[
 Header Modifications
 ]]
@@ -7374,116 +7498,69 @@ if master_exit_var == 1 then
 return --exit from run_checks() function
 end
 
-local function check_user_agents()
+	-- FIXED: Streamlined Dynamic Loop-Free JIT User-Agent Interceptor (Strict Table Compliance)
+	local function check_user_agents()
+		local raw_ua = localized.ngx_req_get_headers()["user-agent"] or ""
+		local f_find = localized.ngx.re.find
 
-	local function check_user_agent_blacklist(user_agent_table)
-		if not user_agent_table or #user_agent_table == 0 then return end
+		local is_empty_ua = (raw_ua == "" or raw_ua == nil or f_find(localized.tostring(raw_ua), "^\\s*$", "jo"))
 
-		local req_headers = localized.ngx_req_get_headers()
-		local raw_ua = req_headers["user-agent"] or ""
+		-- PHASE 1: DYNAMIC EMPTY-UA WHITELIST ROUTING PASS
+		if is_empty_ua and worker_cache.allow_empty_ua then
+			return master_exit() -- User explicitly whitelisted blank/space agents: grant bypass immunity!
+		end
 
-		local str_find = localized.string_find
-		local str_lower = localized.string_lower
-		local num_rules = #user_agent_table
+		-- PHASE 2: DYNAMIC EMPTY-UA BLACKLIST ENFORCEMENT PASS
+		if is_empty_ua and worker_cache.block_empty_ua then
+			localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Empty or Whitespace User-Agent Blocked via active rule set - IP : " .. localized.remote_addr())
+			close_connection()
+			return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+		end
 
-		-- Normalize the inbound user-agent string exactly ONCE per request pass
-		local raw_ua_lower = str_lower(localized.tostring(raw_ua))
+		-- Fallback exit guard if header evaluates to empty but no rules mandate blocking/whitelisting it
+		if raw_ua == "" then return end
 
-		if localized.type(raw_ua) ~= "table" then
-			for i = 1, num_rules do
-				local rule = user_agent_table[i]
-				local pattern = rule[1]
-				local match_mode = rule[2]
-			
-				-- FIXED: Select pre-normalized local registers to prevent allocation thrashes inside loops
-				local evaluate_string = (match_mode == 1 or match_mode == 4) and raw_ua_lower or localized.tostring(raw_ua)
-				local clean_pattern = (match_mode == 1 or match_mode == 4) and str_lower(localized.tostring(pattern)) or localized.tostring(pattern)
+		local is_table = localized.type(raw_ua) == "table"
 
-				if faster_than_match(clean_pattern) or str_find(evaluate_string, clean_pattern) then
-					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] User-Agent Blocked - " .. localized.tostring(raw_ua) .. " - IP : " .. localized.remote_addr())
-					close_connection()
-					return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+		-- PHASE 3: LOOP-FREE JIT SCALAR WHITELIST BYPASS PASS
+		local white_pat = worker_cache.compiled_ua_whitelist
+		if white_pat and white_pat ~= "" then
+			if is_table then
+				for x = 1, #raw_ua do
+					if f_find(localized.tostring(raw_ua[x]), white_pat, "jo") then 
+						return master_exit() 
+					end
+				end
+			else
+				if f_find(localized.tostring(raw_ua), white_pat, "jo") then 
+					return master_exit() 
 				end
 			end
-		else
-			-- Multi-value Array User-Agent Spoof Protection
-			for x = 1, #raw_ua do
-				local current_ua_element = localized.tostring(raw_ua[x])
-				local current_ua_lower = str_lower(current_ua_element)
+		end
 
-				for i = 1, num_rules do
-					local rule = user_agent_table[i]
-					local pattern = rule[1]
-					local match_mode = rule[2]
-
-					local evaluate_string = (match_mode == 1 or match_mode == 4) and current_ua_lower or current_ua_element
-					local clean_pattern = (match_mode == 1 or match_mode == 4) and str_lower(localized.tostring(pattern)) or localized.tostring(pattern)
-
-					if faster_than_match(clean_pattern) or str_find(evaluate_string, clean_pattern) then
-						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] User-Agent Blocked - " .. current_ua_element .. " - IP : " .. localized.remote_addr())
+		-- PHASE 4: LOOP-FREE JIT SCALAR BLACKLIST BLOCK PASS
+		local black_pat = worker_cache.compiled_ua_blacklist
+		if black_pat and black_pat ~= "" then
+			if is_table then
+				for x = 1, #raw_ua do
+					local ua_str = localized.tostring(raw_ua[x])
+					if f_find(ua_str, black_pat, "jo") then
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] User-Agent Blocked - " .. ua_str .. " - IP : " .. localized.remote_addr())
 						close_connection()
 						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
 					end
 				end
-			end
-		end
-	end
-	check_user_agent_blacklist(localized.user_agent_blacklist_table) --run user agent blacklist check function
-
-	local function check_user_agent_whitelist(user_agent_table)
-		if not user_agent_table or #user_agent_table == 0 then return end
-
-		local req_headers = localized.ngx_req_get_headers()
-		local raw_ua = req_headers["user-agent"] or ""
-
-		local str_find = localized.string_find
-		local str_lower = localized.string_lower
-		local num_rules = #user_agent_table
-
-		-- Normalize the inbound user-agent string exactly ONCE per request pass
-		local raw_ua_lower = str_lower(localized.tostring(raw_ua))
-
-		if localized.type(raw_ua) ~= "table" then
-			for i = 1, num_rules do
-				local rule = user_agent_table[i]
-				local pattern = rule[1]
-				local match_mode = rule[2]
-				
-				-- FIXED: Select pre-normalized local registers to prevent allocation thrashes inside loops
-				local evaluate_string = (match_mode == 1 or match_mode == 4) and raw_ua_lower or localized.tostring(raw_ua)
-				local clean_pattern = (match_mode == 1 or match_mode == 4) and str_lower(localized.tostring(pattern)) or localized.tostring(pattern)
-
-				if faster_than_match(clean_pattern) or str_find(evaluate_string, clean_pattern) then
-					return master_exit() -- Legitimate search spider matched! Grant direct access bypass
-				end
-			end
-		else
-			-- Multi-value Array User-Agent Spoof Protection
-			for x = 1, #raw_ua do
-				local current_ua_element = localized.tostring(raw_ua[x])
-				local current_ua_lower = str_lower(current_ua_element)
-				
-				for i = 1, num_rules do
-					local rule = user_agent_table[i]
-					local pattern = rule[1]
-					local match_mode = rule[2]
-					
-					local evaluate_string = (match_mode == 1 or match_mode == 4) and current_ua_lower or current_ua_element
-					local clean_pattern = (match_mode == 1 or match_mode == 4) and str_lower(localized.tostring(pattern)) or localized.tostring(pattern)
-
-					if faster_than_match(clean_pattern) or str_find(evaluate_string, clean_pattern) then
-						return master_exit() -- Legitimate search spider matched! Grant direct access bypass
-					end
+			else
+				local ua_str = localized.tostring(raw_ua)
+				if f_find(ua_str, black_pat, "jo") then
+					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] User-Agent Blocked - " .. ua_str .. " - IP : " .. localized.remote_addr())
+					close_connection()
+					return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
 				end
 			end
 		end
 	end
-	check_user_agent_whitelist(localized.user_agent_whitelist_table) --run user agent whitelist check function
-	if master_exit_var == 1 then
-		return --exit from check_user_agents() function
-	end
-end
-check_user_agents()
+	check_user_agents()
 if master_exit_var == 1 then
 return --exit from run_checks() function
 end
@@ -7621,90 +7698,69 @@ local function calculate_signature(str)
 end
 --calculate_signature(str)
 
-if localized.ffi and not localized.ffi_random_charset then
-	localized.char_array_t = localized.ffi.typeof("char[?]")
-	localized.ffi_random_charset = localized.char_array_t(12, "0123456789_")
-	localized.uint8_ptr_t = localized.ffi.typeof("uint8_t*")
-
-	localized.ffi_variable_buffer = localized.ffi.new(localized.char_array_t, 64)
+-- ==============================================================================
+-- HIGH-SPEED ALLOCATION-FREE FFI INITIALIZATION BLOCKS
+-- ==============================================================================
+if localized.ffi and not localized.precompiled_js_pool then
+    localized.char_array_t = localized.ffi.typeof("char[?]")
+    localized.uint8_ptr_t = localized.ffi.typeof("uint8_t*")
+    
+    -- Strict JavaScript Compliant Identifier Character Array Set
+    local js_safe_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    local js_len = #js_safe_chars
+    
+    -- Pre-populate a fixed linear binary matrix array of 4,000 vars (8 bytes each)
+    -- This costs just 32 Kilobytes of standard RAM space permanently
+    localized.precompiled_js_pool = localized.ffi.new("char[?]", 4000 * 8)
+    
+    local idx = 0
+    for i = 1, 4000 do
+        -- Ensure the first byte anchor is ALWAYS a text letter char to prevent JS syntax bugs
+        localized.precompiled_js_pool[idx] = js_safe_chars:byte(math.random(1, js_len))
+        idx = idx + 1
+        
+        -- Append sub-sequent bytes dynamically
+        for j = 2, 8 do
+            if math.random(1, 3) == 1 then
+                localized.precompiled_js_pool[idx] = string.byte(tostring(math.random(0, 9)))
+            else
+                localized.precompiled_js_pool[idx] = js_safe_chars:byte(math.random(1, js_len))
+            end
+            idx = idx + 1
+        end
+    end
 end
 
--- O(1) Fast Tracking Dictionary Set to prevent duplicates instantly
-localized.stringrandom_seen = localized.stringrandom_seen or {}
-
--- Fallback: Pure Lua map if FFI is absent
-if not localized.ffi and not localized.random_charset then
-	localized.random_charset = {"0","1","2","3","4","5","6","7","8","9","_"}
+-- Fallback: Pure Lua static matrix if FFI layer features are completely absent
+if not localized.ffi and not localized.fallback_js_pool then
+    localized.fallback_js_pool = {}
+    local chars = {"a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z"}
+    for i = 1, 1000 do
+        local temp = { chars[math.random(1, #chars)] }
+        for j = 2, 8 do
+            temp[j] = math.random(1, 2) == 1 and tostring(math.random(0,9)) or chars[math.random(1, #chars)]
+        end
+        localized.fallback_js_pool[i] = table.concat(temp, "")
+    end
 end
 
--- Seed the fast-path bitwise PRNG state register using current time if unset
-if localized.prng_state == nil then
-	local boot_time = localized.ngx and localized.ngx.time() or 123456789
-	-- FIX: Forces the initial seed to be structured as a 32-bit integer register instantly
-	localized.prng_state = localized.bit_band(boot_time, 0xFFFFFFFF)
-end
-
+-- ==============================================================================
+-- REFACTORED ZERO-ALLOCATION RUNTIME INTERCEPTOR
+-- ==============================================================================
 local function stringrandom(length)
-	if length <= 0 then return "" end
+    local ffi_lib = localized.ffi
+    
+    -- --- BLAZING FAST FIXED POINTER PATH ---
+    if ffi_lib and localized.precompiled_js_pool then
+        -- Complete elimination of loops, bit-shifting, arrays, checks, and collisions
+        -- Instantly read an 8-byte token window directly out of pre-allocated C memory
+        local random_offset = math.random(0, 3999) * 8
+        return ffi_lib.string(localized.precompiled_js_pool + random_offset, 8)
+    end
 
-	local ffi_lib = localized.ffi
-	-- Safe fallback path to the optimized flat Lua loop if FFI layer is absent
-	if not ffi_lib or not localized.ffi_random_charset then
-		local r_charset = localized.random_charset
-		local r_set_len = #r_charset
-		local rand = localized.math_random
-		local seen_set = localized.stringrandom_seen
-		local t, output = {}
-		while true do
-			for i=1, length do t[i] = r_charset[rand(1, r_set_len)] end
-			output = localized.table_concat(t, "")
-			if not seen_set[output] then seen_set[output] = true break end
-		end
-		return output
-	end
-
-	-- --- ULTIMATE FAST FFI + PRNG PATH ---
-	local c_charset = localized.ffi_random_charset
-	local seen_set = localized.stringrandom_seen
-
-	-- Localize fast bitwise methods to skip math_random call layers
-	local bxor = localized.bit_bxor
-	local lshift = localized.bit_lshift
-	local rshift = localized.bit_rshift
-	local state = localized.prng_state
-
-	local buffer = (length <= 64) and localized.ffi_variable_buffer or ffi_lib.new(localized.char_array_t, length)
-	local dst = ffi_lib.cast(localized.uint8_ptr_t, buffer)
-	local output
-
-	while true do
-		-- Stream characters natively using hardware shifting logic
-		for i=0, length - 1 do
-			-- Xorshift32 PRNG logic execution (Runs completely inside CPU registers)
-			state = bxor(state, lshift(state, 13))
-			state = bxor(state, rshift(state, 17))
-			state = bxor(state, lshift(state, 5))
-
-			-- Keep the internal state safely bounded to 32-bit unsigned spaces
-			state = state % 4294967296
-
-			-- Map register value cleanly into the index constraints (0 to 10)
-			dst[i] = c_charset[state % 11]
-		end
-
-		-- Convert raw memory block to standard Lua string in a single operation
-		output = ffi_lib.string(buffer, length)
-
-		-- Instant O(1) tracking confirmation lookup
-		if not seen_set[output] then
-			seen_set[output] = true
-			break
-		end
-	end
-
-	-- Update the persistent global seed pointer for subsequent calls
-	localized.prng_state = state
-	return output
+    -- --- PURE LUA PRE-BAKED ARRAYS FALLBACK ---
+    local pool = localized.fallback_js_pool
+    return pool[math.random(1, 1000)]
 end
 
 local stringrandom_length = "" --create our random length variable
@@ -7942,9 +7998,6 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 			localized.uint8_ptr_t = localized.ffi.typeof("uint8_t*")
 			localized.FAST_PATH_LIMIT = 524288
 			localized.ffi_scrambler_buffer = localized.ffi.new(localized.char_array_t, localized.FAST_PATH_LIMIT)
-			
-			-- FIXED: Changed to allocate an explicit bounds-safe array container
-			localized.ffi_name_order_array = localized.ffi.new("uint32_t[8192]") 
 
 			localized.ffi.cdef[[
 				typedef struct {
@@ -7954,11 +8007,30 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 				} ffi_chunk_coord_t;
 			]]
 
-			-- FIXED: Appended [8192] bounds parameter to prevent indexing errors
-			localized.ffi_coord_array = localized.ffi.new("ffi_chunk_coord_t[8192]")
-			localized.var_pool = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-			localized.var_pool_len = #localized.var_pool
+			-- FIXED: Pre-compiles a clean type reference mapping for architectural casting passes
+			localized.coord_array_ptr_t = localized.ffi.typeof("ffi_chunk_coord_t*")
 			localized.ffi_name_pool = localized.ffi.new("char[8192 * 16]") 
+			
+			-- ==============================================================================
+			-- PRE-BAKED SCRAMBLER OBFUSCATION MATRIX (Generated ONCE during script load)
+			-- ==============================================================================
+			local js_safe_chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+			local js_len = #js_safe_chars
+			localized.scrambler_static_pool = localized.ffi.new("char[?]", 2000 * 16)
+			
+			local s_idx = 0
+			for i = 1, 2000 do
+				localized.scrambler_static_pool[s_idx] = js_safe_chars:byte(math.random(1, js_len))
+				s_idx = s_idx + 1
+				for j = 2, 16 do 
+					if math.random(1, 3) == 1 then
+						localized.scrambler_static_pool[s_idx] = string.byte(tostring(math.random(0, 9)))
+					else
+						localized.scrambler_static_pool[s_idx] = js_safe_chars:byte(math.random(1, js_len))
+					end
+					s_idx = s_idx + 1
+				end
+			end
 		end
 
 		local function scramble_javascript_payload(string1, stringrandom_length)
@@ -7982,12 +8054,18 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 				return output .. "eval(decodeURIComponent(escape(window.atob(" .. localized.table_concat(chunks_order, " + ") .. "))));"
 			end
 
-			local coords = localized.ffi_coord_array
-			local order_names = localized.ffi_name_order_array
+			-- HIGH-SPEED DYNAMIC BUFFERING: Pinned directly to request size context allocation-free
+			local max_chunks_headroom = math.max(8192, b64_len + 64)
+			local ffi_name_order_array = ffi_lib.new("uint32_t[?]", max_chunks_headroom)
+			local total_bytes_needed = max_chunks_headroom * ffi_lib.sizeof("ffi_chunk_coord_t")
+			local raw_char_buffer = ffi_lib.new("char[?]", total_bytes_needed)
+			
+			-- Safely expose pointers to the runtime iteration loops below
+			local coords = ffi_lib.cast(localized.coord_array_ptr_t, raw_char_buffer)
+			local order_names = ffi_name_order_array
 			local rand = localized.math_random
 			local name_pool = localized.ffi_name_pool
-			local pool_str = localized.var_pool
-			local pool_len = localized.var_pool_len
+			local precompiled_scrambler = localized.scrambler_static_pool
 
 			local chunk_count = 0
 			local b64_idx = 0
@@ -7999,9 +8077,9 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 				local r = rand(1, b64_len)
 				local current_chunk_size = (b64_idx + r + 1 > b64_len) and (b64_len - b64_idx) or (r + 1)
 
-				for k = 0, stringrandom_length - 1 do
-					name_pool[pool_idx + k] = pool_str:byte(rand(1, pool_len))
-				end
+				-- Clamps offset tracking to row index 1997 to guarantee data headroom for strings larger than 8 bytes
+				local random_source_offset = rand(0, 1997) * 16
+				ffi_lib.copy(name_pool + pool_idx, precompiled_scrambler + random_source_offset, stringrandom_length)
 
 				local chunk = coords[chunk_count]
 				chunk.offset = b64_idx
@@ -8039,6 +8117,7 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 			for i = 0, chunk_count - 1 do
 				local chunk = coords[i]
 
+				-- Writes: 'var _' (ASCII: 118, 97, 114, 32, 95)
 				dst[dst_idx] = 118; dst[dst_idx + 1] = 97; dst[dst_idx + 2] = 114; dst[dst_idx + 3] = 32; dst[dst_idx + 4] = 95
 				dst_idx = dst_idx + 5
 
@@ -8066,6 +8145,7 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 					dst_idx = dst_idx + 3
 				end
 
+				-- Writes the leading underscore byte: '_' (ASCII 95) right before appending the token chunk name
 				dst[dst_idx] = 95
 				dst_idx = dst_idx + 1
 
@@ -8078,15 +8158,18 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 
 			return ffi_lib.string(dst, dst_idx)
 		end
-		output = scramble_javascript_payload(string1, localized.math_random(1, #string1))
+		
+		-- FIXED: Bounded random length maps directly to your configuration settings (3 to 10 chars)
+		local safe_var_len = localized.math_random(localized.dynamic_javascript_vars_length_start or 3, localized.dynamic_javascript_vars_length_end or 10)
+		output = scramble_javascript_payload(string1, safe_var_len)
 
-		if defer_async == "0" or defer_async == nil then --Browser default loading / execution order
+		if defer_async == "0" or defer_async == nil then 
 			output = "<script type=\"text/javascript\" charset=\"" .. localized.default_charset .. "\" data-cfasync=\"false\">" .. output .. "</script>"
 		end
-		if defer_async == "1" then --Defer
+		if defer_async == "1" then 
 			output = "<script type=\"text/javascript\" defer=\"defer\" charset=\"" .. localized.default_charset .. "\" data-cfasync=\"false\">" .. output .. "</script>"
 		end
-		if defer_async == "2" then --Defer
+		if defer_async == "2" then 
 			output = "<script type=\"text/javascript\" async=\"async\" charset=\"" .. localized.default_charset .. "\" data-cfasync=\"false\">" .. output .. "</script>"
 		end
 	end
@@ -8712,36 +8795,14 @@ localized.ddos_credits = "" --make empty string
 end
 
 localized.HTML_ENTITIES = {
-	["&"] = "&amp;",
-	["<"] = "&lt;",
-	[">"] = "&gt;",
-	['"'] = "&quot;",
-	["'"] = "&#39;",
-	["/"] = "&#x2F;"
+	["&"] = "&amp;", ["<"] = "&lt;", [">"] = "&gt;", ['"'] = "&quot;", ["'"] = "&#39;", ["/"] = "&#x2F;"
 }
 local function escape_html(input)
-	if not input then return "" end
-
-	-- PRE-FLIGHT CHECK: Fast plain search for ANY dangerous characters.
-	if not localized.string_find(input, "&", 1, true) and
-	   not localized.string_find(input, "<", 1, true) and
-	   not localized.string_find(input, ">", 1, true) and
-	   not localized.string_find(input, '"', 1, true) and
-	   not localized.string_find(input, "'", 1, true) and
-	   not localized.string_find(input, "/", 1, true) then
-		return input
-	end
-
-	-- FALLBACK: Single-pass, byte-by-byte lookups via gmatch.
-	local fragments = {}
-	local count = 0
-
-	for char in localized.string_gmatch(input, ".") do
-		count = count + 1
-		fragments[count] = localized.HTML_ENTITIES[char] or char
-	end
-
-	return localized.table_concat(fragments)
+	if not input or input == "" then return "" end
+	local str_gsub = localized.string_gsub or string.gsub
+	-- Vectorized Single-Pass Replacement Sweep via our static entities dictionary
+	input = str_gsub(input, "[&<>'\"/]", localized.HTML_ENTITIES)
+	return input
 end
 
 localized.request_details = [[
@@ -9209,6 +9270,7 @@ local function minification(content_type_list)
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " cookies are " .. cookie_string)
 
 					local key = localized.ngx.req.get_method() .. localized.scheme() .. "://" .. localized.host() .. content_type_list[i][12] .. cookie_string .. request_body --fastcgi_cache_key / proxy_cache_key - GET - https - :// - localized.host() - localized.request_uri() - request_header["cookie"] - request_body
+					key = localized.ngx.md5(key) --make key small
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " full cache key is " .. key)
 
 					local content_type_cache = cached:get(secure_storage(0, "content-type"..key)) or nil
