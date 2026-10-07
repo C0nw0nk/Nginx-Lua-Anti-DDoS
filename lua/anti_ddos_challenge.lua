@@ -3418,6 +3418,9 @@ if not localized.package.loaded["anti_ddos_worker_cache"] then
 	localized.package.loaded["anti_ddos_worker_cache"] = {
 		rules = {},          -- Normalized string -> compiled rule storage mapping
 		exact_ip_cache = {}, -- Strict internal request cache map (Private Layer 2)
+		exact_ip_count = 0,  -- Keep track of table size allocation-free
+		exact_request_count = 0, -- Tracks total raw hits from ALL blocked IPs combined
+		request_window_expires = 0, -- Anchor to track window time slips
 		local_version = 0    -- Starts synchronized at default 0 states perfectly
 	}
 end
@@ -3815,8 +3818,19 @@ local sync_shared_dict_to_ram = function(premature)
 			active_cache.rules = temporary_rules_array
 		end
 		
-		active_cache.exact_ip_cache = {} 
+		active_cache.exact_ip_cache = {}
+		active_cache.exact_ip_count = 0
 		active_cache.local_version = global_version
+	else
+		local current_epoch = localized.ngx.time()
+		for cached_ip, expires_at in localized.next, active_cache.exact_ip_cache do
+			if current_epoch >= expires_at then
+				active_cache.exact_ip_cache[cached_ip] = nil
+				active_cache.exact_ip_count = active_cache.exact_ip_count - 1
+			end
+		end
+		if active_cache.exact_ip_count < 0 then active_cache.exact_ip_count = 0 end
+
 	end
 
 	-- --------------------------------------------------------------------------
@@ -4411,6 +4425,37 @@ local function internal_header_setup()
 		for i=1,#localized.anti_ddos_table() do --for each host/path in our table
 			local v = localized.anti_ddos_table()[i]
 			if faster_than_match(v[1]) or localized.string_find(localized.URL(), v[1]) then --if our host matches one in the table
+				local rate_limit_window = v[8]
+				local block_duration = v[10]
+				local rate_limit_exit_status = v[11]
+				local ip = localized.ngx_var_remote_addr()
+				-- 1. Check L1 Package Cache (Blazing fast Lua table read, no allocations)
+				local l1_ban_expiration = worker_cache.exact_ip_cache[ip]
+				if l1_ban_expiration then
+					-- CRITICAL EXPIRES MATRIX: If current server time is past the timestamp, the ban has ended!
+					if localized.currenttime >= l1_ban_expiration then
+						worker_cache.exact_ip_cache[ip] = nil
+						worker_cache.exact_ip_count = worker_cache.exact_ip_count - 1
+						if worker_cache.exact_ip_count < 0 then worker_cache.exact_ip_count = 0 end
+					else
+						-- EXPIRES SLIDING MATRIX: Reset total hits if the rate limit window has passed
+						if localized.currenttime >= worker_cache.request_window_expires then
+							worker_cache.exact_request_count = 0
+							worker_cache.request_window_expires = localized.currenttime + rate_limit_window
+						end
+						worker_cache.exact_request_count = worker_cache.exact_request_count + 1
+						local log_toggle = v[7]
+						if v[43] ~= nil and v[43] > 0 and worker_cache.exact_request_count >= v[43] then
+							log_toggle = 0
+						end
+						if log_toggle == 1 then
+							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt (RAM): " .. ip .. " - URL : " .. localized.URL() )
+						end
+						close_connection()
+						return localized.ngx_exit(rate_limit_exit_status)
+					end
+				end
+
 				--if localized.request_limit == nil then
 					--localized.request_limit = remote_cache(v[19], v[7])
 					--localized.request_limit = v[19] or nil --What ever memory space your server has set / defined for this to use
@@ -4424,9 +4469,6 @@ local function internal_header_setup()
 					--localized.ddos_counter = v[21] or nil
 				end
 				if localized.blocked_addr ~= nil and localized.ddos_counter ~= nil then
-					local rate_limit_window = v[8]
-					local block_duration = v[10]
-					local rate_limit_exit_status = v[11]
 
 					local total_requests = localized.ddos_counter:get(secure_storage(0, "blocked_ip")) or 0
 					if total_requests == nil or total_requests == localized.ngx.null then
@@ -4441,10 +4483,28 @@ local function internal_header_setup()
 						end
 					end
 
+					-- SAFETY LIMIT PROTECTION MATRIX:
+					if worker_cache.exact_ip_count >= 100000 then
+						package.loaded["anti_ddos_worker_cache"].exact_ip_cache = {}
+						worker_cache.exact_ip_cache = package.loaded["anti_ddos_worker_cache"].exact_ip_cache
+						worker_cache.exact_ip_count = 0
+					end
+
 					--start real ip block
-					local ip = localized.ngx_var_remote_addr()
 					local blocked_time = localized.blocked_addr:get(secure_storage(0, ip)) --if for some reason their real ip is in the block list block them else fall back to other checks
 					if blocked_time and blocked_time ~= localized.ngx.null then
+
+						-- Commit the verified ban to L1 with an explicit calculated expiration epoch stamp
+						if not worker_cache.exact_ip_cache[ip] then
+							worker_cache.exact_ip_cache[ip] = localized.currenttime + block_duration
+							worker_cache.exact_ip_count = worker_cache.exact_ip_count + 1
+							-- EXPIRES SLIDING MATRIX: Handle first-load database cache misses safely
+							if localized.currenttime >= worker_cache.request_window_expires then
+								worker_cache.exact_request_count = 0
+								worker_cache.request_window_expires = localized.currenttime + rate_limit_window
+							end
+							worker_cache.exact_request_count = worker_cache.exact_request_count + 1
+						end
 
 						--stats total blocked requests in rate limit window
 						local incr = localized.ddos_counter:get(secure_storage(0, "blocked_total_traffic")) or nil
@@ -4560,8 +4620,48 @@ local function internal_header_setup()
 							ip = localized.ngx_var_remote_addr()
 						end
 					end
+					-- 1. Check L1 Package Cache (Blazing fast Lua table read, no allocations)
+					local l1_ban_expiration = worker_cache.exact_ip_cache[ip]
+					if l1_ban_expiration then
+						-- CRITICAL EXPIRES MATRIX: If current server time is past the timestamp, the ban has ended!
+						if localized.currenttime >= l1_ban_expiration then
+							worker_cache.exact_ip_cache[ip] = nil
+							worker_cache.exact_ip_count = worker_cache.exact_ip_count - 1
+							if worker_cache.exact_ip_count < 0 then worker_cache.exact_ip_count = 0 end
+						else
+							-- EXPIRES SLIDING MATRIX: Reset total hits if the rate limit window has passed
+							if localized.currenttime >= worker_cache.request_window_expires then
+								worker_cache.exact_request_count = 0
+								worker_cache.request_window_expires = localized.currenttime + rate_limit_window
+							end
+							worker_cache.exact_request_count = worker_cache.exact_request_count + 1
+							local log_toggle = v[7]
+							if v[43] ~= nil and v[43] > 0 and worker_cache.exact_request_count >= v[43] then
+								log_toggle = 0
+							end
+							if log_toggle == 1 then
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS] (1) Blocked IP attempt (RAM): " .. ip .. " - URL : " .. localized.URL() )
+							end
+							close_connection()
+							return localized.ngx_exit(rate_limit_exit_status)
+						end
+					end
+
 					local blocked_time = localized.blocked_addr:get(secure_storage(0, ip))
 					if blocked_time and blocked_time ~= localized.ngx.null then
+
+						-- Commit the verified ban to L1 with an explicit calculated expiration epoch stamp
+						if not worker_cache.exact_ip_cache[ip] then
+							worker_cache.exact_ip_cache[ip] = localized.currenttime + block_duration
+							worker_cache.exact_ip_count = worker_cache.exact_ip_count + 1
+							-- EXPIRES SLIDING MATRIX: Handle first-load database cache misses safely
+							if localized.currenttime >= worker_cache.request_window_expires then
+								worker_cache.exact_request_count = 0
+								worker_cache.request_window_expires = localized.currenttime + rate_limit_window
+							end
+							worker_cache.exact_request_count = worker_cache.exact_request_count + 1
+						end
+
 
 						--stats total blocked requests in rate limit window
 						local incr = localized.ddos_counter:get(secure_storage(0, "blocked_total_traffic")) or nil
