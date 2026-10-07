@@ -152,7 +152,7 @@ https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/pulls
 
 Edit settings inside `anti_ddos_challenge.lua` to cater for your own unique needs or improve my work. (Please share your soloutions and additions)
 
-https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/blob/master/lua/anti_ddos_challenge.lua#L248
+https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/blob/master/lua/anti_ddos_challenge.lua#L251
 
 Add this to your Nginx configuration folder.
 
