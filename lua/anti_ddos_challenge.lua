@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 6.4
+Script Version: 6.5
 
 Copyright Conor McKnight
 
@@ -446,6 +446,7 @@ localized.anti_ddos_table = function() return {
 	},
 }
 end
+localized.anti_ddos_layer1_ip_limit = 1000000 --layer 1 Max blocked IPs to store this is a hard limit on the fast ram to prevent infinite ram consumption
 
 --[[
 This is the equivilant of proxy_cache or fastcgi_cache Just better.
@@ -3615,11 +3616,20 @@ ip_address_in_range = function(raw_client_ip)
 	if not cleaned_ip then return false end
 	cleaned_ip = str_lower(cleaned_ip)
 
-	-- LAYER 1: Session & Static Memory Map Interception (Fastest Allocation-Free Path)
+	-- LAYER 1: Fast O(1) Hash Map Matching Pass
 	local worker_exact_cache = worker_cache.exact_ip_cache
 	if worker_exact_cache[cleaned_ip] or (localized.static_exact_map and localized.static_exact_map[cleaned_ip]) then
-		--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][IP-WAF] Whitelist Matched: ", cleaned_ip, " (Package Memory Cache - Saved Session)")
 		return true
+	end
+
+	-- FIXED: Store whitelisted IPs using a permanent future timestamp (0xFFFFFFFF) instead of a boolean true
+	if localized.ip_whitelist then
+		for idx = 1, #localized.ip_whitelist do
+			if localized.ip_whitelist[idx] == cleaned_ip then
+				worker_exact_cache[cleaned_ip] = 4294967295
+				return true
+			end
+		end
 	end
 
 	local is_ipv4_client = str_find(cleaned_ip, ".", 1, true) ~= nil
@@ -3628,14 +3638,12 @@ ip_address_in_range = function(raw_client_ip)
 	if radix_lib then
 		if is_ipv4_client then
 			if worker_cache.radix_tree_v4 and worker_cache.radix_tree_v4:match(cleaned_ip) then
-				--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][IP-WAF] Whitelist Matched: ", cleaned_ip, " (Package Radix Tree Cache)")
-				worker_exact_cache[cleaned_ip] = true
+				worker_exact_cache[cleaned_ip] = 4294967295
 				return true
 			end
 		else
 			if worker_cache.radix_tree_v6 and worker_cache.radix_tree_v6:match(cleaned_ip) then
-				--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][IP-WAF] Whitelist Matched: ", cleaned_ip, " (Package Radix Tree Cache)")
-				worker_exact_cache[cleaned_ip] = true
+				worker_exact_cache[cleaned_ip] = 4294967295
 				return true
 			end
 		end
@@ -3653,8 +3661,7 @@ ip_address_in_range = function(raw_client_ip)
 				for i = 1, total_rules do
 					local rule = active_rules[i]
 					if rule.is_ipv4 and rule.match(rule, client_num) then
-						--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][IP-WAF] Whitelist Matched: ", cleaned_ip, " (Package Cache)")
-						worker_exact_cache[cleaned_ip] = true
+						worker_exact_cache[cleaned_ip] = 4294967295
 						return true
 					end
 				end
@@ -3664,8 +3671,7 @@ ip_address_in_range = function(raw_client_ip)
 				for i = 1, #fallback_rules do
 					local rule = fallback_rules[i]
 					if rule.is_ipv4 and rule.match(rule, client_num) then
-						--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][IP-WAF] Whitelist Matched: ", cleaned_ip, " (Table Fallback)")
-						worker_exact_cache[cleaned_ip] = true
+						worker_exact_cache[cleaned_ip] = 4294967295
 						return true
 					end
 				end
@@ -3678,8 +3684,7 @@ ip_address_in_range = function(raw_client_ip)
 					for i = 1, total_rules do
 						local rule = active_rules[i]
 						if not rule.is_ipv4 and rule:match(localized.global_cli_buffer) then
-							--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][IP-WAF] Whitelist Matched: ", cleaned_ip, " (Package Cache)")
-							worker_exact_cache[cleaned_ip] = true
+							worker_exact_cache[cleaned_ip] = 4294967295
 							return true
 						end
 					end
@@ -3689,8 +3694,7 @@ ip_address_in_range = function(raw_client_ip)
 					for i = 1, #fallback_rules do
 						local rule = fallback_rules[i]
 						if not rule.is_ipv4 and rule:match(localized.global_cli_buffer) then
-							--localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][IP-WAF] Whitelist Matched: ", cleaned_ip, " (Table Fallback)")
-							worker_exact_cache[cleaned_ip] = true
+							worker_exact_cache[cleaned_ip] = 4294967295
 							return true
 						end
 					end
@@ -3716,7 +3720,7 @@ local_compile_waf_fallback_regex = function(rules_table)
 	}
 
 	for i = 1, #rules_table do
-		-- FIXED: Unpacks the second index table value cleanly matching Conor's array format
+		-- FIXED: Unpacks the second index table value cleanly matching array format
 		local pattern = rules_table[i][2]
 		if pattern and pattern ~= "" then
 			
@@ -3778,7 +3782,6 @@ local sync_shared_dict_to_ram = function(premature)
 				end
 			end
 
-			
 			local radix_data_list = {}
 			local r_count = 0
 			local localized_next = (localized and localized.next) or next
@@ -3823,14 +3826,43 @@ local sync_shared_dict_to_ram = function(premature)
 		active_cache.local_version = global_version
 	else
 		local current_epoch = localized.ngx.time()
+		local cache_count = 0
+		-- Naturally expire stale elements to create new vacant slots
 		for cached_ip, expires_at in localized.next, active_cache.exact_ip_cache do
-			if current_epoch >= expires_at then
+			-- FIXED: Permanent whitelist markers (4294967295) are skipped from expiration loops to avoid boolean compare bugs
+			if expires_at == 4294967295 then
+				cache_count = cache_count + 1
+			elseif current_epoch >= expires_at then
 				active_cache.exact_ip_cache[cached_ip] = nil
-				active_cache.exact_ip_count = active_cache.exact_ip_count - 1
+			else
+				cache_count = cache_count + 1
 			end
 		end
-		if active_cache.exact_ip_count < 0 then active_cache.exact_ip_count = 0 end
+		-- Safely sync the tracking metric back to the master process plane
+		active_cache.exact_ip_count = cache_count
+	end
 
+	-- PRODUCTION-SAFE CONFIGURATION ASYNC WARM-UP PASS:
+	-- Guarantees that our hardcoded table ranges are parsed cleanly regardless of dynamic updates
+	if localized.proxy_header_table and #localized.proxy_header_table > 0 and not worker_cache.proxies_compiled then
+		worker_cache.compiled_proxy_map = {}
+		worker_cache.compiled_proxy_rules = {}
+		local p_rules = worker_cache.compiled_proxy_rules
+		local p_idx = 0
+
+		for idx = 1, #localized.proxy_header_table do
+			local cidr_str = localized.proxy_header_table[idx]
+			if not localized.string_find(cidr_str, "/", 1, true) then
+				worker_cache.compiled_proxy_map[cidr_str] = true
+			else
+				local rule = compile_cidr(cidr_str)
+				if rule then
+					p_idx = p_idx + 1
+					p_rules[p_idx] = rule
+				end
+			end
+		end
+		worker_cache.proxies_compiled = true
 	end
 
 	-- --------------------------------------------------------------------------
@@ -4011,22 +4043,17 @@ end
 End IP range function
 ]]
 
-localized.proxy_header_ip_check_count = 0
 local function proxy_header_ip_check(ip_table)
-	if localized.proxy_header_ip_check_count >= 1 then --so we dont run multiple times we serve the cached output instead
-		return localized.proxy_header_ip_check_cached
-	end
-	if ip_table ~= nil and #ip_table > 0 then
-		localized.proxy_header_ip_check_count = localized.proxy_header_ip_check_count+2 --make sure we dont run again
-		if localized.static_exact_map == nil then
-			localized.static_exact_map = {}
-		end
-		if localized.dynamic_cidr_rules == nil then
-			localized.dynamic_cidr_rules = {}
-		end
-		if localized.dynamic_cidr_seen == nil then
-			localized.dynamic_cidr_seen = {}
-		end
+	local remote_addr_ip = localized.ngx_var_remote_addr()
+	if not remote_addr_ip then return false end
+
+	-- STRICT BOOTSTRAP INITIALIZATION VALVE:
+	-- If Nginx just reloaded or booted and the background timer hasn't completed its first pass yet, 
+	-- we execute a safe single-flight pre-compilation block on the calling thread to warm up our caches.
+	if not worker_cache.proxies_compiled then
+		if localized.static_exact_map == nil then localized.static_exact_map = {} end
+		if localized.dynamic_cidr_rules == nil then localized.dynamic_cidr_rules = {} end
+		if localized.dynamic_cidr_seen == nil then localized.dynamic_cidr_seen = {} end
 		local rules_array = localized.dynamic_cidr_rules
 		local rules_idx = #rules_array
 		for i = 1, #ip_table do
@@ -4046,17 +4073,48 @@ local function proxy_header_ip_check(ip_table)
 				end
 			end
 		end
-		if ip_address_in_range(localized.ngx_var_remote_addr()) then
-			localized.proxy_header_ip_check_cached = true
-			return true
-		end
-	else
-		localized.proxy_header_ip_check_count = localized.proxy_header_ip_check_count+2 --make sure we dont run again
-		localized.proxy_header_ip_check_cached = true
+		worker_cache.compiled_proxy_map = localized.static_exact_map
+		worker_cache.compiled_proxy_rules = localized.dynamic_cidr_rules
+		worker_cache.proxies_compiled = true
+	end
+
+	-- HOT-PATH LAYER 1: Allocation-Free Hash Map Lookup Matrix Pass - O(1) Speed spectrum
+	if worker_cache.compiled_proxy_map and worker_cache.compiled_proxy_map[remote_addr_ip] then
 		return true
 	end
-	localized.proxy_header_ip_check_count = localized.proxy_header_ip_check_count+2 --make sure we dont run again
-	localized.proxy_header_ip_check_cached = false
+
+	-- HOT-PATH LAYER 2: Pre-Compiled Bitwise CIDR Range Comparison Pass
+	local active_p_rules = worker_cache.compiled_proxy_rules
+	if active_p_rules and #active_p_rules > 0 then
+		local str_find = localized.string_find or string.find
+		local is_v4 = str_find(remote_addr_ip, ".", 1, true) ~= nil
+
+		if is_v4 then
+			local client_long = fast_ipv4_to_long(remote_addr_ip)
+			if client_long then
+				local client_num = localized.bit_rshift(client_long, 0)
+				for idx = 1, #active_p_rules do
+					local rule = active_p_rules[idx]
+					if rule.is_ipv4 and rule.match(rule, client_num) then
+						return true
+					end
+				end
+			end
+		else
+			local net = localized.net_lib
+			if net and localized.global_cli_buffer then
+				if net.inet_pton(localized.AF_INET6, remote_addr_ip, localized.global_cli_buffer) == 1 then
+					for idx = 1, #active_p_rules do
+						local rule = active_p_rules[idx]
+						if not rule.is_ipv4 and rule:match(localized.global_cli_buffer) then
+							return true
+						end
+					end
+				end
+			end
+		end
+	end
+
 	return false
 end
 
@@ -4432,8 +4490,10 @@ local function internal_header_setup()
 				-- 1. Check L1 Package Cache (Blazing fast Lua table read, no allocations)
 				local l1_ban_expiration = worker_cache.exact_ip_cache[ip]
 				if l1_ban_expiration then
-					-- CRITICAL EXPIRES MATRIX: If current server time is past the timestamp, the ban has ended!
-					if localized.currenttime >= l1_ban_expiration then
+					-- FIXED: If the timestamp is our whitelist marker (4294967295), skip all block metrics and continue normally!
+					if l1_ban_expiration == 4294967295 then
+						-- Do nothing, whitelisted IP bypasses filters safely
+					elseif localized.currenttime >= l1_ban_expiration then
 						worker_cache.exact_ip_cache[ip] = nil
 						worker_cache.exact_ip_count = worker_cache.exact_ip_count - 1
 						if worker_cache.exact_ip_count < 0 then worker_cache.exact_ip_count = 0 end
@@ -4483,22 +4543,17 @@ local function internal_header_setup()
 						end
 					end
 
-					-- SAFETY LIMIT PROTECTION MATRIX:
-					if worker_cache.exact_ip_count >= 100000 then
-						package.loaded["anti_ddos_worker_cache"].exact_ip_cache = {}
-						worker_cache.exact_ip_cache = package.loaded["anti_ddos_worker_cache"].exact_ip_cache
-						worker_cache.exact_ip_count = 0
-					end
-
 					--start real ip block
 					local blocked_time = localized.blocked_addr:get(secure_storage(0, ip)) --if for some reason their real ip is in the block list block them else fall back to other checks
 					if blocked_time and blocked_time ~= localized.ngx.null then
 
-						-- Commit the verified ban to L1 with an explicit calculated expiration epoch stamp
+						-- REFACTOR: Only add the IP to Layer 1 if we have remaining headroom
 						if not worker_cache.exact_ip_cache[ip] then
-							worker_cache.exact_ip_cache[ip] = localized.currenttime + block_duration
-							worker_cache.exact_ip_count = worker_cache.exact_ip_count + 1
-							-- EXPIRES SLIDING MATRIX: Handle first-load database cache misses safely
+							if worker_cache.exact_ip_count < localized.anti_ddos_layer1_ip_limit then
+								worker_cache.exact_ip_cache[ip] = localized.currenttime + block_duration
+								worker_cache.exact_ip_count = worker_cache.exact_ip_count + 1
+							end
+							-- Handle window sliding metrics allocation-free
 							if localized.currenttime >= worker_cache.request_window_expires then
 								worker_cache.exact_request_count = 0
 								worker_cache.request_window_expires = localized.currenttime + rate_limit_window
@@ -4623,8 +4678,10 @@ local function internal_header_setup()
 					-- 1. Check L1 Package Cache (Blazing fast Lua table read, no allocations)
 					local l1_ban_expiration = worker_cache.exact_ip_cache[ip]
 					if l1_ban_expiration then
-						-- CRITICAL EXPIRES MATRIX: If current server time is past the timestamp, the ban has ended!
-						if localized.currenttime >= l1_ban_expiration then
+						-- FIXED: If the timestamp is our whitelist marker (4294967295), skip all block metrics and continue normally!
+						if l1_ban_expiration == 4294967295 then
+							-- Do nothing, whitelisted IP bypasses filters safely
+						elseif localized.currenttime >= l1_ban_expiration then
 							worker_cache.exact_ip_cache[ip] = nil
 							worker_cache.exact_ip_count = worker_cache.exact_ip_count - 1
 							if worker_cache.exact_ip_count < 0 then worker_cache.exact_ip_count = 0 end
@@ -4647,21 +4704,23 @@ local function internal_header_setup()
 						end
 					end
 
+
 					local blocked_time = localized.blocked_addr:get(secure_storage(0, ip))
 					if blocked_time and blocked_time ~= localized.ngx.null then
 
-						-- Commit the verified ban to L1 with an explicit calculated expiration epoch stamp
+						-- REFACTOR: Only add the IP to Layer 1 if we have remaining headroom
 						if not worker_cache.exact_ip_cache[ip] then
-							worker_cache.exact_ip_cache[ip] = localized.currenttime + block_duration
-							worker_cache.exact_ip_count = worker_cache.exact_ip_count + 1
-							-- EXPIRES SLIDING MATRIX: Handle first-load database cache misses safely
+							if worker_cache.exact_ip_count < localized.anti_ddos_layer1_ip_limit then
+								worker_cache.exact_ip_cache[ip] = localized.currenttime + block_duration
+								worker_cache.exact_ip_count = worker_cache.exact_ip_count + 1
+							end
+							-- Handle window sliding metrics allocation-free
 							if localized.currenttime >= worker_cache.request_window_expires then
 								worker_cache.exact_request_count = 0
 								worker_cache.request_window_expires = localized.currenttime + rate_limit_window
 							end
 							worker_cache.exact_request_count = worker_cache.exact_request_count + 1
 						end
-
 
 						--stats total blocked requests in rate limit window
 						local incr = localized.ddos_counter:get(secure_storage(0, "blocked_total_traffic")) or nil
@@ -4833,21 +4892,21 @@ if check_tor_onion() then
 	localized.proxy_header_table = nil
 end
 
-localized.ip_whitelist_flood_checks_count = 0
 local function ip_whitelist_flood_checks(ip_table)
-	if localized.ip_whitelist_flood_checks_count >= 1 then --so we dont run multiple times we serve the cached output instead
+	localized.ip_whitelist_flood_checks_count = localized.ip_whitelist_flood_checks_count or 0
+	if localized.ip_whitelist_flood_checks_count >= 1 then
 		return localized.ip_whitelist_output_cached
 	end
 	if localized.ip_whitelist_bypass_flood_protection == 1 and ip_table ~= nil and #ip_table > 0 then
 		if localized.ip_whitelist_remote_addr() == "auto" then
 			if localized.ngx_var_http_cf_connecting_ip() ~= nil then
-				if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really cloudflare
+				if proxy_header_ip_check(localized.proxy_header_table) == true then
 					localized.ip_whitelist_remote_addr = function() return localized.ngx_var_http_cf_connecting_ip() end
-				else --you are not really cloudflare dont pretend you are to bypass flood protection
+				else
 					localized.ip_whitelist_remote_addr = function() return localized.ngx_var_remote_addr() end
 				end
 			elseif localized.ngx_var_http_x_forwarded_for() ~= nil then
-				if proxy_header_ip_check(localized.proxy_header_table) == true then --you are really our expected proxy ip
+				if proxy_header_ip_check(localized.proxy_header_table) == true then
 					localized.ip_whitelist_remote_addr = function() return localized.ngx_var_http_x_forwarded_for() end
 				else
 					localized.ip_whitelist_remote_addr = function() return localized.ngx_var_remote_addr() end
@@ -4856,46 +4915,18 @@ local function ip_whitelist_flood_checks(ip_table)
 				localized.ip_whitelist_remote_addr = function() return localized.ngx_var_remote_addr() end
 			end
 		end
-		localized.ip_whitelist_flood_checks_count = localized.ip_whitelist_flood_checks_count+2 --make sure we dont run again
-		if localized.static_exact_map == nil then
-			localized.static_exact_map = {}
-		end
-		if localized.dynamic_cidr_rules == nil then
-			localized.dynamic_cidr_rules = {}
-		end
-		if localized.dynamic_cidr_seen == nil then
-			localized.dynamic_cidr_seen = {}
-		end
-		local rules_array = localized.dynamic_cidr_rules
-		local rules_idx = #rules_array
-		for i = 1, #ip_table do
-			local v = ip_table[i]
-			if not localized.dynamic_cidr_seen[v] then
-				localized.dynamic_cidr_seen[v] = true
-				if not localized.string_find(v, "/", 1, true) then
-					localized.static_exact_map[v] = true
-				else
-					local rule = compile_cidr(v)
-					if rule then
-						rules_idx = rules_idx + 1
-						rules_array[rules_idx] = rule
-					else
-						localized.dynamic_cidr_seen[v] = nil
-					end
-				end
-			end
-		end
-		if ip_address_in_range(localized.ip_whitelist_remote_addr()) then
+		localized.ip_whitelist_flood_checks_count = localized.ip_whitelist_flood_checks_count + 2
+
+		-- HOT-PATH EXCLUSION RADIX: If the target IP falls into our pre-compiled whitelists, pass immunity instantly
+		local whitelist_target_ip = localized.ip_whitelist_remote_addr()
+
+		-- Use the highly optimized internal engine checker to look up whitelisted parameters block-free
+		if ip_address_in_range(whitelist_target_ip) then
 			localized.ip_whitelist_output_cached = false
 			return false
 		end
 	else
-		localized.ip_whitelist_flood_checks_count = localized.ip_whitelist_flood_checks_count+2 --make sure we dont run again
-		--if localized.ip_whitelist_bypass_flood_protection == 1 then
-			--if returns true then ips will be blocked so we return false
-			--localized.ip_whitelist_output_cached = false
-			--return false
-		--end
+		localized.ip_whitelist_flood_checks_count = localized.ip_whitelist_flood_checks_count + 2
 	end
 	localized.ip_whitelist_output_cached = true
 	return true
@@ -7394,7 +7425,7 @@ local function query_string_expected_args_only()
 
 	for i = 1, #whitelist_config do
 		local host_block = whitelist_config[i]
-		-- FIXED: Unpacks the first index string element matching Conor's multidimensional array format
+		-- FIXED: Unpacks the first index string element matching multidimensional array format
 		local host_regex = host_block[1]
 
 		if faster_than_match(host_regex) or str_find(current_url, host_regex) then
@@ -7454,7 +7485,7 @@ local function query_string_sort()
 
 	for i = 1, #sort_config do
 		local host_block = sort_config[i]
-		-- FIXED: Unpacks the first index string element matching Conor's multidimensional array format
+		-- FIXED: Unpacks the first index string element matching multidimensional array format
 		local host_regex = host_block[1]
 
 		if faster_than_match(host_regex) or str_find(current_url, host_regex) then
@@ -9856,6 +9887,9 @@ end --end minification function
 
 minification(localized.content_cache())
 end
+
+localized.ip_whitelist_flood_checks_count = 0
+localized.get_resp_content_type_counter = 0
 
 if localized.anti_ddos_table() ~= nil and #localized.anti_ddos_table() > 0 then
 close_connection()
