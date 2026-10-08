@@ -66,6 +66,8 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Thu Oct 08 2026 C0nw0nk <C0nw0nk@github> - 6.5-1
+- Make the 1million IP limit on the Ram Cache configurable so users can change it at any time if you increase your lua_shared_dict capacity you can also increase this.
 * Wed Oct 07 2026 C0nw0nk <C0nw0nk@github> - 6.4-1
 - Improvements on speed avoiding memory thrashing / leaks etc.
 - Make user-agent blacklist / whitelist matching faster.
