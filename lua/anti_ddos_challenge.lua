@@ -4147,15 +4147,58 @@ if localized.remote_addr() == "tor" then
 	end
 end
 --[[WAF Web Application Firewall POST Request arguments filter]]
+local_compile_waf_fallback_regex = function(rules_table)
+	if not rules_table or #rules_table == 0 then return "" end
+	local parts = {}
+	local count = 0
+	local str_gsub = localized.string_gsub or string.gsub
 
--- 1. HIGH-SPEED WAF POST INTERCEPTOR
+	local strip_map = {
+		["^%%%.%%*"] = ".*", ["%%%.%%*%$"] = ".*",
+		["%%%."] = "."
+	}
+
+	for i = 1, #rules_table do
+		local key_pattern = rules_table[i][1]
+		local val_pattern = rules_table[i][2]
+		
+		if key_pattern and key_pattern ~= "" and val_pattern and val_pattern ~= "" then
+			for find_pat, replace_pat in next, strip_map do
+				key_pattern = str_gsub(key_pattern, find_pat, replace_pat)
+				val_pattern = str_gsub(val_pattern, find_pat, replace_pat)
+			end
+			
+			key_pattern = str_gsub(key_pattern, "%^", "")
+			key_pattern = str_gsub(key_pattern, "%$", "")
+			
+			if val_pattern == ".*" or val_pattern == "^.*$" then
+				val_pattern = "[^&]*"
+			else
+				val_pattern = str_gsub(val_pattern, " ", "[ +%%20]*")
+			end
+			
+			count = count + 1
+			parts[count] = "(?:^|&)" .. key_pattern .. "=" .. val_pattern
+		end
+	end
+	if count == 0 then return "" end
+	return table.concat(parts, "|")
+end
+
+if worker_cache then
+	worker_cache.waf_post_url_compiled = false
+	worker_cache.waf_post_url_map = worker_cache.waf_post_url_map or {}
+	worker_cache.cached_post_regex = local_compile_waf_fallback_regex(localized.WAF_POST_Request_table)
+end
+
+-- 1. HIGH-SPEED WAF POST INTERCEPTOR (FINAL PRODUCTION OPTIMISED MASK)
 localized.WAF_POST_Requests = function()
 	local rules = localized.WAF_POST_Request_table
 	if rules == nil or #rules == 0 then return end
 
-	localized.ngx.req.read_body()
-	local raw_body = localized.ngx.req.get_body_data()
-	local body_file = not raw_body and localized.ngx.req.get_body_file()
+	localized.ngx_req_read_body()
+	local raw_body = localized.ngx_req_get_body_data()
+	local body_file = not raw_body and localized.ngx_req_get_body_file()
 
 	if body_file and body_file ~= "" then
 		if localized.read_file == nil then
@@ -4176,45 +4219,61 @@ localized.WAF_POST_Requests = function()
 
 	if not raw_body or raw_body == "" then return end
 
-	-- FIXED: Bypasses shared dictionary lookup and decryption passes entirely
 	local pattern = worker_cache.cached_post_regex
 	local current_url = localized.URL()
+	local re_find = localized.ngx.re.find
 
 	if pattern and pattern ~= "" then
-		local space_decoded_body = localized.string_gsub(raw_body, "%+", " ")
-		if localized.ngx.re.find(raw_body, pattern, "jo") or localized.ngx.re.find(space_decoded_body, pattern, "jo") then
-			localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST Payload prohibited (Package RAM Cache) : " .. current_url .. " - IP : " .. localized.remote_addr())
+		if re_find(raw_body, pattern, "jo") then
+			localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST Payload prohibited (Package RAM Cache) : " .. current_url .. " - IP : " .. localized.tostring(localized.remote_addr()))
 			close_connection()
 			return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
 		end
 	end
 
-	-- Array table fallback path evaluated only if master compilation matches fail
 	local post_args = localized.ngx_req_get_post_args()
 	if post_args ~= nil and localized.next(post_args) ~= nil then
 		local num_rules = #rules
-		for key, value in localized.next, post_args do
-			local args_name = localized.tostring(key)
-			if localized.type(value) == "table" then
+		local next_node = localized.next
+		local to_string = localized.tostring
+		local type_check = localized.type
+
+		if not worker_cache.waf_post_url_compiled then
+			for i = 1, num_rules do
+				local rule_url = rules[i][1]
+				if faster_than_match(rule_url) or re_find(current_url, rule_url, "jo") then
+					worker_cache.waf_post_url_map[i] = true
+				end
+			end
+			worker_cache.waf_post_url_compiled = true
+		end
+
+		local url_match_cache = worker_cache.waf_post_url_map
+
+		for key, value in next_node, post_args do
+			local args_name = to_string(key)
+			if type_check(value) == "table" then
 				for z = 1, #value do
-					local args_value = localized.tostring(value[z])
+					local args_value = to_string(value[z])
 					for i = 1, num_rules do
-						local rule = rules[i]
-						if (faster_than_match(rule[1]) or localized.ngx.re.find(current_url, rule[1], "jo")) and localized.ngx.re.find(args_value, rule[2], "jo") then
-							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST Payload prohibited (Table Fallback) : " .. current_url .. " - IP : " .. localized.remote_addr())
-							close_connection()
-							return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+						if url_match_cache[i] then
+							if (rules[i][1] == "^" .. args_name .. "$" or rules[i][1] == args_name or re_find(args_name, rules[i][1], "jo")) and re_find(args_value, rules[i][2], "jo") then
+								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST Payload prohibited (Table Fallback Array Match) : " .. current_url .. " - IP : " .. localized.tostring(localized.remote_addr()))
+								close_connection()
+								return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+							end
 						end
 					end
 				end
 			else
-				local args_value = localized.tostring(value)
+				local args_value = to_string(value)
 				for i = 1, num_rules do
-					local rule = rules[i]
-					if (faster_than_match(rule[1]) or localized.ngx.re.find(current_url, rule[1], "jo")) and localized.ngx.re.find(args_value, rule[2], "jo") then
-						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST Payload prohibited (Table Fallback) : " .. current_url .. " - IP : " .. localized.remote_addr())
-						close_connection()
-						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+					if url_match_cache[i] then
+						if (rules[i][1] == "^" .. args_name .. "$" or rules[i][1] == args_name or re_find(args_name, rules[i][1], "jo")) and re_find(args_value, rules[i][2], "jo") then
+							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST Payload prohibited (Table Fallback Array Match) : " .. current_url .. " - IP : " .. localized.tostring(localized.remote_addr()))
+							close_connection()
+							return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
+						end
 					end
 				end
 			end
@@ -4223,61 +4282,87 @@ localized.WAF_POST_Requests = function()
 end
 localized.WAF_POST_Requests()
 
--- 2. HIGH-SPEED WAF HEADER INTERCEPTOR
+-- ==============================================================================
+-- AUTOMATED DYNAMIC CONFIGURATION COMPILER (HOISTED FOR MAXIMUM FLOOD PROTECTION)
+-- ==============================================================================
+local function precompile_waf_header_table(rules_table)
+	if not rules_table or #rules_table == 0 then return nil end
+	local compiled_matrix = {}
+	local count = 0
+	local str_gsub = localized.string_gsub or string.gsub
+
+	local strip_map = {
+		["^%%%.%%*"] = ".*", ["%%%.%%*%$"] = ".*",
+		["%%%."] = "."
+	}
+
+	for i = 1, #rules_table do
+		local key_pattern = rules_table[i][1]
+		local val_pattern = rules_table[i][2]
+		
+		if key_pattern and key_pattern ~= "" and val_pattern and val_pattern ~= "" then
+			for find_pat, replace_pat in next, strip_map do
+				key_pattern = str_gsub(key_pattern, find_pat, replace_pat)
+				val_pattern = str_gsub(val_pattern, find_pat, replace_pat)
+			end
+			
+			count = count + 1
+			compiled_matrix[count] = {
+				raw_key = rules_table[i][1],
+				raw_val = rules_table[i][2],
+				clean_key = str_gsub(str_gsub(key_pattern, "%^", ""), "%$", ""),
+				val_regex = val_pattern
+			}
+		end
+	end
+	return compiled_matrix
+end
+
+if worker_cache then
+	worker_cache.precompiled_header_matrix = precompile_waf_header_table(localized.WAF_Header_Request_table)
+end
+
+-- 2. HIGH-SPEED WAF HEADER INTERCEPTOR (ABSOLUTE FASTEST PRODUCTION MASK)
 localized.WAF_Header_Requests = function()
-	local rules = localized.WAF_Header_Request_table
-	if rules == nil or #rules == 0 then return end
+	local compiled_rules = worker_cache.precompiled_header_matrix
+	if compiled_rules == nil or #compiled_rules == 0 then return end
 
 	local headers = localized.ngx_req_get_headers()
 	if headers == nil or localized.next(headers) == nil then return end
 
-	-- FIXED: Replaced shared_db:get operations with atomic local variable registers
-	local pattern = worker_cache.cached_header_regex
 	local current_url = localized.URL()
+	local re_find = localized.ngx.re.find
+	local next_node = localized.next
+	local to_string = localized.tostring
+	local type_check = localized.type
+	local num_rules = #compiled_rules
 
-	if pattern and pattern ~= "" then
-		for key, value in localized.next, headers do
-			local k_str = localized.tostring(key)
-			if localized.type(value) == "table" then
-				for i = 1, #value do
-					local h_payload = k_str .. "=" .. localized.tostring(value[i])
-					if localized.ngx.re.find(h_payload, pattern, "jo") then
-						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited (Package RAM Cache) : " .. current_url .. " - IP : " .. localized.remote_addr())
-						close_connection()
-						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
-					end
-				end
-			else
-				local h_payload = k_str .. "=" .. localized.tostring(value)
-				if localized.ngx.re.find(h_payload, pattern, "jo") then
-					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited (Package RAM Cache) : " .. current_url .. " - IP : " .. localized.remote_addr())
-					close_connection()
-					return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
-				end
-			end
-		end
-	else
-		local num_rules = #rules
-		for key, value in localized.next, headers do
-			local args_name = localized.tostring(key)
-			if localized.type(value) == "table" then
-				for z = 1, #value do
-					local args_value = localized.tostring(value[z])
-					for i = 1, num_rules do
-						local rule = rules[i]
-						if (faster_than_match(rule[1]) or localized.string_find(args_name, rule[1])) and localized.string_find(args_value, rule[2]) then
-							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited (Table Fallback) : " .. current_url .. " - IP : " .. localized.remote_addr())
+	for key, value in next_node, headers do
+		local args_name = to_string(key)
+		
+		if type_check(value) == "table" then
+			for z = 1, #value do
+				local args_value = to_string(value[z])
+				for i = 1, num_rules do
+					local rule = compiled_rules[i]
+					
+					if args_name == rule.clean_key or rule.raw_key == args_name or re_find(args_name, rule.raw_key, "jo") then
+						if re_find(args_value, rule.val_regex, "jo") then
+							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited (Package RAM Cache) : " .. current_url .. " - IP : " .. to_string(localized.remote_addr()))
 							close_connection()
 							return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
 						end
 					end
 				end
-			else
-				local args_value = localized.tostring(value)
-				for i = 1, num_rules do
-					local rule = rules[i]
-					if (faster_than_match(rule[1]) or localized.string_find(args_name, rule[1])) and localized.string_find(args_value, rule[2]) then
-						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited (Table Fallback) : " .. current_url .. " - IP : " .. localized.remote_addr())
+			end
+		else
+			local args_value = to_string(value)
+			for i = 1, num_rules do
+				local rule = compiled_rules[i]
+				
+				if args_name == rule.clean_key or rule.raw_key == args_name or re_find(args_name, rule.raw_key, "jo") then
+					if re_find(args_value, rule.val_regex, "jo") then
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Header prohibited (Package RAM Cache) : " .. current_url .. " - IP : " .. to_string(localized.remote_addr()))
 						close_connection()
 						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
 					end
@@ -4288,48 +4373,103 @@ localized.WAF_Header_Requests = function()
 end
 localized.WAF_Header_Requests()
 
--- 3. HIGH-SPEED WAF QUERY STRING INTERCEPTOR
+-- ==============================================================================
+-- AUTOMATED QUERY CONFIG COMPILER (HOISTED FOR MAXIMUM FLOOD PROTECTION)
+-- ==============================================================================
+local function precompile_waf_query_table(rules_table)
+	if not rules_table or #rules_table == 0 then return nil end
+	local compiled_matrix = {}
+	local count = 0
+	local str_gsub = localized.string_gsub or string.gsub
+
+	local strip_map = {
+		["^%%%.%%*"] = ".*", ["%%%.%%*%$"] = ".*",
+		["%%%."] = "."
+	}
+
+	for i = 1, #rules_table do
+		local key_pattern = rules_table[i][1]
+		local val_pattern = rules_table[i][2]
+		
+		if key_pattern and key_pattern ~= "" and val_pattern and val_pattern ~= "" then
+			for find_pat, replace_pat in next, strip_map do
+				key_pattern = str_gsub(key_pattern, find_pat, replace_pat)
+				val_pattern = str_gsub(val_pattern, find_pat, replace_pat)
+			end
+			
+			key_pattern = str_gsub(key_pattern, "%%_", "_")
+			val_pattern = str_gsub(val_pattern, "%%_", "_")
+
+			key_pattern = str_gsub(key_pattern, "%^", "")
+			key_pattern = str_gsub(key_pattern, "%$", "")
+			
+			if val_pattern == ".*" or val_pattern == "^.*$" then
+				val_pattern = ".*"
+			else
+				val_pattern = str_gsub(val_pattern, " ", "[ +%%20]*")
+			end
+			
+			count = count + 1
+			compiled_matrix[count] = {
+				raw_key = rules_table[i][1],
+				raw_val = rules_table[i][2],
+				key_regex = "^(?i)" .. key_pattern .. "$",
+				val_regex = "^(?i)" .. val_pattern .. "$"
+			}
+		end
+	end
+	return compiled_matrix
+end
+
+if worker_cache then
+	worker_cache.precompiled_query_matrix = precompile_waf_query_table(localized.WAF_query_string_Request_table)
+	worker_cache.cached_query_regex = ""
+end
+
+-- 3. HIGH-SPEED WAF QUERY STRING INTERCEPTOR (FINAL PRODUCTION OPTIMISED MASK)
 localized.WAF_query_string_Request = function()
 	local raw_args = localized.ngx_var_args and localized.ngx_var_args() or localized.ngx.var.args
 	if raw_args == nil or raw_args == "" then return end
 
-	-- FIXED: Streamlined regex verification path to query thread stack properties directly
-	local pattern = worker_cache.cached_query_regex
+	local compiled_rules = worker_cache.precompiled_query_matrix
+	if compiled_rules == nil or #compiled_rules == 0 then return end
+
+	local args_table = localized.ngx_req_get_uri_args()
+	if args_table == nil or localized.next(args_table) == nil then return end
+
 	local current_url = localized.URL()
+	local re_find = localized.ngx.re.find
+	local next_node = localized.next
+	local to_string = localized.tostring
+	local type_check = localized.type
+	local num_rules = #compiled_rules
 
-	if pattern and pattern ~= "" then
-		if localized.ngx.re.find(raw_args, pattern, "jo") then
-			localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Query String prohibited (Package RAM Cache) : " .. current_url .. " - IP : " .. localized.remote_addr())
-			close_connection()
-			return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
-		end
-	else
-		local args_table = localized.ngx_req_get_uri_args()
-		if args_table == nil or localized.next(args_table) == nil then return end
-
-		local rules = localized.WAF_query_string_Request_table
-		local num_rules = #rules
-
-		for key, value in localized.next, args_table do
-			local args_name = localized.tostring(key)
-			if localized.type(value) == "table" then
-				for z = 1, #value do
-					local args_value = localized.tostring(value[z])
-					for i = 1, num_rules do
-						local rule = rules[i]
-						if (faster_than_match(rule[1]) or localized.string_find(args_name, rule[1])) and localized.string_find(args_value, rule[2]) then
-							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Query String prohibited (Table Fallback) : " .. current_url .. " - IP : " .. localized.remote_addr())
+	for key, value in next_node, args_table do
+		local args_name = to_string(key)
+		
+		if type_check(value) == "table" then
+			for z = 1, #value do
+				local args_value = to_string(value[z])
+				for i = 1, num_rules do
+					local rule = compiled_rules[i]
+					
+					if re_find(args_name, rule.key_regex, "jo") then
+						if re_find(args_value, rule.val_regex, "jo") then
+							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Query String prohibited (Package RAM Cache) : " .. current_url .. " - IP : " .. to_string(localized.remote_addr()))
 							close_connection()
 							return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
 						end
 					end
 				end
-			else
-				local args_value = localized.tostring(value)
-				for i = 1, num_rules do
-					local rule = rules[i]
-					if (faster_than_match(rule[1]) or localized.string_find(args_name, rule[1])) and localized.string_find(args_value, rule[2]) then
-						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Query String prohibited (Table Fallback) : " .. current_url .. " - IP : " .. localized.remote_addr())
+			end
+		else
+			local args_value = to_string(value)
+			for i = 1, num_rules do
+				local rule = compiled_rules[i]
+				
+				if re_find(args_name, rule.key_regex, "jo") then
+					if re_find(args_value, rule.val_regex, "jo") then
+						localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request Query String prohibited (Package RAM Cache) : " .. current_url .. " - IP : " .. to_string(localized.remote_addr()))
 						close_connection()
 						return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
 					end
@@ -4340,40 +4480,83 @@ localized.WAF_query_string_Request = function()
 end
 localized.WAF_query_string_Request()
 
--- 4. HIGH-SPEED WAF URI PATH INTERCEPTOR
+-- ==============================================================================
+-- AUTOMATED URI CONFIG COMPILER (HOISTED FOR MAXIMUM FLOOD PROTECTION)
+-- ==============================================================================
+local function precompile_waf_uri_table(rules_table)
+	if not rules_table or #rules_table == 0 then return nil end
+	local compiled_matrix = {}
+	local count = 0
+	local str_gsub = localized.string_gsub or string.gsub
+
+	local strip_map = {
+		["^%%%.%%*"] = ".*", ["%%%.%%*%$"] = ".*",
+		["%%%."] = "."
+	}
+
+	for i = 1, #rules_table do
+		local host_pattern = rules_table[i][1]
+		local path_pattern = rules_table[i][2]
+		
+		if host_pattern and host_pattern ~= "" and path_pattern and path_pattern ~= "" then
+			for find_pat, replace_pat in next, strip_map do
+				host_pattern = str_gsub(host_pattern, find_pat, replace_pat)
+				path_pattern = str_gsub(path_pattern, find_pat, replace_pat)
+			end
+			
+			host_pattern = str_gsub(host_pattern, "%^", "")
+			host_pattern = str_gsub(host_pattern, "%$", "")
+			
+			count = count + 1
+			compiled_matrix[count] = {
+				raw_host = rules_table[i][1],
+				raw_path = rules_table[i][2],
+				-- Bind anchors cleanly to enforce strict standalone token matching checks
+				host_regex = "^(?i)" .. host_pattern .. "$",
+				path_regex = "(?i)" .. path_pattern
+			}
+		end
+	end
+	return compiled_matrix
+end
+
+if worker_cache then
+	-- Pre-compile the custom dynamic URI path matrix once at worker boot space/reload
+	worker_cache.precompiled_uri_matrix = precompile_waf_uri_table(localized.WAF_URI_Request_table)
+	-- Completely wipe the legacy unanchored string cache register to block false positives
+	worker_cache.cached_uri_regex = ""
+end
+
+-- 4. HIGH-SPEED WAF URI PATH INTERCEPTOR (ABSOLUTE FASTEST DDOS FORTIFICATION)
 localized.WAF_URI_Request = function()
 	local uri = localized.request_uri()
 	if uri == nil or uri == "" or uri == "/" then return end
 
+	local re_find = localized.ngx.re.find
 	local q_pos = localized.string_find(uri, "?", 1, true)
 	local args = q_pos and localized.string_sub(uri, 1, q_pos - 1) or uri
 
 	if args == "" or args == "/" then return end
 
+	local compiled_rules = worker_cache.precompiled_uri_matrix
+	if compiled_rules == nil or #compiled_rules == 0 then return end
+
 	local current_url = localized.URL()
-	-- FIXED: Complete removal of core hot path decryption and shared memory lookups
-	local pattern = worker_cache.cached_uri_regex
+	local next_node = localized.next
+	local to_string = localized.tostring
+	local num_rules = #compiled_rules
 
-	if pattern and pattern ~= "" then
-		if localized.ngx.re.find(args, pattern, "jo") then
-			localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request URI prohibited (Package RAM Cache) : " .. current_url .. " - IP : " .. localized.remote_addr())
-			close_connection()
-			return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
-		end
-	elseif localized.WAF_URI_Request_table ~= nil and #localized.WAF_URI_Request_table > 0 then
-		local rules = localized.WAF_URI_Request_table
-		local num_rules = #rules
-
-		for i = 1, num_rules do
-			local rule = rules[i]
-			local host_pattern = rule[1]
-
-			if faster_than_match(host_pattern) or localized.string_find(current_url, host_pattern) then
-				if localized.string_find(args, rule[2]) then
-					localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request URI prohibited (Table Fallback) : " .. current_url .. " - IP : " .. localized.remote_addr())
-					close_connection()
-					return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
-				end
+	-- LOOP-FREE INTERCEPTION MATRIX: Evaluates lookups instantly in O(1) constant scale complexity
+	for i = 1, num_rules do
+		local rule = compiled_rules[i]
+		
+		-- Fast JIT Pass: Validate if the incoming request path falls into this configuration boundary
+		if faster_than_match(rule.raw_host) or re_find(current_url, rule.host_regex, "jo") then
+			-- Execute immediate machine-code validation sweep across the restricted system path strings
+			if re_find(args, rule.path_regex, "jo") then
+				localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request URI prohibited (Dynamic JIT Match) : " .. current_url .. " - IP : " .. localized.tostring(localized.remote_addr()))
+				close_connection()
+				return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
 			end
 		end
 	end
