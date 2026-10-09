@@ -1,3 +1,8 @@
+nginx-lua-anti-ddos-challenge (6.6-1) stable; urgency=medium
+  - Pre compile WAF rules to be faster.
+
+ -- C0nw0nk <C0nw0nk@github>  Fri, 09 Oct 2026 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (6.5-1) stable; urgency=medium
   - Make the 1million IP limit on the Ram Cache configurable so users can change it at any time if you increase your lua_shared_dict capacity you can also increase this.
 
