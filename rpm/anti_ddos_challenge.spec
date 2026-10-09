@@ -68,6 +68,8 @@ fi
 %changelog
 * Fri Oct 09 2026 C0nw0nk <C0nw0nk@github> - 6.6-1
 - Pre compile WAF rules to be faster.
+* Fri Oct 09 2026 C0nw0nk <C0nw0nk@github> - 6.6-1
+- Pre compile WAF rules to be faster.
 * Thu Oct 08 2026 C0nw0nk <C0nw0nk@github> - 6.5-1
 - Make the 1million IP limit on the Ram Cache configurable so users can change it at any time if you increase your lua_shared_dict capacity you can also increase this.
 * Thu Oct 08 2026 C0nw0nk <C0nw0nk@github> - 6.5-1
