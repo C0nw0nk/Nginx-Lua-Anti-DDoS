@@ -1,3 +1,7 @@
+Version: 6.7
+Date: 2026-10-14
+- Improve performance of config vars by caching them so Lua garbage collector does not get thrashed creating and destroying tables.
+
 Version: 6.6
 Date: 2026-10-09
 - Pre compile WAF rules to be faster.
