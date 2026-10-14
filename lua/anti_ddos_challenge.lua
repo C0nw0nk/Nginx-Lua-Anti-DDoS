@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 6.6
+Script Version: 6.7
 
 Copyright Conor McKnight
 
@@ -155,6 +155,7 @@ localized.currenttime = localized.ngx.time() --Current time on server
 localized.os_time_saved = localized.currenttime - 86400
 localized.get_date_cache=localized.get_date_cache or{last_unix=-1,data={}} localized.pad_zero=localized.pad_zero or setmetatable({},{__index=function(t,k) local s=k<10 and("0"..k)or localized.tostring(k) t[k]=s return s end}) localized.os_date=function(wanted_type,unix_time) if not unix_time then unix_time=localized.ngx.time() end local cache=localized.get_date_cache local pad_zero=localized.pad_zero local d=cache.data if cache.last_unix==unix_time then if wanted_type=="%M"then return d.minutes end if wanted_type=="%H"then return d.hours end if wanted_type=="%d"then return d.days end if wanted_type=="%W"then return d.week end if wanted_type=="%m"then return d.month end if wanted_type=="%Y"then return d.year end if wanted_type=="%z"then return d.z_custom end if wanted_type=="%Y%m%d"then return d.ymd end return d.full end cache.last_unix=unix_time local raw_seconds=unix_time%86400 local hours=localized.math_floor(raw_seconds/3600) local minutes=localized.math_floor((raw_seconds%3600)/60) local seconds=raw_seconds%60 local days=localized.math_floor(unix_time/86400) local epoch_days=days+719468 local era=localized.math_floor((epoch_days>=0 and epoch_days or epoch_days-146096)/146097) local doe=epoch_days-era*146097 local yoe=localized.math_floor((doe-localized.math_floor(doe/1460)+localized.math_floor(doe/36524)-localized.math_floor(doe/141620))/365) local epoch_year=yoe+era*400 local doy=doe-(365*yoe+localized.math_floor(yoe/4)-localized.math_floor(yoe/100)) local mp=localized.math_floor((5*doy+2)/153) local final_days=doy-localized.math_floor((153*mp+2)/5)+1 local month=mp<10 and mp+3 or mp-9 if month<3 then epoch_year=epoch_year+1 end d.period=hours>=12 and"pm"or"am" d.seconds=pad_zero[seconds] d.minutes=pad_zero[minutes] d.hours=pad_zero[hours] d.days=pad_zero[final_days] d.month=pad_zero[month] d.year=localized.tostring(epoch_year) d.z_custom=epoch_year+9 d.week=localized.tostring(localized.math_floor(days/7)%52) local today=localized.ngx.today() d.ymd=localized.string_sub(today,1,4)..localized.string_sub(today,6,7)..localized.string_sub(today,9,10) d.full=d.days.."/"..d.month.."/"..d.year.." "..d.hours..":"..d.minutes..":"..d.seconds.." "..d.period if wanted_type=="%M"then return d.minutes end if wanted_type=="%H"then return d.hours end if wanted_type=="%d"then return d.days end if wanted_type=="%W"then return d.week end if wanted_type=="%m"then return d.month end if wanted_type=="%Y"then return d.year end if wanted_type=="%z"then return d.z_custom end if wanted_type=="%Y%m%d"then return d.ymd end return d.full end
 --localized.os_clock = os.clock() --nulled out dev func to test speed
+if not localized.package.loaded["anti_ddos_config_store"] then localized.package.loaded["anti_ddos_config_store"] = {} end local config_store = localized.package.loaded["anti_ddos_config_store"] --PROCESS-LEVEL STATIC STORAGE ASSIGNMENT PLANE (ZERO RE-ALLOCATION MATRIX)
 --[[
 End localization
 ]]
@@ -180,7 +181,8 @@ Usage :
 Where you would use `localized.ngx.shared.antiddos` just use `localized.remote_servers_table` and it will use a server / service of your choice for remote storage :)
 ]]
 --[[
-localized.remote_servers_table = {
+if not config_store.remote_servers_table then
+config_store.remote_servers_table = {
 	1, --storage server for cache redis = 1 memcached = 2 (memcached only works with seconds not milliseconds) lrucache = 3 ngx.shared.dict = 4 resty.redis.fast = 5 resty.redis.cluster.fast = 6 resty.memcached.fast = 7 rediscluster = 8 Rediscluster example https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/Using-Resty-Redis-Cluster-library
 	"127.0.0.1", --ipaddress or "unix:/path/to/unix.sock" if using socket set port to nil
 	6379, --port memcached 11211 redis 6379
@@ -208,11 +210,17 @@ localized.remote_servers_table = {
 	--	no_slaves = true,
 	--},
 	nil,--13th close_connection handling setting this to 1 will close connections after use, to use this instead of keepalive max_idle_timeout and pool_size above set the above to nil, having both above and this value as nil resty library will resort to default connection handling behaviour
-}]]
-localized.remote_servers_table = {
+}
+end
+localized.remote_servers_table = config_store.remote_servers_table
+]]
+if not config_store.remote_servers_table then
+config_store.remote_servers_table = {
 	4, --ngx.shared.DICT memory zone
 	localized.ngx.shared.antiddos, --shared memory zone
 }
+end
+localized.remote_servers_table = config_store.remote_servers_table
 
 --[[
 for data stored in memory/shared or remotely stored you can protect it with encryption
@@ -226,7 +234,8 @@ localized.storage_compression_min_size = 0 --nil or 0 for any size do not compre
 localized.storage_compression_max_size = 0 --nil or 0 for any size do not compress files larger than this size
 localized.storage_compression_ratio = 1 --depending on your above choice different ratios for different libraries example (brotli = 0 lowest highest = level 11)(ZSTD = 1 lowest highest = level 22)(zlib = 1 lowest highest = level 9)
 
-localized.anti_ddos_table = function() return {
+if not config_store.anti_ddos_table then
+config_store.anti_ddos_table = {
 	{
 		".*", --regex match any site / path
 
@@ -446,6 +455,8 @@ localized.anti_ddos_table = function() return {
 	},
 }
 end
+localized.anti_ddos_table = function() return config_store.anti_ddos_data end
+
 localized.anti_ddos_layer1_ip_limit = 1000000 --layer 1 Max blocked IPs to store this is a hard limit on the fast ram to prevent infinite ram consumption
 
 --[[
@@ -472,7 +483,8 @@ setcookie($cookie_name, $cookie_value, time() + (86400 * 30), "/"); // 86400 = 1
 }
 ?>
 ]]
-localized.content_cache = function() return {
+if not config_store.content_cache then
+config_store.content_cache = {
 	--[[
 	{
 		".*", --regex match any site / path
@@ -616,6 +628,7 @@ localized.content_cache = function() return {
 	]]
 }
 end
+localized.content_cache = function() return config_store.content_cache end
 
 --[[
 This is a password that encrypts our puzzle and cookies unique to your sites and servers you should change this from the default.
@@ -757,7 +770,8 @@ localized.ip_whitelist_remote_addr = function() return "auto" end --Automaticall
 --localized.ip_whitelist_remote_addr = function() return localized.ngx_var_remote_addr() end
 localized.ip_whitelist_block_mode = 0 --0 whitelist acts as a bypass to puzzle auth checks 1 is to enforce only allowing whitelisted addresses access other addresses will be blocked.
 localized.ip_whitelist_bypass_flood_protection = 1 --0 IP's in whitelist can still be banned / blocked for DDoS flooding behaviour 1 IP's bypass the flood detection
-localized.ip_whitelist = {
+if not config_store.ip_whitelist then
+config_store.ip_whitelist = {
 --localized.ngx_var_server_addr(), --auto add our servers ip address localized.auto_add_server_ip_to_merged_tables = 1 does this already
 "127.0.0.0",
 "127.0.0.1",
@@ -792,6 +806,8 @@ localized.ip_whitelist = {
 --https://search.developer.apple.com/applebot.json
 --Full list https://search-engine-ip-tracker.merj.com/status
 }
+end
+localized.ip_whitelist = config_store.ip_whitelist
 
 --[[
 IP Address Blacklist
@@ -801,9 +817,12 @@ To find all IP ranges of an ASN use : https://www.enjen.net/asn-blocklist/index.
 For the worst Botnet ASN IP's see here : https://www.spamhaus.org/statistics/botnet-asn/ You can add their IP addresses. https://www.abuseat.org/public/asninfections.html
 ]]
 localized.ip_blacklist_remote_addr = function() return "auto" end --Automatically get the Clients IP address
-localized.ip_blacklist = {
+if not config_store.ip_blacklist then
+config_store.ip_blacklist = {
 --"1.3.3.7", --Examples here : https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/configuration#ip-address-blacklist
 }
+end
+localized.ip_blacklist = config_store.ip_blacklist
 
 --[[
 Security feature to prevent spoofing on the Proxy headers CF-Connecting-IP or X-forwarded-for user-agent.
@@ -812,7 +831,8 @@ They do this to see if your server will use their real ip or the fake header the
 Add your ip ranges to the list of who you expect to send you a proxy header.
 Example to test with : curl.exe "http://localhost/" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -H "Accept-Language: en-GB,en;q=0.5" -H "Accept-Encoding: gzip, deflate, br, zstd" -H "DNT: 1" -H "Connection: keep-alive" -H "Cookie: name1=1; name2=2; logged_in=1" -H "Upgrade-Insecure-Requests: 1" -H "Sec-Fetch-Dest: document" -H "Sec-Fetch-Mode: navigate" -H "Sec-Fetch-Site: none" -H "Sec-Fetch-User: ?1" -H "Priority: u=0, i" -H "Pragma: no-cache" -H "Cache-Control: no-cache" -H "User-Agent:testagent1" -H "CF-Connecting-IP: 1" -H "X-Forwarded-For: 1" -H "internal:1"
 ]]
-localized.proxy_header_table = {
+if not config_store.proxy_header_table then
+config_store.proxy_header_table = {
 --localized.ngx_var_server_addr(), --auto add our servers ip address localized.auto_add_server_ip_to_merged_tables = 1 does this already
 "127.0.0.0",
 "127.0.0.1",
@@ -838,6 +858,8 @@ localized.proxy_header_table = {
 --Cloudflare IP's https://www.cloudflare.com/en-gb/ips/
 "173.245.48.0/20","103.21.244.0/22","103.22.200.0/22","103.31.4.0/22","141.101.64.0/18","108.162.192.0/18","190.93.240.0/20","188.114.96.0/20","197.234.240.0/22","198.41.128.0/17","162.158.0.0/15","104.16.0.0/13","104.24.0.0/14","172.64.0.0/13","131.0.72.0/22","2400:cb00::/32","2606:4700::/32","2803:f800::/32","2405:b500::/32","2405:8100::/32","2a06:98c0::/29","2c0f:f248::/32",
 }
+end
+localized.proxy_header_table = config_store.proxy_header_table
 localized.merge_proxy_and_ip_whitelist = 1 --0 disable 1 enable merge ip whitelist and proxy list into a single table
 localized.auto_add_server_ip_to_merged_tables = 1 --0 disable 1 enable we automatically add our detected servers ip to our whitelists localized.ngx_var_server_addr()
 
@@ -901,7 +923,8 @@ You can also specify full domain names like "github.com" to protect specific dom
 1 = run auth checks
 2 = bypass auth checks
 ]]
-localized.master_switch_custom_hosts = {
+if not config_store.master_switch_custom_hosts then
+config_store.master_switch_custom_hosts = {
 	--[[
 	{
 		1, --run auth checks
@@ -933,6 +956,8 @@ localized.master_switch_custom_hosts = {
 	}, --authenticate .com domains
 	]]
 }
+end
+localized.master_switch_custom_hosts = config_store.master_switch_custom_hosts
 
 --[[
 Enable/disable credits It would be nice if you would show these to help the community grow and make the internet safer for everyone
@@ -965,7 +990,8 @@ If you want to block access to bad bots / specific user-agents you can use this.
 
 I added some examples of bad bots to block access to.
 ]]
-localized.user_agent_blacklist_table = {
+if not config_store.user_agent_blacklist_table then
+config_store.user_agent_blacklist_table = {
 	{
 		"^\\s*$",
 		3,
@@ -1019,6 +1045,8 @@ localized.user_agent_blacklist_table = {
 		1,
 	},
 }
+end
+localized.user_agent_blacklist_table = config_store.user_agent_blacklist_table
 
 --[[
 User-Agent Whitelist
@@ -1030,7 +1058,8 @@ If you want to allow access to specific user-agents use this.
 
 I added some examples of user-agents you could whitelist mostly search engine crawlers.
 ]]
-localized.user_agent_whitelist_table = {
+if not config_store.user_agent_whitelist_table then
+config_store.user_agent_whitelist_table = {
 --[[
 	{
 		"^Mozilla%/5%.0 %(compatible%; Googlebot%/2%.1%; %+http%:%/%/www%.google%.com%/bot%.html%)$",
@@ -1078,6 +1107,8 @@ localized.user_agent_whitelist_table = {
 	},
 ]]
 }
+end
+localized.user_agent_whitelist_table = config_store.user_agent_whitelist_table
 
 --[[
 Authorization Required Box Restricted Access Field
@@ -1100,7 +1131,8 @@ If we should show the client seeing the box what login they can use (Tor website
 0 = Don't display login details
 1 = Display login details
 ]]
-localized.authorization_paths = {
+if not config_store.authorization_paths then
+config_store.authorization_paths = {
 	--[[
 	{
 		1, --show auth box on this path
@@ -1126,6 +1158,8 @@ localized.authorization_paths = {
 	},
 	]]
 }
+end
+localized.authorization_paths = config_store.authorization_paths
 
 --[[
 Static or Dynamic username and password for Authorization field
@@ -1142,7 +1176,8 @@ localized.authorization_message = "Restricted Area " --Message to be displayed w
 localized.authorization_username_message = "Your username is :" --Message to show username
 localized.authorization_password_message = "Your password is :" --Message to show password
 
-localized.authorization_logins = { --static password list
+if not config_store.authorization_logins then
+config_store.authorization_logins = { --static password list
 	{
 		"userid1", --username
 		"pass1", --password
@@ -1152,6 +1187,8 @@ localized.authorization_logins = { --static password list
 		"pass2", --password
 	},
 }
+end
+localized.authorization_logins = config_store.authorization_logins
 
 --[[
 Authorization Box cookie name for sessions
@@ -1170,7 +1207,8 @@ This feature allows you to intercept incomming client POST data read their POST 
 
 Highly usefull for protecting your web application and backends from attacks zero day exploits and hacking attempts from hackers and bots.
 ]]
-localized.WAF_POST_Request_table = {
+if not config_store.WAF_POST_Request_table then
+config_store.WAF_POST_Request_table = {
 --[[
 	{
 		"^task$", --match post data in requests with value task
@@ -1182,6 +1220,8 @@ localized.WAF_POST_Request_table = {
 	},
 ]]
 }
+end
+localized.WAF_POST_Request_table = config_store.WAF_POST_Request_table
 
 --[[
 WAF Web Application Firewall Filter for Headers in requests
@@ -1190,7 +1230,8 @@ You can use this to block exploits in request headers such as malicious cookies 
 
 Header exploits in requests they might send such as SQL info to inject into sites highly useful for blocking SQLi and many other attack types
 ]]
-localized.WAF_Header_Request_table = {
+if not config_store.WAF_Header_Request_table then
+config_store.WAF_Header_Request_table = {
 --[[
 	{
 		"^foo$", --match header name
@@ -1206,13 +1247,16 @@ localized.WAF_Header_Request_table = {
 	},
 ]]
 }
+end
+localized.WAF_Header_Request_table = config_store.WAF_Header_Request_table
 
 --[[
 WAF Web Application Firewall Filter for query strings in requests
 
 To block exploits in query strings from potential bots and hackers
 ]]
-localized.WAF_query_string_Request_table = {
+if not config_store.WAF_query_string_Request_table then
+config_store.WAF_query_string_Request_table = {
 	--[[
 		PHP easter egg exploit blocking
 		[server with expose_php = on]
@@ -1266,13 +1310,16 @@ localized.WAF_query_string_Request_table = {
 	},
 	]]
 }
+end
+localized.WAF_query_string_Request_table = config_store.WAF_query_string_Request_table
 
 --[[
 WAF Web Application Firewall Filter for URL Paths in requests
 
 You can use this to protect server configuration files / paths and sensative material on sites
 ]]
-localized.WAF_URI_Request_table = {
+if not config_store.WAF_URI_Request_table then
+config_store.WAF_URI_Request_table = {
 	{
 		"^.*$", --match any website on server
 		".*%.htaccess.*", --protect apache server .htaccess files
@@ -1298,6 +1345,8 @@ localized.WAF_URI_Request_table = {
 	--{"^.*$",".*%%0A.*",},{"^.*$",".*%%0B.*",},{"^.*$",".*%%0C.*",},{"^.*$",".*%%0D.*",},{"^.*$",".*%%0E.*",},{"^.*$",".*%%0F.*",},
 	--{"^.*$",".*%%1A.*",},{"^.*$",".*%%1B.*",},{"^.*$",".*%%1C.*",},{"^.*$",".*%%1D.*",},{"^.*$",".*%%1E.*",},{"^.*$",".*%%1F.*",},
 }
+end
+localized.WAF_URI_Request_table = config_store.WAF_URI_Request_table
 
 --[[
 Caching Speed and Performance
@@ -1316,7 +1365,8 @@ This will result in your backend applications and webserver having better perfor
 0 = Disabled
 1 = Enabled
 ]]
-localized.query_string_sort_table = {
+if not config_store.query_string_sort_table then
+config_store.query_string_sort_table = {
 	{
 		".*", --regex match any site / path
 		1, --enable
@@ -1328,13 +1378,16 @@ localized.query_string_sort_table = {
 	},
 	]]
 }
+end
+localized.query_string_sort_table = config_store.query_string_sort_table
 
 --[[
 Query String Expected arguments Whitelist only
 
 So this is useful for those who know what URL arguments their sites use and want to whitelist those ONLY so any other arguments provided in the URL never reach the backend or web application and are dropped from the URL.
 ]]
-localized.query_string_expected_args_only_table = {
+if not config_store.query_string_expected_args_only_table then
+config_store.query_string_expected_args_only_table = {
 	--[[
 	{
 		".*", --any site
@@ -1541,6 +1594,8 @@ localized.query_string_expected_args_only_table = {
 	},
 	]]
 }
+end
+localized.query_string_expected_args_only_table = config_store.query_string_expected_args_only_table
 
 --[[
 Query String Remove arguments
@@ -1549,7 +1604,8 @@ To remove Query strings that bypass the cache Intentionally Facebook and Google 
 
 Traffic to your site from facebook Posts / Shares the URL's will all contain this .com/index.html?fbclid=blah-blah-blah
 ]]
-localized.query_string_remove_args_table = {
+if not config_store.query_string_remove_args_table then
+config_store.query_string_remove_args_table = {
 	--[[
 	{
 		".*", --all sites
@@ -1597,11 +1653,14 @@ localized.query_string_remove_args_table = {
 	},
 	]]
 }
+end
+localized.query_string_remove_args_table = config_store.query_string_remove_args_table
 
 --[[
 To restore original visitor IP addresses at your origin web server this will send a request header to your backend application or proxy containing the clients real IP address
 ]]
-localized.send_ip_to_backend_custom_headers = {
+if not config_store.send_ip_to_backend_custom_headers then
+config_store.send_ip_to_backend_custom_headers = {
 	{
 		".*",
 		{
@@ -1621,6 +1680,8 @@ localized.send_ip_to_backend_custom_headers = {
 	},
 	]]
 }
+end
+localized.send_ip_to_backend_custom_headers = config_store.send_ip_to_backend_custom_headers
 
 --[[
 Custom headers
@@ -1628,7 +1689,8 @@ Custom headers
 To add custom headers to URLs paths to increase server performance and speed to cache items
 and to remove headers for security purposes that could expose software the server is running etc
 ]]
-localized.custom_headers = {
+if not config_store.custom_headers then
+config_store.custom_headers = {
 	{
 		".*",
 		{ --headers to improve server security for all websites
@@ -1975,6 +2037,8 @@ localized.custom_headers = {
 	},
 	]]
 }
+end
+localized.custom_headers = config_store.custom_headers
 
 --[[
 Logging of users ip address
@@ -2013,7 +2077,8 @@ The way to check if we are running any private services
 We check the host or the URL or port against a matching string for example if host contains .onion we know we are using a Tor SERVICE and to apply settings for compatibility
 Allows us to easily add other privacy services and nodes to protect from attacks.
 ]]
-localized.check_privacy = function() return {
+if not config_store.check_privacy then
+config_store.check_privacy = {
 	{ "host", ".onion$" }, --Tor
 	{ "host", ".eth$" },  --ENS
 	{ "host", ".i2p$" },  --i2p the invisible internet project
@@ -2027,6 +2092,7 @@ localized.check_privacy = function() return {
 	--{ "port", "43310" }, --Zeronet ports
 }
 end
+localized.check_privacy = function() return config_store.check_privacy end
 
 --[[
 End Configuration
@@ -2060,274 +2126,335 @@ localized_global.ip_whitelist = {}
 }
 ]]
 if localized_global ~= nil then
-if localized_global.remote_servers_table ~= nil then
-localized.remote_servers_table = localized_global.remote_servers_table
-end
-if localized_global.anti_ddos_table ~= nil then
-if localized.type(localized_global.anti_ddos_table) == "function" then
-localized.anti_ddos_table = function() return localized_global.anti_ddos_table() end
-else
-localized.anti_ddos_table = function() return localized_global.anti_ddos_table end
-end
-end
-if localized_global.content_cache ~= nil then
-if localized.type(localized_global.content_cache) == "function" then
-localized.content_cache = function() return localized_global.content_cache() end
-else
-localized.content_cache = function() return localized_global.content_cache end
-end
-end
-if localized_global.secret ~= nil then
-localized.secret = localized_global.secret
-end
-if localized_global.secret_encryption ~= nil then
-localized.secret_encryption = localized_global.secret_encryption
-end
-if localized_global.remote_addr ~= nil then
-if localized.type(localized_global.remote_addr) == "function" then
-localized.remote_addr = function() return localized_global.remote_addr() end
-else
-localized.remote_addr = function() return localized_global.remote_addr end
-end
-end
-if localized_global.expire_time ~= nil then
-localized.expire_time = localized_global.expire_time
-end
-if localized_global.javascript_REQUEST_TYPE ~= nil then
-localized.javascript_REQUEST_TYPE = localized_global.javascript_REQUEST_TYPE
-end
-if localized_global.refresh_auth ~= nil then
-localized.refresh_auth = localized_global.refresh_auth
-end
-if localized_global.JavascriptVars_opening ~= nil then
-localized.JavascriptVars_opening = localized_global.JavascriptVars_opening
-end
-if localized_global.JavascriptVars_closing ~= nil then
-localized.JavascriptVars_closing = localized_global.JavascriptVars_closing
-end
-if localized_global.x_auth_header ~= nil then
-localized.x_auth_header = localized_global.x_auth_header
-end
-if localized_global.x_auth_header_name ~= nil then
-localized.x_auth_header_name = localized_global.x_auth_header_name
-end
-if localized_global.challenge ~= nil then
-localized.challenge = localized_global.challenge
-end
-if localized_global.cookie_name_start_date ~= nil then
-localized.cookie_name_start_date = localized_global.cookie_name_start_date
-end
-if localized_global.cookie_name_end_date ~= nil then
-localized.cookie_name_end_date = localized_global.cookie_name_end_date
-end
-if localized_global.cookie_name_encrypted_start_and_end_date ~= nil then
-localized.cookie_name_encrypted_start_and_end_date = localized_global.cookie_name_encrypted_start_and_end_date
-end
-if localized_global.encrypt_anti_ddos_cookies ~= nil then
-localized.encrypt_anti_ddos_cookies = localized_global.encrypt_anti_ddos_cookies
-end
-if localized_global.encrypt_javascript_output ~= nil then
-localized.encrypt_javascript_output = localized_global.encrypt_javascript_output
-end
-if localized_global.ip_whitelist_remote_addr ~= nil then
-if localized.type(localized_global.ip_whitelist_remote_addr) == "function" then
-localized.ip_whitelist_remote_addr = function() return localized_global.ip_whitelist_remote_addr() end
-else
-localized.ip_whitelist_remote_addr = function() return localized_global.ip_whitelist_remote_addr end
-end
-end
-if localized_global.ip_whitelist_block_mode ~= nil then
-localized.ip_whitelist_block_mode = localized_global.ip_whitelist_block_mode
-end
-if localized_global.ip_whitelist_bypass_flood_protection ~= nil then
-localized.ip_whitelist_bypass_flood_protection = localized_global.ip_whitelist_bypass_flood_protection
-end
-if localized_global.ip_whitelist ~= nil then
-localized.ip_whitelist = localized_global.ip_whitelist
-end
-if localized_global.ip_blacklist_remote_addr ~= nil then
-if localized.type(localized_global.ip_blacklist_remote_addr) == "function" then
-localized.ip_blacklist_remote_addr = function() return localized_global.ip_blacklist_remote_addr() end
-else
-localized.ip_blacklist_remote_addr = function() return localized_global.ip_blacklist_remote_addr end
-end
-end
-if localized_global.ip_blacklist ~= nil then
-localized.ip_blacklist = localized_global.ip_blacklist
-end
-if localized_global.tor ~= nil then
-localized.tor = localized_global.tor
-end
-if localized_global.tor_remote_addr ~= nil then
-if localized.type(localized_global.tor_remote_addr) == "function" then
-localized.tor_remote_addr = function() return localized_global.tor_remote_addr() end
-else
-localized.tor_remote_addr = function() return localized_global.tor_remote_addr end
-end
-end
-if localized_global.x_tor_header ~= nil then
-localized.x_tor_header = localized_global.x_tor_header
-end
-if localized_global.x_tor_header_name ~= nil then
-localized.x_tor_header_name = localized_global.x_tor_header_name
-end
-if localized_global.x_tor_header_name_allowed ~= nil then
-localized.x_tor_header_name_allowed = localized_global.x_tor_header_name_allowed
-end
-if localized_global.x_tor_header_name_blocked ~= nil then
-localized.x_tor_header_name_blocked = localized_global.x_tor_header_name_blocked
-end
-if localized_global.cookie_tor ~= nil then
-localized.cookie_tor = localized_global.cookie_tor
-end
-if localized_global.cookie_tor_value_allow ~= nil then
-localized.cookie_tor_value_allow = localized_global.cookie_tor_value_allow
-end
-if localized_global.cookie_tor_value_block ~= nil then
-localized.cookie_tor_value_block = localized_global.cookie_tor_value_block
-end
-if localized_global.default_charset ~= nil then
-localized.default_charset = localized_global.default_charset
-end
-if localized_global.master_switch ~= nil then
-localized.master_switch = localized_global.master_switch
-end
-if localized_global.master_switch_custom_hosts ~= nil then
-localized.master_switch_custom_hosts = localized_global.master_switch_custom_hosts
-end
-if localized_global.credits ~= nil then
-localized.credits = localized_global.credits
-end
-if localized_global.dynamic_javascript_vars_length ~= nil then
-localized.dynamic_javascript_vars_length = localized_global.dynamic_javascript_vars_length
-end
-if localized_global.dynamic_javascript_vars_length_static ~= nil then
-localized.dynamic_javascript_vars_length_static = localized_global.dynamic_javascript_vars_length_static
-end
-if localized_global.dynamic_javascript_vars_length_start ~= nil then
-localized.dynamic_javascript_vars_length_start = localized_global.dynamic_javascript_vars_length_start
-end
-if localized_global.dynamic_javascript_vars_length_end ~= nil then
-localized.dynamic_javascript_vars_length_end = localized_global.dynamic_javascript_vars_length_end
-end
-if localized_global.user_agent_blacklist_table ~= nil then
-localized.user_agent_blacklist_table = localized_global.user_agent_blacklist_table
-end
-if localized_global.user_agent_whitelist_table ~= nil then
-localized.user_agent_whitelist_table = localized_global.user_agent_whitelist_table
-end
-if localized_global.authorization ~= nil then
-localized.authorization = localized_global.authorization
-end
-if localized_global.authorization_paths ~= nil then
-localized.authorization_paths = localized_global.authorization_paths
-end
-if localized_global.authorization_dynamic ~= nil then
-localized.authorization_dynamic = localized_global.authorization_dynamic
-end
-if localized_global.authorization_dynamic_length ~= nil then
-localized.authorization_dynamic_length = localized_global.authorization_dynamic_length
-end
-if localized_global.authorization_message ~= nil then
-localized.authorization_message = localized_global.authorization_message
-end
-if localized_global.authorization_username_message ~= nil then
-localized.authorization_username_message = localized_global.authorization_username_message
-end
-if localized_global.authorization_password_message ~= nil then
-localized.authorization_password_message = localized_global.authorization_password_message
-end
-if localized_global.authorization_logins ~= nil then
-localized.authorization_logins = localized_global.authorization_logins
-end
-if localized_global.authorization_cookie ~= nil then
-localized.authorization_cookie = localized_global.authorization_cookie
-end
-if localized_global.WAF_POST_Request_table ~= nil then
-localized.WAF_POST_Request_table = localized_global.WAF_POST_Request_table
-end
-if localized_global.WAF_Header_Request_table ~= nil then
-localized.WAF_Header_Request_table = localized_global.WAF_Header_Request_table
-end
-if localized_global.WAF_query_string_Request_table ~= nil then
-localized.WAF_query_string_Request_table = localized_global.WAF_query_string_Request_table
-end
-if localized_global.WAF_URI_Request_table ~= nil then
-localized.WAF_URI_Request_table = localized_global.WAF_URI_Request_table
-end
-if localized_global.query_string_sort_table ~= nil then
-localized.query_string_sort_table = localized_global.query_string_sort_table
-end
-if localized_global.query_string_expected_args_only_table ~= nil then
-localized.query_string_expected_args_only_table = localized_global.query_string_expected_args_only_table
-end
-if localized_global.query_string_remove_args_table ~= nil then
-localized.query_string_remove_args_table = localized_global.query_string_remove_args_table
-end
-if localized_global.proxy_header_table ~= nil then
-localized.proxy_header_table = localized_global.proxy_header_table
-end
-if localized_global.merge_proxy_and_ip_whitelist ~= nil then
-localized.merge_proxy_and_ip_whitelist = localized_global.merge_proxy_and_ip_whitelist
-end
-if localized_global.auto_add_server_ip_to_merged_tables ~= nil then
-localized.auto_add_server_ip_to_merged_tables = localized_global.auto_add_server_ip_to_merged_tables
-end
-if localized_global.send_ip_to_backend_custom_headers ~= nil then
-localized.send_ip_to_backend_custom_headers = localized_global.send_ip_to_backend_custom_headers
-end
-if localized_global.custom_headers ~= nil then
-localized.custom_headers = localized_global.custom_headers
-end
-if localized_global.log_users_on_puzzle ~= nil then
-localized.log_users_on_puzzle = localized_global.log_users_on_puzzle
-end
-if localized_global.log_on_puzzle_text_start ~= nil then
-localized.log_on_puzzle_text_start = localized_global.log_on_puzzle_text_start
-end
-if localized_global.log_on_puzzle_text_end ~= nil then
-localized.log_on_puzzle_text_end = localized_global.log_on_puzzle_text_end
-end
-if localized_global.log_users_granted_access ~= nil then
-localized.log_users_granted_access = localized_global.log_users_granted_access
-end
-if localized_global.log_on_granted_text_start ~= nil then
-localized.log_on_granted_text_start = localized_global.log_on_granted_text_start
-end
-if localized_global.log_on_granted_text_end ~= nil then
-localized.log_on_granted_text_end = localized_global.log_on_granted_text_end
-end
-if localized_global.exit_status ~= nil then
-localized.exit_status = localized_global.exit_status
-end
-if localized_global.content_type_fix ~= nil then
-localized.content_type_fix = localized_global.content_type_fix
-end
-if localized_global.check_privacy ~= nil then
-if localized.type(localized_global.check_privacy) == "function" then
-localized.check_privacy = function() return localized_global.check_privacy() end
-else
-localized.check_privacy = function() return localized_global.check_privacy end
-end
-end
-if localized_global.encrypt_storage ~= nil then
-localized.encrypt_storage = localized_global.encrypt_storage
-end
-if localized_global.encrypt_storage_secret ~= nil then
-localized.encrypt_storage_secret = localized_global.encrypt_storage_secret
-end
-if localized_global.storage_compression ~= nil then
-localized.storage_compression = localized_global.storage_compression
-end
-if localized_global.storage_compression_min_size ~= nil then
-localized.storage_compression_min_size = localized_global.storage_compression_min_size
-end
-if localized_global.storage_compression_max_size ~= nil then
-localized.storage_compression_max_size = localized_global.storage_compression_max_size
-end
-if localized_global.storage_compression_ratio ~= nil then
-localized.storage_compression_ratio = localized_global.storage_compression_ratio
-end
+	if localized_global.remote_servers_table ~= nil then
+		localized.remote_servers_table = localized_global.remote_servers_table
+	end
+	if localized_global.anti_ddos_table ~= nil then
+		if not config_store.global_cached_anti_ddos then
+			if localized.type(localized_global.anti_ddos_table) == "function" then
+				config_store.global_cached_anti_ddos = localized_global.anti_ddos_table()
+			else
+				config_store.global_cached_anti_ddos = localized_global.anti_ddos_table
+			end
+		end
+		localized.anti_ddos_table = function() return config_store.global_cached_anti_ddos end
+	end
+	if localized_global.content_cache ~= nil then
+		if not config_store.global_cached_content_cache then
+			if localized.type(localized_global.content_cache) == "function" then
+				config_store.global_cached_content_cache = localized_global.content_cache()
+			else
+				config_store.global_cached_content_cache = localized_global.content_cache
+			end
+		end
+		localized.content_cache = function() return config_store.global_cached_content_cache end
+	end
+	if localized_global.secret ~= nil then
+		localized.secret = localized_global.secret
+	end
+	if localized_global.secret_encryption ~= nil then
+		localized.secret_encryption = localized_global.secret_encryption
+	end
+	if localized_global.remote_addr ~= nil then
+		if localized.type(localized_global.remote_addr) == "function" then
+			localized.remote_addr = function() return localized_global.remote_addr() end
+		else
+			localized.remote_addr = function() return localized_global.remote_addr end
+		end
+	end
+	if localized_global.expire_time ~= nil then
+		localized.expire_time = localized_global.expire_time
+	end
+	if localized_global.javascript_REQUEST_TYPE ~= nil then
+		localized.javascript_REQUEST_TYPE = localized_global.javascript_REQUEST_TYPE
+	end
+	if localized_global.refresh_auth ~= nil then
+		localized.refresh_auth = localized_global.refresh_auth
+	end
+	if localized_global.JavascriptVars_opening ~= nil then
+		localized.JavascriptVars_opening = localized_global.JavascriptVars_opening
+	end
+	if localized_global.JavascriptVars_closing ~= nil then
+		localized.JavascriptVars_closing = localized_global.JavascriptVars_closing
+	end
+	if localized_global.x_auth_header ~= nil then
+		localized.x_auth_header = localized_global.x_auth_header
+	end
+	if localized_global.x_auth_header_name ~= nil then
+		localized.x_auth_header_name = localized_global.x_auth_header_name
+	end
+	if localized_global.challenge ~= nil then
+		localized.challenge = localized_global.challenge
+	end
+	if localized_global.cookie_name_start_date ~= nil then
+		localized.cookie_name_start_date = localized_global.cookie_name_start_date
+	end
+	if localized_global.cookie_name_end_date ~= nil then
+		localized.cookie_name_end_date = localized_global.cookie_name_end_date
+	end
+	if localized_global.cookie_name_encrypted_start_and_end_date ~= nil then
+		localized.cookie_name_encrypted_start_and_end_date = localized_global.cookie_name_encrypted_start_and_end_date
+	end
+	if localized_global.encrypt_anti_ddos_cookies ~= nil then
+		localized.encrypt_anti_ddos_cookies = localized_global.encrypt_anti_ddos_cookies
+	end
+	if localized_global.encrypt_javascript_output ~= nil then
+		localized.encrypt_javascript_output = localized_global.encrypt_javascript_output
+	end
+	if localized_global.ip_whitelist_remote_addr ~= nil then
+		if localized.type(localized_global.ip_whitelist_remote_addr) == "function" then
+			localized.ip_whitelist_remote_addr = function() return localized_global.ip_whitelist_remote_addr() end
+		else
+			localized.ip_whitelist_remote_addr = function() return localized_global.ip_whitelist_remote_addr end
+		end
+	end
+	if localized_global.ip_whitelist_block_mode ~= nil then
+		localized.ip_whitelist_block_mode = localized_global.ip_whitelist_block_mode
+	end
+	if localized_global.ip_whitelist_bypass_flood_protection ~= nil then
+		localized.ip_whitelist_bypass_flood_protection = localized_global.ip_whitelist_bypass_flood_protection
+	end
+	if localized_global.ip_whitelist ~= nil then
+		if not config_store.global_cached_ip_whitelist then
+			config_store.global_cached_ip_whitelist = localized_global.ip_whitelist
+		end
+		localized.ip_whitelist = config_store.global_cached_ip_whitelist
+	end
+	if localized_global.ip_blacklist_remote_addr ~= nil then
+		if localized.type(localized_global.ip_blacklist_remote_addr) == "function" then
+			localized.ip_blacklist_remote_addr = function() return localized_global.ip_blacklist_remote_addr() end
+		else
+			localized.ip_blacklist_remote_addr = function() return localized_global.ip_blacklist_remote_addr end
+		end
+	end
+	if localized_global.ip_blacklist ~= nil then
+		if not config_store.global_cached_ip_blacklist then
+			config_store.global_cached_ip_blacklist = localized_global.ip_blacklist
+		end
+		localized.ip_blacklist = config_store.global_cached_ip_blacklist
+	end
+	if localized_global.tor ~= nil then
+	localized.tor = localized_global.tor
+	end
+	if localized_global.tor_remote_addr ~= nil then
+		if localized.type(localized_global.tor_remote_addr) == "function" then
+			localized.tor_remote_addr = function() return localized_global.tor_remote_addr() end
+		else
+			localized.tor_remote_addr = function() return localized_global.tor_remote_addr end
+		end
+	end
+	if localized_global.x_tor_header ~= nil then
+		localized.x_tor_header = localized_global.x_tor_header
+	end
+	if localized_global.x_tor_header_name ~= nil then
+		localized.x_tor_header_name = localized_global.x_tor_header_name
+	end
+	if localized_global.x_tor_header_name_allowed ~= nil then
+		localized.x_tor_header_name_allowed = localized_global.x_tor_header_name_allowed
+	end
+	if localized_global.x_tor_header_name_blocked ~= nil then
+		localized.x_tor_header_name_blocked = localized_global.x_tor_header_name_blocked
+	end
+	if localized_global.cookie_tor ~= nil then
+		localized.cookie_tor = localized_global.cookie_tor
+	end
+	if localized_global.cookie_tor_value_allow ~= nil then
+		localized.cookie_tor_value_allow = localized_global.cookie_tor_value_allow
+	end
+	if localized_global.cookie_tor_value_block ~= nil then
+		localized.cookie_tor_value_block = localized_global.cookie_tor_value_block
+	end
+	if localized_global.default_charset ~= nil then
+		localized.default_charset = localized_global.default_charset
+	end
+	if localized_global.master_switch ~= nil then
+		localized.master_switch = localized_global.master_switch
+	end
+	if localized_global.master_switch_custom_hosts ~= nil then
+		if not config_store.global_cached_master_switch_hosts then
+			config_store.global_cached_master_switch_hosts = localized_global.master_switch_custom_hosts
+		end
+		localized.master_switch_custom_hosts = config_store.global_cached_master_switch_hosts
+	end
+	if localized_global.credits ~= nil then
+		localized.credits = localized_global.credits
+	end
+	if localized_global.dynamic_javascript_vars_length ~= nil then
+		localized.dynamic_javascript_vars_length = localized_global.dynamic_javascript_vars_length
+	end
+	if localized_global.dynamic_javascript_vars_length_static ~= nil then
+		localized.dynamic_javascript_vars_length_static = localized_global.dynamic_javascript_vars_length_static
+	end
+	if localized_global.dynamic_javascript_vars_length_start ~= nil then
+		localized.dynamic_javascript_vars_length_start = localized_global.dynamic_javascript_vars_length_start
+	end
+	if localized_global.dynamic_javascript_vars_length_end ~= nil then
+		localized.dynamic_javascript_vars_length_end = localized_global.dynamic_javascript_vars_length_end
+	end
+	if localized_global.user_agent_blacklist_table ~= nil then
+		if not config_store.global_cached_ua_blacklist then
+			config_store.global_cached_ua_blacklist = localized_global.user_agent_blacklist_table
+		end
+		localized.user_agent_blacklist_table = config_store.global_cached_ua_blacklist
+	end
+	if localized_global.user_agent_whitelist_table ~= nil then
+		if not config_store.global_cached_ua_whitelist then
+			config_store.global_cached_ua_whitelist = localized_global.user_agent_whitelist_table
+		end
+		localized.user_agent_whitelist_table = config_store.global_cached_ua_whitelist
+	end
+	if localized_global.authorization ~= nil then
+		localized.authorization = localized_global.authorization
+	end
+
+	if localized_global.authorization_paths ~= nil then
+		if not config_store.global_cached_auth_paths then
+			config_store.global_cached_auth_paths = localized_global.authorization_paths
+		end
+		localized.authorization_paths = config_store.global_cached_auth_paths
+	end
+	if localized_global.authorization_dynamic ~= nil then
+		localized.authorization_dynamic = localized_global.authorization_dynamic
+	end
+	if localized_global.authorization_dynamic_length ~= nil then
+		localized.authorization_dynamic_length = localized_global.authorization_dynamic_length
+	end
+	if localized_global.authorization_message ~= nil then
+		localized.authorization_message = localized_global.authorization_message
+	end
+	if localized_global.authorization_username_message ~= nil then
+		localized.authorization_username_message = localized_global.authorization_username_message
+	end
+	if localized_global.authorization_password_message ~= nil then
+		localized.authorization_password_message = localized_global.authorization_password_message
+	end
+	if localized_global.authorization_logins ~= nil then
+		if not config_store.global_cached_auth_logins then
+			config_store.global_cached_auth_logins = localized_global.authorization_logins
+		end
+		localized.authorization_logins = config_store.global_cached_auth_logins
+	end
+	if localized_global.authorization_cookie ~= nil then
+		localized.authorization_cookie = localized_global.authorization_cookie
+	end
+	if localized_global.WAF_POST_Request_table ~= nil then
+		if not config_store.global_cached_waf_post then
+			config_store.global_cached_waf_post = localized_global.WAF_POST_Request_table
+		end
+		localized.WAF_POST_Request_table = config_store.global_cached_waf_post
+	end
+	if localized_global.WAF_Header_Request_table ~= nil then
+		if not config_store.global_cached_waf_header then
+			config_store.global_cached_waf_header = localized_global.WAF_Header_Request_table
+		end
+		localized.WAF_Header_Request_table = config_store.global_cached_waf_header
+	end
+	if localized_global.WAF_query_string_Request_table ~= nil then
+		if not config_store.global_cached_waf_query then
+			config_store.global_cached_waf_query = localized_global.WAF_query_string_Request_table
+		end
+		localized.WAF_query_string_Request_table = config_store.global_cached_waf_query
+	end
+	if localized_global.WAF_URI_Request_table ~= nil then
+		if not config_store.global_cached_waf_uri then
+			config_store.global_cached_waf_uri = localized_global.WAF_URI_Request_table
+		end
+		localized.WAF_URI_Request_table = config_store.global_cached_waf_uri
+	end
+	if localized_global.query_string_sort_table ~= nil then
+		if not config_store.global_cached_qs_sort then
+			config_store.global_cached_qs_sort = localized_global.query_string_sort_table
+		end
+		localized.query_string_sort_table = config_store.global_cached_qs_sort
+	end
+	if localized_global.query_string_expected_args_only_table ~= nil then
+		if not config_store.global_cached_qs_expected then
+			config_store.global_cached_qs_expected = localized_global.query_string_expected_args_only_table
+		end
+		localized.query_string_expected_args_only_table = config_store.global_cached_qs_expected
+	end
+	if localized_global.query_string_remove_args_table ~= nil then
+		if not config_store.global_cached_qs_remove then
+			config_store.global_cached_qs_remove = localized_global.query_string_remove_args_table
+		end
+		localized.query_string_remove_args_table = config_store.global_cached_qs_remove
+	end
+	if localized_global.proxy_header_table ~= nil then
+		if not config_store.global_cached_proxy_header then
+			config_store.global_cached_proxy_header = localized_global.proxy_header_table
+		end
+		localized.proxy_header_table = config_store.global_cached_proxy_header
+	end
+	if localized_global.merge_proxy_and_ip_whitelist ~= nil then
+		localized.merge_proxy_and_ip_whitelist = localized_global.merge_proxy_and_ip_whitelist
+	end
+	if localized_global.auto_add_server_ip_to_merged_tables ~= nil then
+		localized.auto_add_server_ip_to_merged_tables = localized_global.auto_add_server_ip_to_merged_tables
+	end
+	if localized_global.send_ip_to_backend_custom_headers ~= nil then
+		if not config_store.global_cached_backend_ips then
+			config_store.global_cached_backend_ips = localized_global.send_ip_to_backend_custom_headers
+		end
+		localized.send_ip_to_backend_custom_headers = config_store.global_cached_backend_ips
+	end
+	if localized_global.custom_headers ~= nil then
+		if not config_store.global_cached_custom_headers then
+			config_store.global_cached_custom_headers = localized_global.custom_headers
+		end
+		localized.custom_headers = config_store.global_cached_custom_headers
+	end
+	if localized_global.log_users_on_puzzle ~= nil then
+		localized.log_users_on_puzzle = localized_global.log_users_on_puzzle
+	end
+	if localized_global.log_on_puzzle_text_start ~= nil then
+		localized.log_on_puzzle_text_start = localized_global.log_on_puzzle_text_start
+	end
+	if localized_global.log_on_puzzle_text_end ~= nil then
+		localized.log_on_puzzle_text_end = localized_global.log_on_puzzle_text_end
+	end
+	if localized_global.log_users_granted_access ~= nil then
+		localized.log_users_granted_access = localized_global.log_users_granted_access
+	end
+	if localized_global.log_on_granted_text_start ~= nil then
+		localized.log_on_granted_text_start = localized_global.log_on_granted_text_start
+	end
+	if localized_global.log_on_granted_text_end ~= nil then
+		localized.log_on_granted_text_end = localized_global.log_on_granted_text_end
+	end
+	if localized_global.exit_status ~= nil then
+		localized.exit_status = localized_global.exit_status
+	end
+	if localized_global.content_type_fix ~= nil then
+		localized.content_type_fix = localized_global.content_type_fix
+	end
+	if localized_global.check_privacy ~= nil then
+		if not config_store.global_cached_privacy then
+			if localized.type(localized_global.check_privacy) == "function" then
+				config_store.global_cached_privacy = localized_global.check_privacy()
+			else
+				config_store.global_cached_privacy = localized_global.check_privacy
+			end
+		end
+		localized.check_privacy = function() return config_store.global_cached_privacy end
+	end
+	if localized_global.encrypt_storage ~= nil then
+		localized.encrypt_storage = localized_global.encrypt_storage
+	end
+	if localized_global.encrypt_storage_secret ~= nil then
+		localized.encrypt_storage_secret = localized_global.encrypt_storage_secret
+	end
+	if localized_global.storage_compression ~= nil then
+		localized.storage_compression = localized_global.storage_compression
+	end
+	if localized_global.storage_compression_min_size ~= nil then
+		localized.storage_compression_min_size = localized_global.storage_compression_min_size
+	end
+	if localized_global.storage_compression_max_size ~= nil then
+		localized.storage_compression_max_size = localized_global.storage_compression_max_size
+	end
+	if localized_global.storage_compression_ratio ~= nil then
+		localized.storage_compression_ratio = localized_global.storage_compression_ratio
+	end
 end
 
 --Test as Tor network
@@ -4598,15 +4725,17 @@ local function get_resp_content_type(forced) --incase content-type header not ye
 			-- This matches 99.99% of web traffic instantly in 1 clock cycle without entering loops.
 			resp_content_type = res.header["Content-Type"] or res.header["content-type"] or res.header["CONTENT-TYPE"]
 
-			-- LAYER 2: Loop-Free Fuzz Shield for anomalous variations (e.g. cOnTeNt-TyPe, CONTENT-type)
-			-- By referencing the table directly via OpenResty's underlying case-insensitive C-metatable lookup bindings,
-			-- we can force a strict case-insensitive match on the keys plane without initiating an iteration loop!
+			-- LAYER 2: Allocation-Free Stateless Pointer Scan (DDoS Fortified)
+			-- Iterates directly over the memory addresses of pre-existing keys with zero heap allocations.
 			if not resp_content_type then
-				local f_find = localized.ngx.re.find
-				-- Safely test the table keys pool directly using a stateless bitwise pattern
-				if f_find(localized.table_concat(res.header, " "), "content-type", "jo") then
-					-- If present, fetch it out by case normalization directly from the string boundaries
-					resp_content_type = res.header[localized.string_match(localized.table_concat(res.header, " "), "(?i)content%-type")]
+				local str_lower = localized.string_lower or string.lower
+				local next_node = localized.next or next
+				
+				for key, value in next_node, res.header do
+					if str_lower(localized.tostring(key)) == "content-type" then
+						resp_content_type = value
+						break -- Short-circuit instantly to keep execution under 1 nanosecond
+					end
 				end
 			end
 		end
@@ -8526,7 +8655,7 @@ local function encrypt_javascript(string1, type, defer_async, num_encrypt, encry
 end
 --end encrypt_javascript function
 
-localized.currentdate = "" --make current date a empty var
+--localized.currentdate = "" --make current date a empty var
 
 --Make sure our current date is in align with expires_time variable so that the auth page only shows when the cookie expires
 if localized.expire_time <= 60 then --less than equal to one minute
@@ -8626,12 +8755,12 @@ if localized.encrypt_anti_ddos_cookies == 2 then --if Anti-DDoS Cookies are to b
 	localized.authorization_cookie = calculate_signature(localized.remote_addr() .. localized.authorization_cookie .. localized.currentdate) --encrypt our auth box session cookie name
 end
 
-localized.set_cookies = nil
-localized.set_cookie1 = nil
-localized.set_cookie2 = nil
-localized.set_cookie3 = nil
-localized.set_cookie4 = nil
-localized.set_cookie5 = nil
+--localized.set_cookies = nil
+--localized.set_cookie1 = nil
+--localized.set_cookie2 = nil
+--localized.set_cookie3 = nil
+--localized.set_cookie4 = nil
+--localized.set_cookie5 = nil
 
 local function check_authorization(authorization, authorization_dynamic)
 	if localized.authorization == 0 or nil then --auth box disabled
