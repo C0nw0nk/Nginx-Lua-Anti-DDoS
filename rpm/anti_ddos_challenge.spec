@@ -66,6 +66,8 @@ fi
 
 # Auto added - DONT REMOVE
 %changelog
+* Wed Oct 14 2026 C0nw0nk <C0nw0nk@github> - 6.7-1
+- Improve performance of config vars by caching them so Lua garbage collector does not get thrashed creating and destroying tables.
 * Fri Oct 09 2026 C0nw0nk <C0nw0nk@github> - 6.6-1
 - Pre compile WAF rules to be faster.
 * Fri Oct 09 2026 C0nw0nk <C0nw0nk@github> - 6.6-1

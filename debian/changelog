@@ -1,3 +1,8 @@
+nginx-lua-anti-ddos-challenge (6.7-1) stable; urgency=medium
+  - Improve performance of config vars by caching them so Lua garbage collector does not get thrashed creating and destroying tables.
+
+ -- C0nw0nk <C0nw0nk@github>  Wed, 14 Oct 2026 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (6.6-1) stable; urgency=medium
   - Pre compile WAF rules to be faster.
 
