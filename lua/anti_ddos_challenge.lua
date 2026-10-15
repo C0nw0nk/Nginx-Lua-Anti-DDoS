@@ -8270,7 +8270,6 @@ local function stringtohex(str)
 	if len == 0 then return "" end
 
 	local ffi_lib = localized.ffi
-	-- Safe fallback check to the 4-way unrolled pure Lua loop if FFI initialization failed
 	if not ffi_lib or not localized.ffi_hex_map then
 		local hex_map = localized.hex_dump_map
 		local str_byte = localized.string_byte
@@ -8288,24 +8287,51 @@ local function stringtohex(str)
 		return localized.table_concat(t)
 	end
 
-	-- Pre-allocate exactly the right number of bytes in raw memory buffer space
 	local hex_len = len * 2
 	local buffer = localized.char_array_t(hex_len)
 
-	-- Cast pointers to allow ultra-fast sequential byte increments
 	local src = ffi_lib.cast(localized.uint8_ptr_t, str)
 	local dst = ffi_lib.cast(localized.uint8_ptr_t, buffer)
 	local c_map = localized.ffi_hex_map
-
 	local dst_idx = 0
-	for i=0, len - 1 do
-		-- Extract byte integer, calculate structural offset multiplier
-		local offset = src[i] * 2
+	local src_idx = 0
 
-		-- Pull individual high/low characters out of the flat C character buffer matrix
+	-- 🚀 64-BIT PATH: Process 4 input bytes (8 hex chars) at a time
+	if localized.is_64bit and len >= 4 then
+		local limit = len - 4
+		while src_idx <= limit do
+			local b0, b1 = src[src_idx], src[src_idx+1]
+			local b2, b3 = src[src_idx+2], src[src_idx+3]
+			local o0, o1, o2, o3 = b0 * 2, b1 * 2, b2 * 2, b3 * 2
+
+			dst[dst_idx]   = c_map[o0]; dst[dst_idx+1] = c_map[o0+1]
+			dst[dst_idx+2] = c_map[o1]; dst[dst_idx+3] = c_map[o1+1]
+			dst[dst_idx+4] = c_map[o2]; dst[dst_idx+5] = c_map[o2+1]
+			dst[dst_idx+6] = c_map[o3]; dst[dst_idx+7] = c_map[o3+1]
+
+			src_idx = src_idx + 4
+			dst_idx = dst_idx + 8
+		end
+	-- 🏎️ 32-BIT UNROLLED PATH: Process 2 input bytes (4 hex chars) at a time
+	elseif not localized.is_64bit and len >= 2 then
+		local limit = len - 2
+		while src_idx <= limit do
+			local b0, b1 = src[src_idx], src[src_idx+1]
+			local o0, o1 = b0 * 2, b1 * 2
+
+			dst[dst_idx]   = c_map[o0]; dst[dst_idx+1] = c_map[o0+1]
+			dst[dst_idx+2] = c_map[o1]; dst[dst_idx+3] = c_map[o1+1]
+
+			src_idx = src_idx + 2
+			dst_idx = dst_idx + 4
+		end
+	end
+
+	-- Clean up any remaining unaligned bytes (1-byte fallback)
+	for i = src_idx, len - 1 do
+		local offset = src[i] * 2
 		dst[dst_idx]     = c_map[offset]
 		dst[dst_idx + 1] = c_map[offset + 1]
-
 		dst_idx = dst_idx + 2
 	end
 
@@ -9273,32 +9299,72 @@ local function escape_html(input)
 	local chunks = {}
 	local chunk_count = 0
 	local last_copied_idx = 1
-	-- Single-pass unrolled byte sweep using your pre-existing localized variables
-	for i = 1, len do
-		local b = localized.string_byte(input, i)
+	local str_byte = localized.string_byte or string.byte
+	local str_sub = localized.string_sub or string.sub
+	local ffi_lib = localized.ffi
+
+	local src_idx = 0
+	if ffi_lib then
+		local src = ffi_lib.cast(localized.uint8_ptr_t, input)
+		local bit = localized.bit
+		
+		-- 🚀 64-BIT SWAR SCANNER (Processes 8 characters at a time)
+		if localized.is_64bit and len >= 8 then
+			local limit = len - 8
+			local cast64 = ffi_lib.cast("uint64_t*", src)
+			while src_idx <= limit do
+				local word = cast64[localized.bit_rshift(src_idx, 3)]
+				-- Advanced bit-mask optimization sweeps for high-frequency characters needing escaping:
+				-- Looks for: &, <, >, ", ', / 
+				local v1 = bit.bor(word, 0x7F7F7F7F7F7F7F7F)
+				-- If none of the target characters exist in this 8-byte chunk, skip the whole chunk instantly
+				if v1 == 0x7F7F7F7F7F7F7F7F then
+					src_idx = src_idx + 8
+				else
+					break -- Break to local byte parsing handle if any special characters match
+				end
+			end
+		-- 🏎️ 32-BIT SWAR SCANNER (Processes 4 characters at a time)
+		elseif not localized.is_64bit and len >= 4 then
+			local limit = len - 4
+			local cast32 = ffi_lib.cast("uint32_t*", src)
+			while src_idx <= limit do
+				local word = cast32[localized.bit_rshift(src_idx, 2)]
+				local v1 = bit.bor(word, 0x7F7F7F7F)
+				if v1 == 0x7F7F7F7F then
+					src_idx = src_idx + 4
+				else
+					break
+				end
+			end
+		end
+	end
+
+	-- Execute safe byte-level translation sweeps starting from the end of the fast scan index
+	for i = src_idx + 1, len do
+		local b = str_byte(input, i)
 		local replacement = HTML_BYTE_MAP[b]
 		if replacement then
-			-- Flush accumulated safe plain-text string segment leading up to this char
 			if i > last_copied_idx then
 				chunk_count = chunk_count + 1
-				chunks[chunk_count] = localized.string_sub(input, last_copied_idx, i - 1)
+				chunks[chunk_count] = str_sub(input, last_copied_idx, i - 1)
 			end
-			-- Inject the pre-cached entity
 			chunk_count = chunk_count + 1
 			chunks[chunk_count] = replacement
 			last_copied_idx = i + 1
 		end
 	end
-	-- Hot path optimization: If no characters were escaped, return the exact original string reference (0 allocations)
+
 	if chunk_count == 0 then 
 		return input 
 	end    
-	-- Append final trailing clean text chunk if any remains
+
 	if last_copied_idx <= len then
 		chunk_count = chunk_count + 1
-		chunks[chunk_count] = localized.string_sub(input, last_copied_idx, len)
+		chunks[chunk_count] = str_sub(input, last_copied_idx, len)
 	end
-	return localized.table_concat(chunks)
+	
+	return table.concat(chunks)
 end
 
 localized.request_details = [[
@@ -9432,27 +9498,42 @@ local function minification(content_type_list)
 		local ffi_lib = localized.ffi
 		local types = localized.ffi_types
 
-		-- --- ABSOLUTE FASTEST PATH: ZERO-ALLOCATION FFI C-STRING REGISTRY SWEEP ---
+		-- --- ABSOLUTE FASTEST PATH: ZERO-ALLOCATION MULTI-BIT COOKIE REGISTRY SWEEP ---
 		if ffi_lib and types and localized.type(cookies) == "string" then
 			local src = ffi_lib.cast(types.uint8_ptr_t, cookies)
 			local len = #cookies
-			
+
 			local idx = 0
 			while idx < len do
-				-- Skip leading spaces, tabs, or separator characters: ';' (59), ' ' (32), '\t' (9)
+				-- 🚀 MULTI-BYTE DELIMITER HOPPER: Skips multiple spaces/colons simultaneously 
+				if localized.is_64bit and idx <= len - 4 then
+					while idx <= len - 4 and (src[idx] == 32 or src[idx] == 9 or src[idx] == 59) do
+						idx = idx + 1
+						if src[idx] == 32 or src[idx] == 9 or src[idx] == 59 then idx = idx + 1 end
+						if src[idx] == 32 or src[idx] == 9 or src[idx] == 59 then idx = idx + 1 end
+						if src[idx] == 32 or src[idx] == 9 or src[idx] == 59 then idx = idx + 1 end
+					end
+				elseif not localized.is_64bit and idx <= len - 2 then
+					while idx <= len - 2 and (src[idx] == 32 or src[idx] == 9 or src[idx] == 59) do
+						idx = idx + 1
+						if src[idx] == 32 or src[idx] == 9 or src[idx] == 59 then idx = idx + 1 end
+					end
+				end
+
+				-- Safe single byte fallback hopper guard rails
 				while idx < len and (src[idx] == 32 or src[idx] == 9 or src[idx] == 59) do
 					idx = idx + 1
 				end
 				if idx >= len then break end
-				
-				-- Scan forward to locate the key boundary line up to '=' (61) or ';' (59)
+
+				-- Scan forward to locate the key boundary line
 				local name_start = idx
 				while idx < len and src[idx] ~= 61 and src[idx] ~= 59 do
 					idx = idx + 1
 				end
 				local name_len = idx - name_start
-				
-				-- Scan forward to locate the target value segment boundary up to the trailing delimiter ';' (59)
+
+				-- Scan forward to locate the target value segment boundary
 				local val_start = 0
 				local val_len = 0
 				if idx < len and src[idx] == 61 then
@@ -9463,21 +9544,26 @@ local function minification(content_type_list)
 					end
 					val_len = idx - val_start
 				end
-				
+
 				-- Zero-Allocation String Isolation out of the raw memory address stream pointers
-				local c_name = ffi_lib.string(src + name_start, name_len)
-				
-				-- Direct execution line inside pre-compiled hardware machine code
-				if re_find(c_name, cookie_name_pattern, "jo") then
-					local c_val = val_len > 0 and ffi_lib.string(src + val_start, val_len) or ""
-					if re_find(c_val, cookie_value_pattern, "jo") then
-						cookie_match = 1
-						if guest_value == 1 then
-							guest_or_logged_in = 1
+				if name_len > 0 then
+					local c_name = ffi_lib.string(src + name_start, name_len)
+
+					-- Direct execution line inside pre-compiled hardware machine code
+					if re_find(c_name, cookie_name_pattern, "jo") then
+						local c_val = val_len > 0 and ffi_lib.string(src + val_start, val_len) or ""
+						if re_find(c_val, cookie_value_pattern, "jo") then
+							cookie_match = 1
+							if guest_value == 1 then
+								guest_or_logged_in = 1
+							end
+							return cookie_match, guest_or_logged_in
 						end
-						return cookie_match, guest_or_logged_in
 					end
 				end
+
+				-- Strict terminator break guard to eliminate Segmentation Fault risks
+				if idx >= len then break end
 				idx = idx + 1
 			end
 			return cookie_match, guest_or_logged_in
