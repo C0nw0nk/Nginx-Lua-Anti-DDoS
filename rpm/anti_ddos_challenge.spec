@@ -69,6 +69,9 @@ fi
 * Thu Oct 15 2026 C0nw0nk <C0nw0nk@github> - 6.9-1
 - Add missing checks on localized_global.encrypt_storage_types and localized_global.storage_compression_types that allow for these vars to be controlled via overrides from nginx config etc if needed.
 - Performance improvements on systems than can run 64bit compared to 32bit.
+* Thu Oct 15 2026 C0nw0nk <C0nw0nk@github> - 6.9-1
+- Add missing checks on localized_global.encrypt_storage_types and localized_global.storage_compression_types that allow for these vars to be controlled via overrides from nginx config etc if needed.
+- Performance improvements on systems than can run 64bit compared to 32bit.
 * Thu Oct 15 2026 C0nw0nk <C0nw0nk@github> - 6.8-1
 - Added Feature ability to encrypt/compress only Content-Cache items that way IP addresses/Flood trackers can be stored unencrypted/uncompressed now it is optional and can choose.
 - Fixed a bug where i named config_store.anti_ddos_table - config_store.anti_ddos_data by accident.
