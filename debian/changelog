@@ -4,6 +4,12 @@ nginx-lua-anti-ddos-challenge (6.8-1) stable; urgency=medium
 
  -- C0nw0nk <C0nw0nk@github>  Thu, 15 Oct 2026 00:00:00 +0000
 
+nginx-lua-anti-ddos-challenge (6.8-1) stable; urgency=medium
+  - Added Feature ability to encrypt/compress only Content-Cache items that way IP addresses/Flood trackers can be stored unencrypted/uncompressed now it is optional and can choose.
+  - Fixed a bug where i named config_store.anti_ddos_table - config_store.anti_ddos_data by accident.
+
+ -- C0nw0nk <C0nw0nk@github>  Thu, 15 Oct 2026 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (6.7-1) stable; urgency=medium
   - Improve performance of config vars by caching them so Lua garbage collector does not get thrashed creating and destroying tables.
 

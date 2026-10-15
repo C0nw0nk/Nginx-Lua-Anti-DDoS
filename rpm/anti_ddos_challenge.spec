@@ -69,6 +69,9 @@ fi
 * Thu Oct 15 2026 C0nw0nk <C0nw0nk@github> - 6.8-1
 - Added Feature ability to encrypt/compress only Content-Cache items that way IP addresses/Flood trackers can be stored unencrypted/uncompressed now it is optional and can choose.
 - Fixed a bug where i named config_store.anti_ddos_table - config_store.anti_ddos_data by accident.
+* Thu Oct 15 2026 C0nw0nk <C0nw0nk@github> - 6.8-1
+- Added Feature ability to encrypt/compress only Content-Cache items that way IP addresses/Flood trackers can be stored unencrypted/uncompressed now it is optional and can choose.
+- Fixed a bug where i named config_store.anti_ddos_table - config_store.anti_ddos_data by accident.
 * Wed Oct 14 2026 C0nw0nk <C0nw0nk@github> - 6.7-1
 - Improve performance of config vars by caching them so Lua garbage collector does not get thrashed creating and destroying tables.
 * Wed Oct 14 2026 C0nw0nk <C0nw0nk@github> - 6.7-1
