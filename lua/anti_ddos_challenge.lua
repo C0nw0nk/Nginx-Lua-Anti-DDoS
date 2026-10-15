@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 6.7
+Script Version: 6.8
 
 Copyright Conor McKnight
 
@@ -228,8 +228,10 @@ for sensative information being stored on redis servers memcached etc or cached 
 if you dont trust a third party you have to use for hosting / storage this will prevent them snooping / data mining and stealing even in the event they get hacked your data remains encrypted
 ]]
 localized.encrypt_storage = 0 --0 = disabled 1 = xor encryption 2 = AES --xor is built in AES requires resty.string library if you use openresty nginx lua builds they come with this compiled
+localized.encrypt_storage_types = 1 --nil or 0 for any type 1 = only content-type cache so HTML pages videos etc
 localized.encrypt_storage_secret = " enigma" --password that encrypts our stored/cached data
 localized.storage_compression = 0 --0 disabled 1 = LuaLZW compression 2 = brotli 3 = zstd 4 = zlib 5 = snappy --https://github.com/C0nw0nk/Nginx-Lua-Anti-DDoS/wiki/Compression-Libraries
+localized.storage_compression_types = 1 --nil or 0 for any type 1 = only content-type cache so HTML pages videos etc
 localized.storage_compression_min_size = 0 --nil or 0 for any size do not compress files smaller than this size
 localized.storage_compression_max_size = 0 --nil or 0 for any size do not compress files larger than this size
 localized.storage_compression_ratio = 1 --depending on your above choice different ratios for different libraries example (brotli = 0 lowest highest = level 11)(ZSTD = 1 lowest highest = level 22)(zlib = 1 lowest highest = level 9)
@@ -455,7 +457,7 @@ config_store.anti_ddos_table = {
 	},
 }
 end
-localized.anti_ddos_table = function() return config_store.anti_ddos_data end
+localized.anti_ddos_table = function() return config_store.anti_ddos_table end
 
 localized.anti_ddos_layer1_ip_limit = 1000000 --layer 1 Max blocked IPs to store this is a hard limit on the fast ram to prevent infinite ram consumption
 
@@ -2464,6 +2466,8 @@ end
 --Test clear the IP whitelists
 --localized.proxy_header_table = {}
 --localized.ip_whitelist = {}
+--localized.merge_proxy_and_ip_whitelist = 0
+--localized.auto_add_server_ip_to_merged_tables = 0
 --localized.anti_ddos_table = function() return {} end
 --localized.expire_time = 86400 --One day
 --localized.refresh_auth = 5000 --changed to a long time so the page wont refresh while making changes
@@ -3240,8 +3244,10 @@ local function xor_crypt(data, key)
 	return ffi_lib.string(buffer, len)
 end
 
-
-local function secure_storage(get_or_set, input, compress_type)
+local function secure_storage(get_or_set, input, compress_type, bypass)
+	if (localized.encrypt_storage_types == 1 and localized.storage_compression_types == 1) and bypass == 1 then
+		return input
+	end
 	if localized.ss ~= nil and localized.ss[input] ~= nil then
 		return localized.ss[input] --cached secure storage output
 	end
@@ -3308,219 +3314,234 @@ local function secure_storage(get_or_set, input, compress_type)
 	end
 	local output = input or nil
 	--attempt decryption before decompression
-	if compress_type == 2 and localized.encrypt_storage == 1 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --xor encryption
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			output = xor_crypt(output, localized.encrypt_storage_secret)
+	if localized.encrypt_storage_types == 1 and bypass == nil then
+		--localized.ngx_log(localized.ngx_LOG_TYPE, "we have skipped encrypting this")
+	else
+		--localized.ngx_log(localized.ngx_LOG_TYPE, "we have encrypted this")
+		if compress_type == 2 and localized.encrypt_storage == 1 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --xor encryption
+			if localized.type(output) ~= "number" and isnumber(output) ~= true then
+				output = xor_crypt(output, localized.encrypt_storage_secret)
+			end
 		end
-	end
-	if compress_type == 2 and localized.encrypt_storage == 2 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --AES encryption
-		if localized.type(output) ~= "number" and isnumber(output) ~= true and check_restyaes() then
-			local aes = localized.require("resty.aes")
-			local aes_encryption = aes:new(localized.encrypt_storage_secret)
-			--the default cipher is AES 128 CBC with 1 round of MD5
-			--for the key and a nil salt
-			--you can change this to be more complex for example
-			--local aes_encryption = aes:new(localized.encrypt_storage_secret,"MySalt!!", aes.cipher(256,"cbc"), aes.hash.sha512, 5)
-			--AES 256 CBC with 5 rounds of SHA-512 for the key
-			--and a salt of "MySalt!!"
-			--Note: salt can be either nil or exactly 8 characters long
-			if aes_encryption:decrypt(output) ~= nil then --pass input to be decrypted first
-				output = aes_encryption:decrypt(output) --make output decrypted output
+		if compress_type == 2 and localized.encrypt_storage == 2 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --AES encryption
+			if localized.type(output) ~= "number" and isnumber(output) ~= true and check_restyaes() then
+				local aes = localized.require("resty.aes")
+				local aes_encryption = aes:new(localized.encrypt_storage_secret)
+				--the default cipher is AES 128 CBC with 1 round of MD5
+				--for the key and a nil salt
+				--you can change this to be more complex for example
+				--local aes_encryption = aes:new(localized.encrypt_storage_secret,"MySalt!!", aes.cipher(256,"cbc"), aes.hash.sha512, 5)
+				--AES 256 CBC with 5 rounds of SHA-512 for the key
+				--and a salt of "MySalt!!"
+				--Note: salt can be either nil or exactly 8 characters long
+				if aes_encryption:decrypt(output) ~= nil then --pass input to be decrypted first
+					output = aes_encryption:decrypt(output) --make output decrypted output
+				end
 			end
 		end
 	end
 	--end attempt decryption before decompression
 	--start decompression
-	if compress_type == 2 and localized.storage_compression == 1 and check_lualzw() then --LuaLZW decompression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			local lualzw = localized.require("lualzw")
-			local value_decompress, err = nil
-			value_decompress, err = lualzw.decompress("c"..output)
-			if err == nil then
-				value_decompress = localized.string_sub(value_decompress, 2) --on success remove control char u
-				output = value_decompress
-			end
-		end
-	end
-	if compress_type == 2 and localized.storage_compression == 2 and check_brotli() then --Brotli decompression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			local brotli = localized.require("brotli.decoder")
-			local decoder = brotli:new()
-			local value_decompress, err = nil
-			value_decompress, err = decoder:decompress(output)
-			if err == nil then
-				if decoder:isFinished() then
-					decoder:destroy()
-				end
-				output = value_decompress
-			end
-		end
-	end
-	if compress_type == 2 and localized.storage_compression == 3 and check_zstd() then --ZSTD decompression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			local zstandard = localized.require("zstd")
-			local zstd = zstandard:new()
-			local value_decompress, err = nil
-			value_decompress, err = zstd:decompress(output)
-			if err == nil then
-				output = value_decompress
-				zstd:free()
-			end
-		end
-	end
-	if compress_type == 2 and localized.storage_compression == 4 and check_zlib() then --Zlib decompression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			local zlib = localized.require("resty.zip")
-			local value_decompress, err = nil
-			local zregex = "^/zs/(.*)/zs/"
-			local zsize = localized.string_match(output, zregex)
-			if zsize ~= nil then
-				output = localized.string_gsub(output, zregex, "") --remove zsize from string
-				value_decompress, err = zlib.uncompress(output, localized.tonumber(zsize)) --use original size to uncompress
+	if localized.storage_compression_types == 1 and bypass == nil then
+		--localized.ngx_log(localized.ngx_LOG_TYPE, "we have skipped compressing/decompressing this")
+	else
+		--localized.ngx_log(localized.ngx_LOG_TYPE, "we have compressing/decompressing this")
+		if compress_type == 2 and localized.storage_compression == 1 and check_lualzw() then --LuaLZW decompression
+			if localized.type(output) ~= "number" and isnumber(output) ~= true then
+				local lualzw = localized.require("lualzw")
+				local value_decompress, err = nil
+				value_decompress, err = lualzw.decompress("c"..output)
 				if err == nil then
+					value_decompress = localized.string_sub(value_decompress, 2) --on success remove control char u
 					output = value_decompress
 				end
 			end
 		end
-	end
-	if compress_type == 2 and localized.storage_compression == 5 and check_snappy() then --Snappy decompression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			local snappy = localized.require("resty.snappy")
-			local value_decompress, err = nil
-			value_decompress, err = snappy.uncompress(output)
-			if value_decompress then
-				output = value_decompress
-			end
-		end
-	end
-	--end decompression
-	--start compression
-	if compress_type == nil and localized.storage_compression == 1 and check_lualzw() then --LuaLZW compression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
-			local lualzw = localized.require("lualzw")
-			local value_compress, err = nil
-			value_compress, err = lualzw.compress(output)
-			if err == nil then
-				value_compress = localized.string_sub(value_compress, 2) --on success remove control char c
-				output = value_compress
-			end
-			end --size checks
-		end
-	end
-	if compress_type == nil and localized.storage_compression == 2 and check_brotli() then --Brotli compression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
-			local brotli = localized.require("brotli.encoder")
-			local encoder = brotli:new({quality=localized.storage_compression_ratio,}) --compress on level 0 lowest highest = level 11
-			local value_compress, err = nil
-			value_compress, err = encoder:compress(output)
-			if err == nil then
-				if encoder:isFinished() then
-					encoder:destroy()
+		if compress_type == 2 and localized.storage_compression == 2 and check_brotli() then --Brotli decompression
+			if localized.type(output) ~= "number" and isnumber(output) ~= true then
+				local brotli = localized.require("brotli.decoder")
+				local decoder = brotli:new()
+				local value_decompress, err = nil
+				value_decompress, err = decoder:decompress(output)
+				if err == nil then
+					if decoder:isFinished() then
+						decoder:destroy()
+					end
+					output = value_decompress
 				end
-				output = value_compress
 			end
-			end --size checks
 		end
-	end
-	if compress_type == nil and localized.storage_compression == 3 and check_zstd() then --ZSTD compression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
-			local zstandard = localized.require("zstd")
-			local zstd = zstandard:new()
-			local value_compress, err = nil
-			value_compress, err = zstd:compress(output, localized.storage_compression_ratio) --compress on level 1 lowest highest = level 22
-			if err == nil then
-				output = value_compress
-				zstd:free()
+		if compress_type == 2 and localized.storage_compression == 3 and check_zstd() then --ZSTD decompression
+			if localized.type(output) ~= "number" and isnumber(output) ~= true then
+				local zstandard = localized.require("zstd")
+				local zstd = zstandard:new()
+				local value_decompress, err = nil
+				value_decompress, err = zstd:decompress(output)
+				if err == nil then
+					output = value_decompress
+					zstd:free()
+				end
 			end
-			end --size checks
 		end
-	end
-	if compress_type == nil and localized.storage_compression == 4 and check_zlib() then --Zlib compression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
-			local zlib = localized.require("resty.zip")
-			local value_compress, err = nil
-			local zregex = "/zs/"
-			value_compress, err = zlib.compress(output, localized.storage_compression_ratio) --compress on level 1 lowest highest = level 9
-			if err == nil then
-				value_compress = zregex .. #output .. zregex .. value_compress --store original size for use later
-				output = value_compress
+		if compress_type == 2 and localized.storage_compression == 4 and check_zlib() then --Zlib decompression
+			if localized.type(output) ~= "number" and isnumber(output) ~= true then
+				local zlib = localized.require("resty.zip")
+				local value_decompress, err = nil
+				local zregex = "^/zs/(.*)/zs/"
+				local zsize = localized.string_match(output, zregex)
+				if zsize ~= nil then
+					output = localized.string_gsub(output, zregex, "") --remove zsize from string
+					value_decompress, err = zlib.uncompress(output, localized.tonumber(zsize)) --use original size to uncompress
+					if err == nil then
+						output = value_decompress
+					end
+				end
 			end
-			end --size checks
 		end
-	end
-	if compress_type == nil and localized.storage_compression == 5 and check_snappy() then --Snappy compression
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
-			local snappy = localized.require("resty.snappy")
-			local value_compress, err = nil
-			local value_compress, err = snappy.compress(output)
-			if value_compress then
-				output = value_compress
+		if compress_type == 2 and localized.storage_compression == 5 and check_snappy() then --Snappy decompression
+			if localized.type(output) ~= "number" and isnumber(output) ~= true then
+				local snappy = localized.require("resty.snappy")
+				local value_decompress, err = nil
+				value_decompress, err = snappy.uncompress(output)
+				if value_decompress then
+					output = value_decompress
+				end
 			end
-			end --size checks
+		end
+		--end decompression
+		--start compression
+		if compress_type == nil and localized.storage_compression == 1 and check_lualzw() then --LuaLZW compression
+			if localized.type(output) ~= "number" and isnumber(output) ~= true then
+				if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
+					local lualzw = localized.require("lualzw")
+					local value_compress, err = nil
+					value_compress, err = lualzw.compress(output)
+					if err == nil then
+						value_compress = localized.string_sub(value_compress, 2) --on success remove control char c
+						output = value_compress
+					end
+				end --size checks
+			end
+		end
+		if compress_type == nil and localized.storage_compression == 2 and check_brotli() then --Brotli compression
+			if localized.type(output) ~= "number" and isnumber(output) ~= true then
+				if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
+					local brotli = localized.require("brotli.encoder")
+					local encoder = brotli:new({quality=localized.storage_compression_ratio,}) --compress on level 0 lowest highest = level 11
+					local value_compress, err = nil
+					value_compress, err = encoder:compress(output)
+					if err == nil then
+						if encoder:isFinished() then
+							encoder:destroy()
+						end
+						output = value_compress
+					end
+				end --size checks
+			end
+		end
+		if compress_type == nil and localized.storage_compression == 3 and check_zstd() then --ZSTD compression
+			if localized.type(output) ~= "number" and isnumber(output) ~= true then
+				if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
+					local zstandard = localized.require("zstd")
+					local zstd = zstandard:new()
+					local value_compress, err = nil
+					value_compress, err = zstd:compress(output, localized.storage_compression_ratio) --compress on level 1 lowest highest = level 22
+					if err == nil then
+						output = value_compress
+						zstd:free()
+					end
+				end --size checks
+			end
+		end
+		if compress_type == nil and localized.storage_compression == 4 and check_zlib() then --Zlib compression
+			if localized.type(output) ~= "number" and isnumber(output) ~= true then
+				if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
+					local zlib = localized.require("resty.zip")
+					local value_compress, err = nil
+					local zregex = "/zs/"
+					value_compress, err = zlib.compress(output, localized.storage_compression_ratio) --compress on level 1 lowest highest = level 9
+					if err == nil then
+						value_compress = zregex .. #output .. zregex .. value_compress --store original size for use later
+						output = value_compress
+					end
+				end --size checks
+			end
+		end
+		if compress_type == nil and localized.storage_compression == 5 and check_snappy() then --Snappy compression
+			if localized.type(output) ~= "number" and isnumber(output) ~= true then
+				if ((localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output > (localized.storage_compression_min_size or 0) and #output < (localized.storage_compression_max_size or 0)) or (#output > (localized.storage_compression_min_size or 0) and (localized.storage_compression_max_size == 0 or localized.storage_compression_max_size == nil)) or (#output < (localized.storage_compression_max_size or 0) and (localized.storage_compression_min_size == 0 or localized.storage_compression_min_size == nil)) then
+					local snappy = localized.require("resty.snappy")
+					local value_compress, err = nil
+					local value_compress, err = snappy.compress(output)
+					if value_compress then
+						output = value_compress
+					end
+				end --size checks
+			end
 		end
 	end
 	--end compression
 	--start encryption
-	if compress_type == nil and localized.encrypt_storage == 1 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --xor encryption
-		if localized.type(output) ~= "number" and isnumber(output) ~= true then
-			local encrypted = nil
-			encrypted = xor_crypt(output, localized.encrypt_storage_secret)
-			if get_or_set == 0 then --get = 0
-				output = encrypted
-			elseif get_or_set == 1 then --set = 1
-				output = encrypted
-			elseif get_or_set == 2 then --expire = 2
-				output = encrypted
-			elseif get_or_set == 3 then --ttl = 3
-				output = encrypted
-			elseif get_or_set == 4 then --value = 4
-				output = encrypted
-			else --undefined
-				output = encrypted
-			end
-		else
-			output = output
-		end
-	elseif compress_type == nil and localized.encrypt_storage == 2 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --AES encryption
-		if localized.type(output) ~= "number" and isnumber(output) ~= true and check_restyaes() then
-			local aes = localized.require("resty.aes")
-			local aes_encryption = aes:new(localized.encrypt_storage_secret)
-			--the default cipher is AES 128 CBC with 1 round of MD5
-			--for the key and a nil salt
-			--you can change this to be more complex for example
-			--local aes_encryption = aes:new(localized.encrypt_storage_secret,"MySalt!!", aes.cipher(256,"cbc"), aes.hash.sha512, 5)
-			--AES 256 CBC with 5 rounds of SHA-512 for the key
-			--and a salt of "MySalt!!"
-			--Note: salt can be either nil or exactly 8 characters long
-			local encrypted = nil
-			if aes_encryption:decrypt(output) ~= nil then --pass input to be decrypted first
-				encrypted = aes_encryption:decrypt(output)
+	if localized.encrypt_storage_types == 1 and bypass == nil then
+		--localized.ngx_log(localized.ngx_LOG_TYPE, "we have skipped encrypting this")
+	else
+		--localized.ngx_log(localized.ngx_LOG_TYPE, "we have encrypted this")
+		if compress_type == nil and localized.encrypt_storage == 1 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --xor encryption
+			if localized.type(output) ~= "number" and isnumber(output) ~= true then
+				local encrypted = nil
+				encrypted = xor_crypt(output, localized.encrypt_storage_secret)
+				if get_or_set == 0 then --get = 0
+					output = encrypted
+				elseif get_or_set == 1 then --set = 1
+					output = encrypted
+				elseif get_or_set == 2 then --expire = 2
+					output = encrypted
+				elseif get_or_set == 3 then --ttl = 3
+					output = encrypted
+				elseif get_or_set == 4 then --value = 4
+					output = encrypted
+				else --undefined
+					output = encrypted
+				end
 			else
-				encrypted = aes_encryption:encrypt(output)
+				output = output
 			end
-			if get_or_set == 0 then --get = 0
-				output = encrypted
-			elseif get_or_set == 1 then --set = 1
-				output = encrypted
-			elseif get_or_set == 2 then --expire = 2
-				output = encrypted
-			elseif get_or_set == 3 then --ttl = 3
-				output = encrypted
-			elseif get_or_set == 4 then --value = 4
-				output = encrypted
-			else --undefined
-				output = encrypted
+		elseif compress_type == nil and localized.encrypt_storage == 2 and localized.encrypt_storage_secret ~= nil and localized.encrypt_storage_secret ~= "" then --AES encryption
+			if localized.type(output) ~= "number" and isnumber(output) ~= true and check_restyaes() then
+				local aes = localized.require("resty.aes")
+				local aes_encryption = aes:new(localized.encrypt_storage_secret)
+				--the default cipher is AES 128 CBC with 1 round of MD5
+				--for the key and a nil salt
+				--you can change this to be more complex for example
+				--local aes_encryption = aes:new(localized.encrypt_storage_secret,"MySalt!!", aes.cipher(256,"cbc"), aes.hash.sha512, 5)
+				--AES 256 CBC with 5 rounds of SHA-512 for the key
+				--and a salt of "MySalt!!"
+				--Note: salt can be either nil or exactly 8 characters long
+				local encrypted = nil
+				if aes_encryption:decrypt(output) ~= nil then --pass input to be decrypted first
+					encrypted = aes_encryption:decrypt(output)
+				else
+					encrypted = aes_encryption:encrypt(output)
+				end
+				if get_or_set == 0 then --get = 0
+					output = encrypted
+				elseif get_or_set == 1 then --set = 1
+					output = encrypted
+				elseif get_or_set == 2 then --expire = 2
+					output = encrypted
+				elseif get_or_set == 3 then --ttl = 3
+					output = encrypted
+				elseif get_or_set == 4 then --value = 4
+					output = encrypted
+				else --undefined
+					output = encrypted
+				end
+			else
+				output = output
 			end
-		else
+		elseif compress_type == nil and localized.encrypt_storage == 0 or localized.encrypt_storage == nil or localized.encrypt_storage_secret == nil or localized.encrypt_storage_secret == "" then --no encryption
 			output = output
 		end
-	elseif compress_type == nil and localized.encrypt_storage == 0 or localized.encrypt_storage == nil or localized.encrypt_storage_secret == nil or localized.encrypt_storage_secret == "" then --no encryption
-		output = output
 	end
 	--end encryption
 	if localized.ss == nil then
@@ -9845,7 +9866,7 @@ local function minification(content_type_list)
 					key = localized.ngx.md5(key) --make key small
 					--localized.ngx_log(localized.ngx_LOG_TYPE, " full cache key is " .. key)
 
-					local content_type_cache = cached:get(secure_storage(0, "content-type"..key)) or nil
+					local content_type_cache = cached:get(secure_storage(0, "content-type"..key, nil, 1)) or nil
 
 					if content_type_cache == nil or content_type_cache == localized.ngx.null then
 						if #content_type_list[i][6] > 0 then
@@ -9915,13 +9936,13 @@ local function minification(content_type_list)
 														localized.ngx.header["X-Cache-Status"] = "UPDATING"
 													end
 													if localized.resty_redis == 1 then
-														cached:set(secure_storage(1, key), secure_storage(4, output_minified))
-														cached:expire(secure_storage(2, key), ttl)
-														cached:set(secure_storage(1, "s"..key), secure_storage(4, res.status))
-														cached:expire(secure_storage(2, "s"..key), ttl)
+														cached:set(secure_storage(1, key, nil, 1), secure_storage(4, output_minified, nil, 1))
+														cached:expire(secure_storage(2, key, nil, 1), ttl)
+														cached:set(secure_storage(1, "s"..key, nil, 1), secure_storage(4, res.status, nil, 1))
+														cached:expire(secure_storage(2, "s"..key, nil, 1), ttl)
 													else
-														cached:set(secure_storage(1, key), secure_storage(4, output_minified), ttl)
-														cached:set(secure_storage(1, "s"..key), secure_storage(4, res.status), ttl)
+														cached:set(secure_storage(1, key, nil, 1), secure_storage(4, output_minified, nil, 1), ttl)
+														cached:set(secure_storage(1, "s"..key, nil, 1), secure_storage(4, res.status, nil, 1), ttl)
 													end
 													if res.headers ~= nil and localized.type(res.headers) == "table" then
 														for headerName, header in localized.next, res.headers do
@@ -9930,10 +9951,10 @@ local function minification(content_type_list)
 																for a=1, #content_type_list[i][17] do
 																	if localized.string_lower(localized.tostring(header_original)) == localized.string_lower(content_type_list[i][17][a]) then
 																		if localized.resty_redis == 1 then
-																			cached:set(secure_storage(1, localized.string_lower(localized.tostring(header_original))..key), secure_storage(4, header))
-																			cached:expire(secure_storage(2, localized.string_lower(localized.tostring(header_original))..key), ttl)
+																			cached:set(secure_storage(1, localized.string_lower(localized.tostring(header_original))..key, nil, 1), secure_storage(4, header, nil, 1))
+																			cached:expire(secure_storage(2, localized.string_lower(localized.tostring(header_original))..key, nil, 1), ttl)
 																		else
-																			cached:set(secure_storage(1, localized.string_lower(localized.tostring(header_original))..key), secure_storage(4, header), ttl)
+																			cached:set(secure_storage(1, localized.string_lower(localized.tostring(header_original))..key, nil, 1), secure_storage(4, header, nil, 1), ttl)
 																		end
 																	end
 																end
@@ -10025,13 +10046,13 @@ local function minification(content_type_list)
 														localized.ngx.header["X-Cache-Status"] = "UPDATING"
 													end
 													if localized.resty_redis == 1 then
-														cached:set(secure_storage(1, key), secure_storage(4, output_minified))
-														cached:expire(secure_storage(2, key), ttl)
-														cached:set(secure_storage(1, "s"..key), secure_storage(4, res.status))
-														cached:expire(secure_storage(2, "s"..key), ttl)
+														cached:set(secure_storage(1, key, nil, 1), secure_storage(4, output_minified, nil, 1))
+														cached:expire(secure_storage(2, key, nil, 1), ttl)
+														cached:set(secure_storage(1, "s"..key, nil, 1), secure_storage(4, res.status, nil, 1))
+														cached:expire(secure_storage(2, "s"..key, nil, 1), ttl)
 													else
-														cached:set(secure_storage(1, key), secure_storage(4, output_minified), ttl)
-														cached:set(secure_storage(1, "s"..key), secure_storage(4, res.status), ttl)
+														cached:set(secure_storage(1, key, nil, 1), secure_storage(4, output_minified, nil, 1), ttl)
+														cached:set(secure_storage(1, "s"..key, nil, 1), secure_storage(4, res.status, nil, 1), ttl)
 													end
 													if res.header ~= nil and localized.type(res.header) == "table" then
 														for headerName, header in localized.next, res.header do
@@ -10040,10 +10061,10 @@ local function minification(content_type_list)
 																for a=1, #content_type_list[i][17] do
 																	if localized.string_lower(localized.tostring(header_original)) == localized.string_lower(content_type_list[i][17][a]) then
 																		if localized.resty_redis == 1 then
-																				cached:set(secure_storage(1, localized.string_lower(localized.tostring(header_original))..key), secure_storage(4, header))
-																				cached:expire(secure_storage(2, localized.string_lower(localized.tostring(header_original))..key), ttl)
+																				cached:set(secure_storage(1, localized.string_lower(localized.tostring(header_original))..key, nil, 1), secure_storage(4, header, nil, 1))
+																				cached:expire(secure_storage(2, localized.string_lower(localized.tostring(header_original))..key, nil, 1), ttl)
 																		else
-																			cached:set(secure_storage(1, localized.string_lower(localized.tostring(header_original))..key), secure_storage(4, header), ttl)
+																			cached:set(secure_storage(1, localized.string_lower(localized.tostring(header_original))..key, nil, 1), secure_storage(4, header, nil, 1), ttl)
 																		end
 																	end
 																end
@@ -10073,7 +10094,7 @@ local function minification(content_type_list)
 
 					else --if content_type_cache == nil then
 
-						content_type_cache = secure_storage(0, content_type_cache, 2) --get was encrypted this should decrypt it
+						content_type_cache = secure_storage(0, content_type_cache, 2, 1) --get was encrypted this should decrypt it
 						if content_type_cache and (content_type_list[i][2] == "" or content_type_list[i][2] == nil or localized.string_find(content_type_cache, content_type_list[i][2])) then
 						--if content_type_cache and localized.string_find(content_type_cache, content_type_list[i][2]) then
 							localized.get_resp_content_type_counter = localized.get_resp_content_type_counter+2 --make sure we dont run again
@@ -10082,23 +10103,23 @@ local function minification(content_type_list)
 								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][Cache] Served from cache key : " .. key )
 							end
 
-							local output_minified = cached:get(secure_storage(0, key))
-							output_minified = secure_storage(0, output_minified, 2) --get was encrypted this should decrypt it
-							local res_status = cached:get(secure_storage(0, "s"..key))
-							res_status = secure_storage(0, res_status, 2) --numeric data is not encrypted
+							local output_minified = cached:get(secure_storage(0, key, nil, 1))
+							output_minified = secure_storage(0, output_minified, 2, 1) --get was encrypted this should decrypt it
+							local res_status = cached:get(secure_storage(0, "s"..key, nil, 1))
+							res_status = secure_storage(0, res_status, 2, 1) --numeric data is not encrypted
 
 							if ip_extend == 1 then
 								if localized.resty_redis == 1 then
-									cached:set(secure_storage(1, "content-type"..key), cached:get(secure_storage(0, "content-type"..key)))
-									cached:expire(secure_storage(2, "content-type"..key), ttl)
-									cached:set(secure_storage(1, key), cached:get(secure_storage(0, key)))
-									cached:expire(secure_storage(2, key), ttl)
-									cached:set(secure_storage(1, "s"..key), cached:get(secure_storage(0, "s"..key)))
-									cached:expire(secure_storage(2, "s"..key), ttl)
+									cached:set(secure_storage(1, "content-type"..key, nil, 1), cached:get(secure_storage(0, "content-type"..key, nil, 1)))
+									cached:expire(secure_storage(2, "content-type"..key, nil, 1), ttl)
+									cached:set(secure_storage(1, key, nil, 1), cached:get(secure_storage(0, key, nil, 1)))
+									cached:expire(secure_storage(2, key, nil, 1), ttl)
+									cached:set(secure_storage(1, "s"..key, nil, 1), cached:get(secure_storage(0, "s"..key, nil, 1)))
+									cached:expire(secure_storage(2, "s"..key, nil, 1), ttl)
 								else
-									cached:set(secure_storage(1, "content-type"..key), cached:get(secure_storage(0, "content-type"..key)), ttl) --content_type_cache
-									cached:set(secure_storage(1, key), cached:get(secure_storage(0, key)), ttl) --output_minified
-									cached:set(secure_storage(1, "s"..key), cached:get(secure_storage(0, "s"..key)), ttl) --res_status
+									cached:set(secure_storage(1, "content-type"..key, nil, 1), cached:get(secure_storage(0, "content-type"..key, nil, 1)), ttl) --content_type_cache
+									cached:set(secure_storage(1, key, nil, 1), cached:get(secure_storage(0, key, nil, 1)), ttl) --output_minified
+									cached:set(secure_storage(1, "s"..key, nil, 1), cached:get(secure_storage(0, "s"..key, nil, 1)), ttl) --res_status
 								end
 							end
 
@@ -10109,17 +10130,17 @@ local function minification(content_type_list)
 							if content_type_list[i][17] ~= "" or #content_type_list[i][17] > 0 then
 								for a=1, #content_type_list[i][17] do
 									local header_name = localized.string_lower(content_type_list[i][17][a])
-									local check_header = cached:get(secure_storage(0, header_name..key)) or nil
+									local check_header = cached:get(secure_storage(0, header_name..key, nil, 1)) or nil
 									if check_header ~= nil and check_header ~= localized.ngx.null then
 										--if header_name ~= "content-length" then
-										check_header = secure_storage(0, check_header, 2) --get was encrypted this should decrypt it
+										check_header = secure_storage(0, check_header, 2, 1) --get was encrypted this should decrypt it
 										--end
 										if ip_extend == 1 then
 											if localized.resty_redis == 1 then
-												cached:set(secure_storage(1, header_name..key), cached:get(secure_storage(0, header_name..key)))
-												cached:expire(secure_storage(2, header_name..key), ttl)
+												cached:set(secure_storage(1, header_name..key, nil, 1), cached:get(secure_storage(0, header_name..key, nil, 1)))
+												cached:expire(secure_storage(2, header_name..key, nil, 1), ttl)
 											else
-												cached:set(secure_storage(1, header_name..key), cached:get(secure_storage(0, header_name..key)), ttl)
+												cached:set(secure_storage(1, header_name..key, nil, 1), cached:get(secure_storage(0, header_name..key, nil, 1)), ttl)
 											end
 										end
 										--localized.ngx_log(localized.ngx_LOG_TYPE, " check_header " .. check_header .. " - header_name - " .. header_name)
