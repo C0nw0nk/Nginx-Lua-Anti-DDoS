@@ -1,3 +1,7 @@
+Version: 7.0
+Date: 2026-10-16
+- Performance Improvements on functions.
+
 Version: 6.9
 Date: 2026-10-15
 - Add missing checks on localized_global.encrypt_storage_types and localized_global.storage_compression_types that allow for these vars to be controlled via overrides from nginx config etc if needed.
