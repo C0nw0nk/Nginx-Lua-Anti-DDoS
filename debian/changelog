@@ -1,3 +1,8 @@
+nginx-lua-anti-ddos-challenge (7.0-1) stable; urgency=medium
+  - Performance Improvements on functions.
+
+ -- C0nw0nk <C0nw0nk@github>  Fri, 16 Oct 2026 00:00:00 +0000
+
 nginx-lua-anti-ddos-challenge (6.9-1) stable; urgency=medium
   - Add missing checks on localized_global.encrypt_storage_types and localized_global.storage_compression_types that allow for these vars to be controlled via overrides from nginx config etc if needed.
   - Performance improvements on systems than can run 64bit compared to 32bit.
