@@ -1,7 +1,7 @@
 
 --[[
 Introduction and details :
-Script Version: 6.9
+Script Version: 7.0
 
 Copyright Conor McKnight
 
@@ -2484,46 +2484,16 @@ Begin Required Functions
 
 --I made this function because string find / match can be slow so i can speed it up for basic regex examples / matches
 --And it allows me to add more to the list easier rather than individually for each usage of string find / match
-local function faster_than_match(match) --tested via 100,000,000 times in a for loop super fast
-	--localized.ngx_log(localized.ngx_LOG_TYPE, " url to match : " .. localized.URL() .. " - input :" .. match)
-	if match == ".*"
-	or match == "^.*$"
-	or match == "*."
-	or match == "."
-	or match == "*"
-	or match == ""
-	or match == " "
-	--[[
-	or match == localized.URL()
-	or match == localized.URL() .. "$"
-	or match == "^" .. localized.URL()
-	or match == "^" .. localized.URL() .. "$"
-	or match == localized.request_uri()
-	or match == localized.request_uri() .. "$"
-	or match == "^" .. localized.request_uri()
-	or match == "^" .. localized.request_uri() .. "$"
-	or match == localized.host()
-	or match == localized.host() .. "$"
-	or match == "^" .. localized.host()
-	or match == "^" .. localized.host() .. "$"
-	or match == localized.scheme() .. "://" .. localized.host()
-	or match == localized.scheme() .. "://" .. localized.host() .. "$"
-	or match == "^" .. localized.scheme() .. "://" .. localized.host() .. "$"
-	or match == "^" .. localized.scheme() .. "://" .. localized.host()
-	or match == localized.scheme() .. "://" .. localized.host() .. "/"
-	or match == localized.scheme() .. "://" .. localized.host() .. "/$"
-	or match == "^" .. localized.scheme() .. "://" .. localized.host() .. "/$"
-	or match == "^" .. localized.scheme() .. "://" .. localized.host() .. "/"
-	or match == localized.scheme() .. "://" .. localized.host() .. localized.request_uri()
-	or match == localized.scheme() .. "://" .. localized.host() .. localized.request_uri() .."$"
-	or match == "^" .. localized.scheme() .. "://" .. localized.host() .. localized.request_uri() .. "$"
-	or match == "^" .. localized.scheme() .. "://" .. localized.host() .. localized.request_uri()
-	]]
-	or match == nil then
+-- Pre-cached static dictionary completely unrolls conditional logic branches
+local WILDCARD_MATCH_MAP = {
+	[".*"] = true, ["^.*$"] = true, ["*."] = true,
+	["."]  = true, ["*"]    = true, [""]   = true, [" "]  = true
+}
+local function faster_than_match(match)
+	if not match or WILDCARD_MATCH_MAP[match] then
 		return true
-	else
-		return false
 	end
+	return false
 end
 --Example both do the same thing just mine is faster
 --localized.var = "hello world"
@@ -4054,14 +4024,27 @@ local sync_shared_dict_to_ram = function(premature)
 				end
 			end
 
-			local radix_data_list = {}
+			--  NEW RECYCLING BUFFER ROUTINE (Allocation-Free)
+			local radix_data_list = active_cache.radix_recycler_buffer or {}
 			local r_count = 0
 			local localized_next = (localized and localized.next) or next
-			-- FIXED: Employs a stateless, allocation-free 'for' loop via a process-pinned next pointer
+			
 			for k, _ in localized_next, staging_rules do
 				r_count = r_count + 1
-				radix_data_list[r_count] = { cidr = k, value = true }
+				-- Structural reuse pass: Modifies parameters inline inside pre-allocated indices
+				if not radix_data_list[r_count] then
+					radix_data_list[r_count] = { cidr = k, value = true }
+				else
+					radix_data_list[r_count].cidr = k
+					radix_data_list[r_count].value = true
+				end
 			end
+
+			-- Clear out stale unaligned indices trailing behind the current sync frame size
+			for i = r_count + 1, #radix_data_list do
+				radix_data_list[i] = nil
+			end
+			active_cache.radix_recycler_buffer = radix_data_list
 			
 			temporary_v4_tree = radix_lib.new(radix_data_list)
 			temporary_v6_tree = radix_lib.new(radix_data_list)
@@ -4474,9 +4457,11 @@ localized.WAF_POST_Requests = function()
 
 		if not worker_cache.waf_post_url_compiled then
 			for i = 1, num_rules do
-				local rule_url = rules[i][1]
-				if faster_than_match(rule_url) or re_find(current_url, rule_url, "jo") then
-					worker_cache.waf_post_url_map[i] = true
+				if rules[i] and type(rules[i]) == "table" then
+					local rule_url = rules[i][1]
+					if rule_url and (faster_than_match(rule_url) or re_find(current_url, rule_url, "jo")) then
+						worker_cache.waf_post_url_map[i] = true
+					end
 				end
 			end
 			worker_cache.waf_post_url_compiled = true
@@ -4490,8 +4475,10 @@ localized.WAF_POST_Requests = function()
 				for z = 1, #value do
 					local args_value = to_string(value[z])
 					for i = 1, num_rules do
-						if url_match_cache[i] then
-							if (rules[i][1] == "^" .. args_name .. "$" or rules[i][1] == args_name or re_find(args_name, rules[i][1], "jo")) and re_find(args_value, rules[i][2], "jo") then
+						if url_match_cache[i] and rules[i] and type(rules[i]) == "table" then
+							local r_key = tostring(rules[i][1] or "")
+							local r_val = tostring(rules[i][2] or "")
+							if (r_key == "^" .. args_name .. "$" or r_key == args_name or re_find(args_name, r_key, "jo")) and re_find(args_value, r_val, "jo") then
 								localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST Payload prohibited (Table Fallback Array Match) : " .. current_url .. " - IP : " .. localized.tostring(localized.remote_addr()))
 								close_connection()
 								return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
@@ -4502,8 +4489,10 @@ localized.WAF_POST_Requests = function()
 			else
 				local args_value = to_string(value)
 				for i = 1, num_rules do
-					if url_match_cache[i] then
-						if (rules[i][1] == "^" .. args_name .. "$" or rules[i][1] == args_name or re_find(args_name, rules[i][1], "jo")) and re_find(args_value, rules[i][2], "jo") then
+					if url_match_cache[i] and rules[i] and type(rules[i]) == "table" then
+						local r_key = tostring(rules[i][1] or "")
+						local r_val = tostring(rules[i][2] or "")
+						if (r_key == "^" .. args_name .. "$" or r_key == args_name or re_find(args_name, r_key, "jo")) and re_find(args_value, r_val, "jo") then
 							localized.ngx_log(localized.ngx_LOG_TYPE, "[Anti-DDoS][WAF] Blocked Request POST Payload prohibited (Table Fallback Array Match) : " .. current_url .. " - IP : " .. localized.tostring(localized.remote_addr()))
 							close_connection()
 							return localized.ngx_exit(localized.ngx_HTTP_FORBIDDEN)
@@ -4711,13 +4700,22 @@ local function get_resp_content_type(forced) --incase content-type header not ye
 			-- LAYER 2: Allocation-Free Stateless Pointer Scan (DDoS Fortified)
 			-- Iterates directly over the memory addresses of pre-existing keys with zero heap allocations.
 			if not resp_content_type then
-				local str_lower = localized.string_lower or string.lower
 				local next_node = localized.next or next
-				
+				local str_byte = localized.string_byte or string.byte
 				for key, value in next_node, res.header do
-					if str_lower(localized.tostring(key)) == "content-type" then
-						resp_content_type = value
-						break -- Short-circuit instantly to keep execution under 1 nanosecond
+					local k_str = tostring(key)
+					-- Hardware register quick-check: Match character lengths and first/last key bytes
+					-- 'c' is 99, 'e' is 101, 'C' is 67, 'E' is 69
+					local len = #k_str
+					if len == 12 then
+						local b1 = str_byte(k_str, 1)
+						local b12 = str_byte(k_str, 12)
+						if (b1 == 99 or b1 == 67) and (b12 == 101 or b12 == 69) then
+							if string.lower(k_str) == "content-type" then
+								resp_content_type = value
+								break
+							end
+						end
 					end
 				end
 			end
@@ -8339,36 +8337,64 @@ local function stringtohex(str)
 end
 
 local function sep(str, patt, re)
+	local len = #str
+	if len == 0 then return "" end
+	
+	local ffi_lib = localized.ffi
 	local step = (patt == ".") and 1 or ((patt == "..") and 2 or nil)
-
-	if not step then
+	
+	-- Fallback to original pure Lua code if FFI isn't loaded or pattern is custom
+	if not ffi_lib or not step then
+		if not step then
+			local t, idx = {}, 1
+			for m in localized.string_gmatch(str, patt) do
+				t[idx] = m
+				t[idx + 1] = re
+				idx = idx + 2
+			end
+			if idx > 1 then t[idx - 1] = nil return localized.table_concat(t) end
+			return str
+		end
 		local t, idx = {}, 1
-		for m in localized.string_gmatch(str, patt) do
-			t[idx] = m
+		local str_sub = localized.string_sub
+		for i=1, len, step do
+			t[idx] = str_sub(str, i, i + step - 1)
 			t[idx + 1] = re
 			idx = idx + 2
 		end
-		if idx > 1 then
-			t[idx - 1] = nil
-			return localized.table_concat(t)
+		t[idx - 1] = nil return localized.table_concat(t)
+	end
+
+	-- 🚀 HYBRID FAST PATH: Allocate a single flat C buffer matching the precise output size
+	local re_len = #re
+	local num_steps = localized.math_floor((len + step - 1) / step)
+	local out_len = len + (num_steps * re_len)
+	
+	local buffer = localized.char_array_t(out_len)
+	local src = ffi_lib.cast(localized.uint8_ptr_t, str)
+	local dst = ffi_lib.cast(localized.uint8_ptr_t, buffer)
+	local r_src = ffi_lib.cast(localized.uint8_ptr_t, re)
+	
+	local src_idx, dst_idx = 0, 0
+	while src_idx < len do
+		-- Copy block data segment (1 or 2 bytes based on step size)
+		dst[dst_idx] = src[src_idx]
+		if step == 2 and src_idx + 1 < len then
+			dst[dst_idx + 1] = src[src_idx + 1]
 		end
-		return str
+		dst_idx = dst_idx + step
+		src_idx = src_idx + step
+		
+		-- Inject separator string literal bytes directly into raw memory layout
+		for j = 0, re_len - 1 do
+			dst[dst_idx + j] = r_src[j]
+		end
+		dst_idx = dst_idx + re_len
 	end
-
-	local len = #str
-	if len <= step then return str end
-
-	local t, idx = {}, 1
-	local str_sub = localized.string_sub
-
-	for i=1, len, step do
-		t[idx] = str_sub(str, i, i + step - 1)
-		t[idx + 1] = re
-		idx = idx + 2
-	end
-
-	t[idx - 1] = nil 
-	return localized.table_concat(t)
+	
+	-- Safely remove any trailing unaligned trailing separator fields
+	if dst_idx >= re_len then dst_idx = dst_idx - re_len end
+	return ffi_lib.string(buffer, dst_idx)
 end
 
 --encrypt_javascript function
@@ -8667,26 +8693,30 @@ end
 --localized.currentdate = "" --make current date a empty var
 
 --Make sure our current date is in align with expires_time variable so that the auth page only shows when the cookie expires
-if localized.expire_time <= 60 then --less than equal to one minute
-	localized.currentdate = localized.os_date("%M",localized.os_time_saved) --Current minute
+--  NEW HARDENED DATE-LOCK ENGINE (With Instant Boot Fallback)
+local cache_time = localized.os_time_saved or (localized.ngx and localized.ngx.time() or os.time()) - 86400
+if not worker_cache.last_date_epoch or localized.currenttime >= worker_cache.last_date_epoch or not localized.currentdate then
+	if localized.expire_time <= 60 then
+		localized.currentdate = localized.os_date("%M", cache_time)
+	elseif localized.expire_time > 60 and localized.expire_time <= 3600 then
+		localized.currentdate = localized.os_date("%H", cache_time)
+	elseif localized.expire_time > 3600 and localized.expire_time <= 86400 then
+		localized.currentdate = localized.os_date("%d", cache_time)
+	elseif localized.expire_time > 86400 and localized.expire_time <= 6048000 then
+		localized.currentdate = localized.os_date("%W", cache_time)
+	elseif localized.expire_time > 6048000 and localized.expire_time <= 2628000 then
+		localized.currentdate = localized.os_date("%m", cache_time)
+	elseif localized.expire_time > 2628000 and localized.expire_time <= 31536000 then
+		localized.currentdate = localized.os_date("%Y", cache_time)
+	else
+		localized.currentdate = localized.os_date("%z", cache_time)
+	end
+	-- Lock calculation values safely for 1 full second
+	worker_cache.last_date_epoch = localized.currenttime + 1
 end
-if localized.expire_time > 60 then --greater than one minute
-	localized.currentdate = localized.os_date("%H",localized.os_time_saved) --Current hour
-end
-if localized.expire_time > 3600 then --greater than one hour
-	localized.currentdate = localized.os_date("%d",localized.os_time_saved) --Current day of the year
-end
-if localized.expire_time > 86400 then --greater than one day
-	localized.currentdate = localized.os_date("%W",localized.os_time_saved) --Current week
-end
-if localized.expire_time > 6048000 then --greater than one week
-	localized.currentdate = localized.os_date("%m",localized.os_time_saved) --Current month
-end
-if localized.expire_time > 2628000 then --greater than one month
-	localized.currentdate = localized.os_date("%Y",localized.os_time_saved) --Current year
-end
-if localized.expire_time > 31536000 then --greater than one year
-	localized.currentdate = localized.os_date("%z",localized.os_time_saved) --Current time zone
+-- 🛡️ ABSOLUTE IMMUNITY FALLBACK FLUSH
+if not localized.currentdate or localized.currentdate == "" then
+	localized.currentdate = localized.os_date("%d", cache_time)
 end
 
 --Auth puzzle status code responses
