@@ -68,6 +68,8 @@ fi
 %changelog
 * Fri Oct 16 2026 C0nw0nk <C0nw0nk@github> - 7.0-1
 - Performance Improvements on functions.
+* Fri Oct 16 2026 C0nw0nk <C0nw0nk@github> - 7.0-1
+- Performance Improvements on functions.
 * Thu Oct 15 2026 C0nw0nk <C0nw0nk@github> - 6.9-1
 - Add missing checks on localized_global.encrypt_storage_types and localized_global.storage_compression_types that allow for these vars to be controlled via overrides from nginx config etc if needed.
 - Performance improvements on systems than can run 64bit compared to 32bit.
